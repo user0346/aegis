@@ -1,0 +1,134 @@
+# ============================================================
+#  AEGIS — Hardened .gitignore
+#  Verhindert, dass Secrets, lokale State-Daten oder Build-
+#  Artefakte versehentlich ins Public-Repo gelangen.
+# ============================================================
+
+# ---- Verstreute Git-Meta-Verzeichnisse (CRITICAL Leak-Source) ----
+# Wenn .git nicht geloescht werden kann (Locks), wird oft umbenannt
+# zu .git_old / .git_backup. Diese ENTHALTEN gepackte Objects mit
+# leak-historiy und DUERFEN NIE committet werden.
+.git_old*
+.git_backup*
+.git-backup*
+.gitOLD*
+.git-old*
+.git.bak/
+.git.orig/
+
+# ---- Accident-Files (Shell-Redirect-Unfaelle) ----
+gibt es jetzt*
+nul
+con
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---- Environment files (Secrets) ----
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.env
+
+# ---- IDE / Editor ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- AEGIS Build-Artefakte ----
+AEGIS.zip
+AEGIS.zip.sig
+AEGIS.zip.crt
+AEGIS.zip.cbundle
+public/
+dist/
+build/
+
+# ---- AEGIS Runtime-State (NIE committen) ----
+.aegis/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+secrets.bin
+ipc_token
+service.pid
+audit.jsonl
+*.log
+quarantine/
+
+# ---- Crypto / Signing-Keys (NIE committen) ----
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+!AEGIS.zip.crt.example
+private_key*
+signing_key*
+
+# ---- API-Keys (defensive) ----
+*api_key*
+*api-key*
+*apikey*
+*access_token*
+*access-token*
+.anthropic
+.openai
+.picovoice
+.virustotal
+
+# ---- Test-/Sample-Daten mit potenziell sensiblen Inhalten ----
+samples/
+test_data/
+fixtures/local/
+*.dump
+*.bak
+*.old
+*.tmp
+*.temp
+
+# ---- Updater Staging-Dir ----
+updates/
+staged.zip
+staged.json
+
+# ---- OS-Specific ----
+$RECYCLE.BIN/
+ehthumbs.db
+Icon?
+
+# ---- Backup-Strategien blocken ----
+*~
+*.backup
+*.bkp
+backup_*/
+old_*/

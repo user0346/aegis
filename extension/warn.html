@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AEGIS Warnung</title>
+<link rel="stylesheet" href="warn.css">
+</head>
+<body>
+<div class="card">
+  <div class="badge">⚠ BLOCKIERT</div>
+  <h1>AEGIS hat diese Seite blockiert</h1>
+  <div class="info">
+    <div class="row"><span class="k">Host</span><span class="v" id="host">—</span></div>
+    <div class="row"><span class="k">Grund</span><span class="v" id="reason">—</span></div>
+  </div>
+  <p class="explain">
+    Diese Domain ist auf der AEGIS-Liste bekannter <strong>IP-Logger</strong>,
+    <strong>Phishing-Lookalikes</strong> oder anderer Tracking-Services. Solche
+    Links werden häufig in Discord/Telegram verbreitet, um Besucher-IPs
+    abzugreifen oder Anmeldedaten zu stehlen.
+  </p>
+
+  <div class="actions">
+    <button id="back" class="btn btn-primary">Zurück</button>
+    <button id="allow" class="btn btn-ghost">Trotzdem fortfahren (Allowlist)</button>
+  </div>
+
+  <p class="foot">AEGIS Guard schützt deinen Browser. <a id="orig" href="#">Originale URL</a></p>
+</div>
+<script src="warn.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# AEGIS V2 — Core Dependencies (kein Compiler nötig)
+# Installation:
+#   pip install -r requirements_v2.txt
+#
+# Für Voice (Phase 3): zusätzlich requirements_v2_voice.txt
+
+# ── Core (Service + UI share) ────────────────────────────────────────────
+psutil>=5.9
+watchdog>=6.0.0
+requests>=2.32
+
+# ── UI Shell (User process) ──────────────────────────────────────────────
+PyQt6>=6.11.0
+PyQt6-WebEngine>=6.11.0
+
+# ── Service Layer (Windows-only) ─────────────────────────────────────────
+pywin32>=311; sys_platform == 'win32'

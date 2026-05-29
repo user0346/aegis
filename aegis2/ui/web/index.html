@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AEGIS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  CSP lockdown: nur lokale Skripte/Styles/Images. Kein Remote-Fetch.
+  Hinweis: 'frame-ancestors' wirkt nur als HTTP-Header (vom QtWebEngine
+  oder einem Server gesetzt), nicht als <meta> — daher hier weggelassen.
+  'file:' ist drin für lokales Browser-Preview (außerhalb der WebView),
+  in der echten WebView läuft index.html aus QRC und 'file:' wird nicht
+  benötigt.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' qrc: file:;
+  style-src  'self' 'unsafe-inline' file:;
+  img-src    'self' data: blob: file:;
+  font-src   'self' data:;
+  connect-src 'self' qrc:;
+  base-uri 'none';
+  form-action 'none';
+">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="style.css?v=217">
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== Header ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <span class="mark-pulse"></span>
+        <span class="mark-pulse mark-pulse-delay"></span>
+        <span class="mark-core"></span>
+      </div>
+      <div class="brand-text">
+        <h1>AEGIS</h1>
+        <span class="muted">Autonomous Endpoint Guardian</span>
+      </div>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="threats">Threats</button>
+      <button class="tab" data-tab="scan">Scan</button>
+      <button class="tab" data-tab="quarantine">Quarantine</button>
+      <button class="tab" data-tab="network">Network</button>
+      <button class="tab" data-tab="sentinel">Sentinel</button>
+      <button class="tab" data-tab="voice">Voice</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <div class="status-cluster">
+      <div id="conn-pill" class="pill pill-warn">DISCONNECTED</div>
+      <div id="voice-pill" class="pill pill-mute" title="Wake-word listener">VOICE</div>
+    </div>
+  </header>
+
+  <!-- ===== Views ===== -->
+  <main class="views">
+
+    <!-- Dashboard -->
+    <section class="view is-active" data-view="dashboard">
+      <div class="stat-grid">
+        <div class="stat-tile">
+          <div class="stat-label">Events / 24h</div>
+          <div class="stat-value" id="stat-events">—</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Threats / 24h</div>
+          <div class="stat-value stat-warn" id="stat-threats">—</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Quarantine pending</div>
+          <div class="stat-value" id="stat-pending">—</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Domains blocked</div>
+          <div class="stat-value stat-ok" id="stat-domains">—</div>
+        </div>
+      </div>
+
+      <div class="card debug-card">
+        <div class="card-head">
+          <h2>Live Debug Stream</h2>
+          <div class="debug-controls">
+            <span class="muted" id="debug-rate">0 ev/s · 0 frames</span>
+            <select id="debug-sev" title="Min severity">
+              <option value="">all</option>
+              <option value="INFO">INFO+</option>
+              <option value="WARN">WARN+</option>
+              <option value="THREAT">THREAT+</option>
+              <option value="CRITICAL">CRITICAL</option>
+            </select>
+            <select id="debug-source" title="Source module">
+              <option value="">all sources</option>
+            </select>
+            <input id="debug-search" placeholder="grep…">
+            <button class="btn-ghost" id="debug-pause" title="Pause auto-scroll">⏸</button>
+            <button class="btn-ghost" id="debug-clear" title="Clear stream">⌫</button>
+            <button class="btn-ghost" id="debug-copy" title="Copy visible">⧉</button>
+          </div>
+        </div>
+        <pre class="debug-log" id="debug-log" tabindex="0"></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Recent Threats</h2>
+          <button class="btn-ghost" id="threats-clear">Clear view</button>
+        </div>
+        <ol class="thread" id="threats-list">
+          <li class="empty">Noch keine Bedrohungen registriert.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Threats -->
+    <section class="view" data-view="threats">
+      <div class="card">
+        <div class="card-head">
+          <h2>Event Stream</h2>
+          <div class="filters">
+            <select id="filter-severity">
+              <option value="">All severities</option>
+              <option value="INFO">Info</option>
+              <option value="WARN">Warn</option>
+              <option value="THREAT">Threat</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
+            <select id="filter-category">
+              <option value="">All categories</option>
+              <option value="FILE">File</option>
+              <option value="PROCESS">Process</option>
+              <option value="NETWORK">Network</option>
+              <option value="URL">URL</option>
+              <option value="DNS">DNS</option>
+              <option value="SYSTEM">System</option>
+            </select>
+            <input id="filter-search" placeholder="Suche…">
+          </div>
+        </div>
+        <ol class="thread thread-tight" id="events-list"></ol>
+      </div>
+    </section>
+
+    <!-- Full-System-Scan -->
+    <section class="view" data-view="scan">
+      <div class="card">
+        <div class="card-head">
+          <h2>Full-System-Scan</h2>
+          <div class="scan-controls">
+            <button class="btn btn-primary" id="scan-start">▶ Scan starten</button>
+            <button class="btn-ghost" id="scan-cancel" disabled>■ Abbrechen</button>
+            <select id="scan-filter-verdict">
+              <option value="">alle Verdicts</option>
+              <option value="block">nur BLOCK</option>
+              <option value="warn">nur WARN</option>
+              <option value="unknown">nur UNKNOWN</option>
+              <option value="clean">nur CLEAN</option>
+            </select>
+            <select id="scan-filter-kind">
+              <option value="">alle Locations</option>
+              <option value="registry_run">Registry Run</option>
+              <option value="startup_folder">Startup</option>
+              <option value="scheduled_task">Scheduled Task</option>
+              <option value="service">Service</option>
+              <option value="temp">Temp/AppData</option>
+              <option value="browser_ext">Browser-Extension</option>
+              <option value="wmi_subscription">WMI Subscription</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="scan-progress">
+          <div class="scan-bar"><div class="scan-bar-fill" id="scan-bar-fill"></div></div>
+          <div class="scan-stats">
+            <span><b id="scan-stat-total">0</b> items</span>
+            <span class="stat-threat"><b id="scan-stat-block">0</b> block</span>
+            <span class="stat-warn"><b id="scan-stat-warn">0</b> warn</span>
+            <span class="muted"><b id="scan-stat-locs">0</b> Locations</span>
+            <span class="muted" id="scan-stat-phase">—</span>
+          </div>
+        </div>
+
+        <table class="table table-scan">
+          <thead>
+            <tr>
+              <th style="width:90px">Verdict</th>
+              <th style="width:140px">Location</th>
+              <th>Name</th>
+              <th>Value / Path</th>
+              <th>Reasons</th>
+              <th style="width:80px">Action</th>
+            </tr>
+          </thead>
+          <tbody id="scan-tbody">
+            <tr class="empty"><td colspan="6">Noch kein Scan gelaufen. Knopf oben.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Quarantine -->
+    <section class="view" data-view="quarantine">
+      <div class="card">
+        <div class="card-head"><h2>Quarantine</h2><button class="btn-ghost btn-sm" id="quar-reload">↻ Aktualisieren</button></div>
+        <table class="table">
+          <thead>
+            <tr><th>Datei</th><th>Hash</th><th>Reason</th><th>Quarantined</th><th></th></tr>
+          </thead>
+          <tbody id="quarantine-tbody">
+            <tr class="empty"><td colspan="5">Pending: 0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Network -->
+    <section class="view" data-view="network">
+      <div class="card">
+        <div class="card-head">
+          <h2>Live Network</h2>
+          <input id="net-search" placeholder="Prozess / IP / Port">
+        </div>
+        <table class="table table-network">
+          <thead>
+            <tr><th>Prozess</th><th>PID</th><th>Aktiv</th><th>Unique</th><th>Top Remote</th><th>Listen</th></tr>
+          </thead>
+          <tbody id="net-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Sentinel (Phase 5 — Driver / USB / Keylog) -->
+    <section class="view" data-view="sentinel">
+      <div class="sentinel-grid">
+
+        <!-- ---------- Drivers ---------- -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Kernel-Driver</h2>
+            <button class="btn btn-ghost btn-sm" id="driver-rescan">Rescan</button>
+          </div>
+          <p class="muted" style="margin:0 0 12px;">
+            Unsigned/Expired/Hash-mismatched Treiber werden hier gelistet.
+            Drittanbieter-Driver werden 1x bei erster Sichtung gemeldet.
+          </p>
+          <table class="table table-driver">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Signer</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody id="driver-tbody">
+              <tr><td colspan="4" class="muted">Lade…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ---------- USB ---------- -->
+        <div class="card">
+          <div class="card-head">
+            <h2>USB-Devices</h2>
+            <span class="muted" id="usb-count">—</span>
+          </div>
+          <p class="muted" style="margin:0 0 12px;">
+            BadUSB/Rubber-Ducky-Verdacht bei Composite-Devices (Storage+Keyboard).
+            VID/PID-Blocklist: <strong id="usb-blocklist-count">0</strong> Einträge.
+          </p>
+          <table class="table table-usb">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Class</th>
+                <th>VID:PID</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="usb-tbody">
+              <tr><td colspan="4" class="muted">Lade…</td></tr>
+            </tbody>
+          </table>
+          <div class="usb-blocker">
+            <input id="usb-block-vid" placeholder="VID (z.B. 046D)" maxlength="4">
+            <input id="usb-block-pid" placeholder="PID (z.B. C534)" maxlength="4">
+            <button class="btn btn-ghost btn-sm" id="usb-block-add">Blocken</button>
+          </div>
+        </div>
+
+        <!-- ---------- Keylog ---------- -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Keylogger-Detection</h2>
+            <span class="muted" id="keylog-suspect-count">0 suspects</span>
+          </div>
+          <p class="muted" style="margin:0 0 12px;">
+            Heuristik: Hidden+Persistent Prozesse mit Input-Relevanz.
+            Eigene Prozess-Namen können auf Blocklist gesetzt werden.
+          </p>
+          <ul class="suspect-list" id="keylog-tbody">
+            <li class="muted">Lade…</li>
+          </ul>
+          <div class="keylog-blocker">
+            <input id="keylog-add-name" placeholder="Prozess-Name (z.B. badtool.exe)" maxlength="64">
+            <button class="btn btn-ghost btn-sm" id="keylog-add-btn">Blocken</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Voice / Cognition -->
+    <section class="view" data-view="voice">
+      <div class="card cognition-hero">
+        <div class="brain-stage" id="brain-stage">
+          <canvas id="brain-canvas" aria-label="AEGIS Cognition Sphere"></canvas>
+          <div class="brain-overlay" id="brain-overlay">
+            <span class="brain-overlay-label">COGNITION</span>
+            <span class="brain-overlay-stats">
+              <span id="brain-active">0</span> / <span id="brain-total">0</span> vertices live
+            </span>
+          </div>
+        </div>
+        <div class="voice-state">
+          <h2 id="voice-status">Idle</h2>
+          <p class="muted">Sage <strong>"AEGIS"</strong>, dann eine Anweisung. Oder tippe unten.</p>
+          <div class="voice-transcript" id="voice-transcript">—</div>
+          <div class="voice-input">
+            <input id="voice-text" placeholder="Frage AEGIS direkt…">
+            <button class="btn" id="voice-send">Senden</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Verfügbare Kommandos</h2></div>
+        <ul class="cmd-list">
+          <li><kbd>"AEGIS status"</kbd> — kurze Lagemeldung</li>
+          <li><kbd>"AEGIS pause monitoring 5 minuten"</kbd></li>
+          <li><kbd>"AEGIS öffne quarantine"</kbd></li>
+          <li><kbd>"AEGIS suche <i>thema</i>"</kbd> — Web-Search</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" data-view="settings">
+      <div class="card">
+        <div class="card-head"><h2>Keys & Integrations</h2></div>
+        <div class="form-row">
+          <label>VirusTotal API-Key</label>
+          <input type="password" id="vt-key" placeholder="optional">
+        </div>
+        <div class="form-row">
+          <label>Anthropic (Claude) API-Key</label>
+          <input type="password" id="claude-key" placeholder="sk-ant-…  (DPAPI-encrypted at rest)">
+        </div>
+        <div class="form-row">
+          <label>Picovoice (Wake-Word) Access-Key</label>
+          <input type="password" id="pv-key" placeholder="optional">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Monitoring</h2></div>
+        <div class="form-row">
+          <label>Auto-Quarantine neue EXEs</label>
+          <input type="checkbox" id="auto-q" checked>
+        </div>
+        <div class="form-row">
+          <label>Wake-Word aktiv</label>
+          <input type="checkbox" id="wake-active" checked>
+        </div>
+        <div class="form-row">
+          <label>Cloud-STT erlauben (Voice -> Anthropic)</label>
+          <input type="checkbox" id="cloud-stt">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Autonome Aktionen</h2></div>
+        <p class="muted" style="margin:0 0 12px;">
+          Jede dieser Aktionen verlangt deine explizite Zustimmung in der
+          <strong>Consent-Queue</strong>. Keine Hintergrund-Ausführung ohne Approval.
+        </p>
+        <div class="form-row">
+          <label>Web-Search erlauben (Brain darf recherchieren)</label>
+          <input type="checkbox" id="allow-websearch">
+        </div>
+        <div class="form-row">
+          <label>Shell-Commands erlauben (Brain darf System-Tasks ausführen)</label>
+          <input type="checkbox" id="allow-shell">
+        </div>
+        <div class="form-row">
+          <label>Self-Learning erlauben (Brain schreibt nach AEGIS_LEARNINGS)</label>
+          <input type="checkbox" id="allow-learning" checked>
+        </div>
+        <div class="form-row">
+          <label>Consent-TTL (Standard, in Minuten)</label>
+          <input type="text" id="consent-ttl" value="10" style="width:100px;">
+        </div>
+        <button class="btn" id="save-settings">Speichern</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Pending Consents</h2>
+          <span class="muted" id="consent-count">0</span>
+        </div>
+        <div id="consent-list" class="consent-list">
+          <div class="empty">Keine offenen Anfragen.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bottombar">
+    <span id="footer-modules">Modules: 0/0</span>
+    <span class="sep">·</span>
+    <span id="footer-uptime">Uptime: —</span>
+    <span class="grow"></span>
+    <span class="muted">AEGIS V2 · komplementär zu Defender</span>
+  </footer>
+
+  <!-- ===== Update Dialog (overlay) ===== -->
+  <div id="update-modal" class="modal-backdrop" hidden aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-labelledby="update-title" aria-modal="true">
+      <header class="modal-head">
+        <div class="modal-head-icon" id="update-icon">⬇</div>
+        <div class="modal-head-text">
+          <h2 id="update-title">Update verfügbar</h2>
+          <span class="muted" id="update-subtitle">—</span>
+        </div>
+        <button class="modal-close" id="update-close" aria-label="Schließen">×</button>
+      </header>
+
+      <div class="modal-body">
+        <!-- Signature panel -->
+        <div class="sig-panel" id="sig-panel">
+          <div class="sig-icon" id="sig-icon" aria-hidden="true">✓</div>
+          <div class="sig-text">
+            <strong id="sig-headline">Cryptographic verification</strong>
+            <span class="muted" id="sig-detail">—</span>
+          </div>
+        </div>
+
+        <!-- Version / Size / Time grid -->
+        <div class="update-meta">
+          <div class="meta-cell">
+            <span class="meta-label">Version</span>
+            <span class="meta-value" id="update-version">—</span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-label">Größe</span>
+            <span class="meta-value" id="update-size">—</span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-label">SHA-256</span>
+            <span class="meta-value mono" id="update-sha">—</span>
+          </div>
+        </div>
+
+        <!-- Changelog -->
+        <div class="changelog-block">
+          <span class="meta-label">Release notes</span>
+          <pre class="changelog" id="update-changelog">—</pre>
+        </div>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="btn btn-ghost" id="update-skip" title="Diese Version nicht anzeigen">
+          Überspringen
+        </button>
+        <button class="btn btn-ghost" id="update-later" title="In 24h erneut fragen">
+          Später
+        </button>
+        <button class="btn btn-primary" id="update-install">
+          Jetzt installieren
+        </button>
+      </footer>
+
+      <!-- Progress overlay (during install) -->
+      <div class="modal-progress" id="update-progress" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="progress-text" id="update-progress-text">Installation läuft…</div>
+        <div class="muted" id="update-progress-detail">Service wird gestoppt</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="brain.js?v=217"></script>
+<script src="app.js?v=217"></script>
+<script src="updater.js?v=217"></script>
+<script src="sentinel.js?v=217"></script>
+    <script src="dashboard.js?v=217"></script>
+    <script src="panels.js?v=217"></script>
+</body>
+</html>

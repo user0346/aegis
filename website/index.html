@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AEGIS — Autonomous Endpoint Guardian</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="AEGIS — der intelligente Endpoint-Wächter. Komplementär zu Defender. Lernt selbständig. Open Source.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo-dot"></span>
+    <span class="logo-text">AEGIS</span>
+  </div>
+  <nav>
+    <a href="#features">Features</a>
+    <a href="#install">Installation</a>
+    <a href="#api">API-Key</a>
+    <a href="#extension">Browser-Extension</a>
+    <a href="#security">Security</a>
+  </nav>
+  <a class="cta-pill" href="#install">Download</a>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-grid">
+    <div class="hero-left">
+      <h1>
+        Der <span class="gradient-text">intelligente</span><br>
+        Endpoint-Wächter
+      </h1>
+      <p class="hero-sub">
+        AEGIS beobachtet, lernt und schützt — autonom, komplementär zu
+        Windows Defender. Erkennt IP-Logger, Doxing-Tools, Token-Grabber,
+        DDoS-Werkzeuge und unbekannte Malware-Patterns. <strong>Lernt aus jedem
+        Approve/Deny weiter.</strong>
+      </p>
+      <div class="hero-buttons">
+        <a href="#install" class="btn btn-primary">Jetzt installieren</a>
+        <a href="#features" class="btn btn-ghost">Wie es funktioniert</a>
+      </div>
+      <div class="hero-trust">
+        <span>Open Source · DPAPI-verschlüsselt · Audit-Trail · Lokal-First</span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <canvas id="hero-brain" aria-hidden="true"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="section">
+  <h2>Was AEGIS macht</h2>
+  <p class="section-sub">Layered Defense. Jede Stufe blockt was die vorherige durchgelassen hätte.</p>
+  <div class="feature-grid">
+    <div class="feature">
+      <div class="feature-icon">🛡</div>
+      <h3>Pre-Execution Blocking</h3>
+      <p>Hash-Blacklist, Filename-Patterns, Byte-Pattern-Detection. Eine bekannte Malware wird quarantänisiert <em>bevor</em> Windows sie öffnet.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🧠</div>
+      <h3>Selbst-Lernend</h3>
+      <p>Pattern-Calibration aus deinen Approve/Deny-Entscheidungen. Claude-gestützte Reflektion. Encrypted Persistent Memory.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📡</div>
+      <h3>Network-Watcher</h3>
+      <p>Live-Connection-Logging, Portscan- und Flood-Detection, DNS-Sinkhole gegen Tracker und IP-Logger.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚙</div>
+      <h3>Autonomy-Levels</h3>
+      <p>Off / Observe / Suggest / Auto / Full — Pin-geschützt mit TTL-Session. Auto-Demote bei kritischen Threats.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔒</div>
+      <h3>Self-Protection</h3>
+      <p>SHA-Pin aller eigenen Files. Defender-Exclusion-Watchdog. Hosts-File-Wiederherstellung. Niemand modifiziert AEGIS unbemerkt.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🪶</div>
+      <h3>Background-Service</h3>
+      <p>Läuft beim Boot ohne UI. UI kann geschlossen werden, Schutz bleibt aktiv. Auto-Restart bei Crash.</p>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="section section-alt">
+  <h2>Installation in 4 Schritten</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-n">1</div>
+      <h3>ZIP herunterladen</h3>
+      <p>AEGIS.zip (~120 KB) lokal speichern.</p>
+      <a class="step-link" href="AEGIS.zip">AEGIS.zip ↓</a>
+    </div>
+    <div class="step">
+      <div class="step-n">2</div>
+      <h3>Entsperren</h3>
+      <p>Rechtsklick auf ZIP → Eigenschaften → "Entsperren" haken. Dann extrahieren.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">3</div>
+      <h3>Install_AEGIS.bat</h3>
+      <p>Doppelklick. UAC mit "Ja" bestätigen. Installer macht Defender-Exclusion + Service + Login-Task.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">4</div>
+      <h3>Fertig</h3>
+      <p>AEGIS läuft im Hintergrund. UI: <code>AEGIS_Shell.bat</code> oder beim nächsten Login automatisch.</p>
+    </div>
+  </div>
+  <div class="install-note">
+    <strong>Voraussetzung:</strong> Python 3.10+ (bevorzugt 3.13).
+    Beim Python-Setup unbedingt "Add Python to PATH" anhaken.
+    <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer">Python ↗</a>
+  </div>
+</section>
+
+<!-- API KEY -->
+<section id="api" class="section">
+  <h2>Anthropic API-Key (für Cognition)</h2>
+  <p class="section-sub">Optional. Ohne Key läuft AEGIS rein lokal (heuristik-only). Mit Key bekommst du:</p>
+  <ul class="benefits">
+    <li>✓ Self-Reflection: Claude analysiert deine Events und schlägt Lern-Einträge vor</li>
+    <li>✓ Natural-Language-Queries an AEGIS ("warum wurde X quarantänisiert?")</li>
+    <li>✓ Threat-Triage mit Verdict + Empfehlungen</li>
+  </ul>
+
+  <div class="api-flow">
+    <div class="api-step">
+      <h3>Schritt 1</h3>
+      <p>Anthropic Console öffnen, Account anlegen oder einloggen.</p>
+      <a class="btn btn-primary" href="https://console.anthropic.com/" target="_blank" rel="noreferrer">console.anthropic.com ↗</a>
+    </div>
+    <div class="api-step">
+      <h3>Schritt 2</h3>
+      <p>Unter "API Keys" einen neuen Key erstellen. Beginnt mit <code>sk-ant-</code>.</p>
+    </div>
+    <div class="api-step">
+      <h3>Schritt 3</h3>
+      <p>In AEGIS-UI → Settings → "Anthropic API-Key" einfügen → Speichern. Wird DPAPI-verschlüsselt lokal abgelegt.</p>
+    </div>
+  </div>
+
+  <div class="api-safety">
+    <h4>Ist das sicher?</h4>
+    <p>
+      Dein Key wird <strong>nie</strong> über die UI-Bridge weitergegeben, <strong>nie</strong> geloggt,
+      <strong>nie</strong> ans Anthropic-Backend geschickt außer im offiziellen Messages-API-Call.
+      Die Speicherung läuft über Windows DPAPI (User-Account-gebunden) — selbst andere User auf der
+      gleichen Maschine können den Key nicht entschlüsseln.
+    </p>
+  </div>
+</section>
+
+<!-- BROWSER EXTENSION -->
+<section id="extension" class="section section-alt">
+  <h2>AEGIS Browser-Extension</h2>
+  <p class="section-sub">Der Browser ist die häufigste Quelle für Schädlinge. Die Extension schützt dich on-page — auch wenn AEGIS-Service nicht läuft.</p>
+  <div class="ext-grid">
+    <div class="ext-feature">
+      <h3>🚨 IP-Logger blockieren</h3>
+      <p>Bekannte Grabify-, IPLogger-, 2no.co-Domains werden vor dem Klick erkannt. Warnung im Tab + Block-Option.</p>
+    </div>
+    <div class="ext-feature">
+      <h3>🔗 URL-Scanner</h3>
+      <p>Jeder Link wird gegen Phishing-/Punycode-/Subdomain-Spoofing-Patterns geprüft. Visueller Indicator.</p>
+    </div>
+    <div class="ext-feature">
+      <h3>📥 Download-Hinweis</h3>
+      <p>Wenn eine .exe/.scr/.bat von einer fragwürdigen Domain downloaded wird, springt die Extension ein bevor der Browser sie ablegt.</p>
+    </div>
+    <div class="ext-feature">
+      <h3>🔄 Sync mit AEGIS</h3>
+      <p>Wenn AEGIS-Service läuft, syncen Block-Listen + Decisions. Was die Extension blockt, lernt AEGIS — und umgekehrt.</p>
+    </div>
+  </div>
+
+  <div class="ext-download">
+    <h3>Installation</h3>
+    <ol>
+      <li>Browser-Extension-Ordner aus dem AEGIS-ZIP holen (<code>AEGIS/extension/</code>)</li>
+      <li>Chrome/Edge öffnen: <code>chrome://extensions</code> bzw. <code>edge://extensions</code></li>
+      <li>"Entwicklermodus" einschalten</li>
+      <li>"Entpackte Erweiterung laden" → den <code>extension/</code>-Ordner auswählen</li>
+      <li>Fertig — AEGIS-Icon erscheint in der Toolbar</li>
+    </ol>
+    <p class="ext-firefox-note">Firefox-Variante folgt (Manifest V2 Build).</p>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section id="security" class="section">
+  <h2>Security-Prinzipien</h2>
+  <div class="security-grid">
+    <div class="sec-item">
+      <h3>Encrypted at Rest</h3>
+      <p>Alle Secrets (API-Keys, Owner-Pin, gelernte Patterns) liegen DPAPI-verschlüsselt unter <code>~/.aegis/secrets.bin</code> und <code>~/.aegis/memory/*.bin</code>.</p>
+    </div>
+    <div class="sec-item">
+      <h3>Consent-Framework</h3>
+      <p>Jede potentiell verändernde Aktion (Web-Search, Shell, Learning-Write) verlangt HMAC-signierte One-Shot-Token. Audit-Log immutable.</p>
+    </div>
+    <div class="sec-item">
+      <h3>Integrity-Verify</h3>
+      <p>SHA-Pin aller AEGIS-eigenen Files. Boot-Time-Compare. Mismatch → Safe-Mode + Autonomy-Disable.</p>
+    </div>
+    <div class="sec-item">
+      <h3>Signed Updates</h3>
+      <p>Manifest mit Ed25519-Signature. Downgrade-Attacks werden erkannt. AEGIS lädt nie selbst — Owner entscheidet.</p>
+    </div>
+    <div class="sec-item">
+      <h3>Pipe-DACL</h3>
+      <p>IPC-Pipe nur für current User + LocalSystem. Token-Auth. JSON-Schema-Validation auf jedem Command.</p>
+    </div>
+    <div class="sec-item">
+      <h3>Hard-Blacklist</h3>
+      <p>Auch FULL-Autonomy kann nie: Defender modifizieren, Audit-Log löschen, AEGIS-Code ändern, Passwörter ändern, Firewall deaktivieren.</p>
+    </div>
+  </div>
+  <p class="security-link">
+    Vollständiges <a href="docs/AEGIS_SECURITY_AUDIT.md">Security-Audit</a> mit Threat-Model und Test-Plan im Repo.
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div>
+      <div class="brand"><span class="logo-dot"></span><span class="logo-text">AEGIS</span></div>
+      <p>Autonomous Endpoint Guardian Intelligence System</p>
+    </div>
+    <div>
+      <h4>Projekt</h4>
+      <a href="docs/AEGIS_V2_ARCHITECTURE.md">Architektur</a>
+      <a href="docs/AEGIS_SECURITY_AUDIT.md">Security-Audit</a>
+      <a href="docs/AEGIS_DISTRIBUTION.md">Distribution</a>
+    </div>
+    <div>
+      <h4>Resourcen</h4>
+      <a href="AEGIS.zip">Download</a>
+      <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer">Anthropic Console ↗</a>
+    </div>
+  </div>
+  <div class="footer-base">
+    © 2026 AEGIS · Komplementär zu Defender · Open Source · Local-First
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

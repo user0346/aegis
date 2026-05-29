@@ -1,0 +1,58 @@
+AEGIS - Installation
+=====================
+
+REQUIREMENTS
+------------
+- Windows 10 or 11 (64-bit)
+- Administrator account (for first install only)
+- Python 3.13 (auto-installed by the installer if missing)
+
+INSTALL STEPS
+-------------
+1.  Move the entire extracted folder to a permanent location.
+    Recommended:  C:\Program Files\AEGIS\
+    Also valid:   C:\AEGIS\
+
+2.  Double-click the file named Install_AEGIS.bat (inside this folder).
+
+3.  Accept the UAC prompt when Windows asks.
+
+4.  Wait for the installer to finish (one to two minutes).
+
+When the installer says "done", AEGIS is active.
+It will run silently in the background and restart automatically
+on every Windows boot.
+
+OPENING THE INTERFACE
+---------------------
+The user interface opens automatically after the next login.
+You can also open it any time by double-clicking AEGIS_Shell.bat.
+
+NOTE: The interface is optional — the protection runs without it.
+
+OPTIONAL FEATURES
+-----------------
+Voice control and AI features are off by default.
+To enable, see the relevant sections inside the application
+(Settings panel).
+
+UPDATING
+--------
+Updates are downloaded, verified and applied automatically.
+You will be prompted before any update is installed.
+
+UNINSTALL
+---------
+Double-click Uninstall_AEGIS.bat (in the same folder).
+This removes all AEGIS components and scheduled tasks.
+
+SUPPORT
+-------
+Documentation:  https://github.com/user0346/aegis
+Security:       see SECURITY.md inside this folder
+Bugs:           https://github.com/user0346/aegis/issues
+
+DO NOT REDISTRIBUTE
+-------------------
+Do not redistribute this folder. Always direct users to download
+the latest signed release from the official release page.

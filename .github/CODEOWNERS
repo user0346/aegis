@@ -1,0 +1,23 @@
+# AEGIS Code-Owners
+# Diese User werden automatisch fuer Review auf PRs assigned die
+# die jeweiligen Files veraendern.
+
+# Default: alles -> Maintainer
+*                                @user0346
+
+# Security-kritische Pfade — explizit
+.github/workflows/                @user0346
+SECURITY.md                       @user0346
+tools/secret_scan.py              @user0346
+tools/build_release.py            @user0346
+tools/setup_github.py             @user0346
+aegis2/cognition/consent.py       @user0346
+aegis2/cognition/secrets_store.py @user0346
+aegis2/cognition/bruteforce.py    @user0346
+aegis2/service/ipc_server.py      @user0346
+aegis2/shared/github_updater.py   @user0346
+aegis2/shared/boot_integrity.py   @user0346
+aegis2/shared/modules/self_protect.py @user0346
+aegis2/setup/install_hardened.py  @user0346
+aegis2/setup/wdac_policy.py       @user0346
+aegis2/setup/auto_update.py       @user0346

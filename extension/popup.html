@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AEGIS Guard</title>
+<style>
+  :root { --accent: #5bb8ff; --bg: #04070d; --card: rgba(16,24,36,0.8); --fg: #e6edf6; --mute: #98a7bf; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 13px/1.5 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    width: 320px;
+  }
+  .head { display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    border-bottom: 1px solid rgba(91,184,255,0.10);
+    background: rgba(8,12,20,0.7);
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #d6efff, var(--accent));
+    box-shadow: 0 0 12px rgba(91,184,255,0.5);
+  }
+  .head h1 { margin: 0; font-size: 14px; letter-spacing: 2.5px; }
+  .status {
+    margin-left: auto; padding: 3px 10px; font-size: 10px; font-weight: 700;
+    color: #4ade80; border: 1px solid rgba(74,222,128,0.4);
+    background: rgba(74,222,128,0.08); border-radius: 999px; letter-spacing: 1px;
+  }
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 14px 16px;
+  }
+  .stat {
+    background: var(--card); border: 1px solid rgba(91,184,255,0.10);
+    border-radius: 8px; padding: 10px 8px; text-align: center;
+  }
+  .stat .v { font-size: 22px; font-weight: 600; color: var(--accent); }
+  .stat .l { font-size: 10px; color: var(--mute); letter-spacing: 0.8px;
+    text-transform: uppercase; margin-top: 2px; }
+  .stat.threat .v { color: #f97373; }
+  .stat.warn .v { color: #facc15; }
+
+  .info { padding: 0 16px 16px; }
+  .info h2 { font-size: 11px; color: var(--accent); letter-spacing: 2px;
+    text-transform: uppercase; margin: 16px 0 8px;
+  }
+  .info p { color: var(--mute); margin: 0; font-size: 12.5px; }
+  .info ul { margin: 0; padding-left: 18px; color: var(--mute); font-size: 12px; }
+  .info a { color: var(--accent); }
+  .footer { padding: 12px 16px; border-top: 1px solid rgba(91,184,255,0.10);
+    color: #5b6a82; font-size: 11px; text-align: center; letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="dot"></div>
+  <h1>AEGIS</h1>
+  <span class="status">ACTIVE</span>
+</div>
+
+<div class="stat-grid">
+  <div class="stat threat">
+    <div class="v" id="s-blocked">0</div>
+    <div class="l">Blocked</div>
+  </div>
+  <div class="stat warn">
+    <div class="v" id="s-warned">0</div>
+    <div class="l">Warned</div>
+  </div>
+  <div class="stat">
+    <div class="v" id="s-dl">0</div>
+    <div class="l">DL Stopped</div>
+  </div>
+</div>
+
+<div class="info">
+  <h2>Aktiv geschützt</h2>
+  <ul>
+    <li>IP-Logger (Grabify, IPLogger, Blasze, 2no.co, …)</li>
+    <li>Discord-/Steam-Lookalikes</li>
+    <li>Punycode-Spoofing</li>
+    <li>Verdächtige Shortener</li>
+    <li>EXE-Downloads von Risiko-Hosts</li>
+  </ul>
+  <h2>Verbunden mit AEGIS-App</h2>
+  <p>Wenn die Desktop-App läuft, syncen Block-Listen und Decisions automatisch. <a href="https://aegis.local" target="_blank">Mehr</a></p>
+</div>
+
+<div class="footer">AEGIS Guard · v2.0.0 · komplementär zu Defender</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

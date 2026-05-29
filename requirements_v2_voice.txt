@@ -1,0 +1,10 @@
+# AEGIS V2 — Voice Extras (optional, für Phase 3)
+# Installation:
+#   pip install -r requirements_v2_voice.txt
+#
+# WICHTIG: webrtcvad-wheels statt webrtcvad —
+# das hat pre-built Binaries und braucht KEINEN MSVC-Compiler.
+
+pvporcupine>=4.0.2          # Wake-Word
+PyAudio>=0.2.14           # Audio-Capture
+webrtcvad-wheels>=2.0.14  # VAD mit pre-built wheels (kein build needed)

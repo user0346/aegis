@@ -1,0 +1,108 @@
+name: Release AEGIS
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write     # für GitHub-Release-Upload
+  id-token: write     # für OIDC → Sigstore keyless signing
+  pages: write
+  attestations: write
+
+jobs:
+  build-and-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build AEGIS.zip
+        run: python tools/build_release.py
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign AEGIS.zip with Sigstore (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature AEGIS.zip.sig \
+            --output-certificate AEGIS.zip.crt \
+            AEGIS.zip
+
+      - name: Verify signature locally
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign verify-blob \
+            --certificate AEGIS.zip.crt \
+            --signature AEGIS.zip.sig \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.*" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            AEGIS.zip
+
+      - name: Compute SHA256
+        id: hash
+        run: |
+          SHA=$(sha256sum AEGIS.zip | cut -d' ' -f1)
+          echo "sha256=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Create Release with all assets
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            AEGIS.zip
+            AEGIS.zip.sig
+            AEGIS.zip.crt
+          body: |
+            ## AEGIS ${{ github.ref_name }}
+
+            Autonomer Endpoint-Schutz für Windows — überwacht Dateien, Prozesse, Netzwerk, USB & Treiber, komplementär zu Windows Defender. Security-Ops-Dashboard, lernende Baseline, Full-System-Scan mit Quarantäne.
+
+            ### Verification
+            ```
+            cosign verify-blob \
+              --certificate AEGIS.zip.crt \
+              --signature AEGIS.zip.sig \
+              --certificate-identity-regexp "https://github.com/${{ github.repository }}/.*" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              AEGIS.zip
+            ```
+
+            ### SHA-256
+            `${{ steps.hash.outputs.sha256 }}`
+
+            ### Auto-Update
+            AEGIS-Clients with `update_github_repo=${{ github.repository }}` pull this within 24h.
+
+      - name: Update manifest on gh-pages
+        run: |
+          mkdir -p public
+          cat > public/manifest.json <<EOF
+          {
+            "latest_version": "${{ github.ref_name }}",
+            "released_at": "$(date -u +%FT%TZ)",
+            "sha256": "${{ steps.hash.outputs.sha256 }}",
+            "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AEGIS.zip",
+            "signature_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AEGIS.zip.sig",
+            "certificate_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/AEGIS.zip.crt",
+            "rekor_index_search": "https://search.sigstore.dev/?hash=${{ steps.hash.outputs.sha256 }}"
+          }
+          EOF
+
+      - name: Deploy manifest to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: true

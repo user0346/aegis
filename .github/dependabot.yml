@@ -1,0 +1,46 @@
+# Dependabot — Auto-Update Dependencies + Workflow-Actions
+# https://docs.github.com/en/code-security/dependabot
+version: 2
+updates:
+  # Python dependencies (requirements_v2*.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "user0346"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "user0346"
+    labels:
+      - "ci"
+      - "security"
+    commit-message:
+      prefix: "ci"
+
+  # Browser-Extension npm/manifest deps (falls vorhanden)
+  - package-ecosystem: "npm"
+    directory: "/extension"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    labels:
+      - "extension"
+      - "dependencies"
