@@ -207,6 +207,55 @@ class ActionRouter:
             "Signatur. Einen beliebigen Terminal-Befehl führe ich aus Sicherheitsgründen NICHT "
             "aus, aber genau DIESE Prüfung ist eingebaut.")}
 
+    def _do_update(self, args) -> dict:
+        """«gibt es ein Update?» / «Update» -> ECHTER Versions-Vergleich gegen die
+        offizielle GitHub-Release-Quelle und KLARE Antwort (statt Geschwafel oder
+        stiller Hintergrund-Check). Ist eine neuere Version da, stosse ich zusaetzlich
+        den vollen, signaturgepruefen Check an (cosign), damit sie oben im Update-Bereich
+        zum Installieren bereitliegt."""
+        cur = "?"
+        try:
+            from .. import __version__ as _v
+            cur = _v
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from ..shared.github_updater import fetch_latest_release, parse_version
+        except Exception:  # noqa: BLE001
+            return {"ok": True, "msg": (
+                f"Installiert ist Version {cur}. Den Online-Abgleich kann ich gerade nicht "
+                "starten — schau sonst oben in den Update-Bereich.")}
+        repo = "user0346/aegis"
+        try:
+            from ..shared.db import get_db
+            repo = (get_db().get_setting("update_github_repo", "") or repo)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            rel = fetch_latest_release(repo, timeout=8)
+        except Exception:  # noqa: BLE001
+            rel = None
+        tag = (rel or {}).get("tag_name", "") if isinstance(rel, dict) else ""
+        if not tag:
+            return {"ok": True, "msg": (
+                f"Ich erreiche die offizielle Update-Quelle gerade nicht (Internet?). "
+                f"Installiert ist Version {cur} — versuch es gleich nochmal mit «Update».")}
+        latest = tag.lstrip("v")
+        if parse_version(tag) <= parse_version(cur):
+            return {"ok": True, "msg": (
+                f"Du bist auf dem neuesten Stand: installiert ist Version {cur}, und das ist "
+                "auch die aktuellste. Kein Update nötig.")}
+        # Neuere Version -> vollen signaturgepruefen Check/Stage anstossen.
+        try:
+            self.service_cmd({"name": "update.check"})
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "msg": (
+            f"Ja — Version {latest} ist verfügbar (du hast {cur}). Ich lade sie jetzt "
+            "signaturgeprüft herunter (cosign, gegen meinen eigenen Release-Workflow). "
+            "Sobald sie oben im Update-Bereich bereitliegt, sag «installiere das Update» — "
+            "installiert wird NUR bei gültiger Signatur.")}
+
     def _do_open(self, args) -> dict:
         target = (args.get("target") or "").strip()
         low = target.lower()

@@ -57,6 +57,20 @@ _PATTERNS = [
         r"|\b(?:pr[üu]f\w*|check\w*|kontrollier\w*|teste?|stimmt)\b[^.?!]{0,30}\b(?:signatur\w*|update|version)\b"
         r"|\bsignatur\w*\b[^.?!]{0,30}\b(?:pr[üu]f\w*|verifizier\w*|check\w*|stimmt|g[üu]ltig|echt|in\s+ordnung)\b"
         r"|\bist\s+(?:das|mein\w*|die|der)\s+(?:update|version|exe|datei|download|zip)\b[^.?!]{0,30}\b(?:signiert|echt|verifiziert|original)\b", re.I)),
+    # "Gibt es ein Update?" / "Update" / "nach Updates suchen" -> ECHTER Versions-
+    # Vergleich gegen GitHub + klare Antwort. NACH 'verify' (damit "ist das Update
+    # echt/signiert" dort bleibt) und VOR query/search (sonst schwafelt das Modell,
+    # statt wirklich zu pruefen).
+    ("update", re.compile(
+        r"^\s*updates?\s*[?.!]*\s*$"
+        r"|\bgib\w*\b[^.?!]{0,18}\bupdates?\b"                    # "gibt es ein update", auch "gibt esd ein update"
+        r"|\bist\s+[^.?!]{0,22}\b(?:update|version)\b[^.?!]{0,18}\b(?:da|verf[üu]gbar|drau[sß]en|online|raus|neuer)\b"
+        r"|\b(?:update|neue\s+version)\b[^.?!]{0,12}\b(?:verf[üu]gbar|vorhanden|drau[sß]en)\b"
+        r"|\bnach\s+(?:neuen\s+)?updates?\s+(?:such\w*|pr[üu]f\w*|schau\w*|seh\w*|guck\w*|suchen|sehen)\b"
+        r"|\b(?:such\w*|schau\w*|guck\w*)\s+(?:mal\s+)?(?:bitte\s+)?nach\s+(?:einem\s+|neuen\s+)?updates?\b"
+        r"|\bkann\s+ich\s+(?:das\s+|dich\s+|aegis\s+)?(?:jetzt\s+)?(?:updaten|aktualisier\w*)\b"
+        r"|\b(?:aktualisier\w*|update)\s+dich\b"
+        r"|\bbin\s+ich\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b", re.I)),
     # Datum/Uhrzeit-Frage (auch nacktes "uhrzeit"/"datum") -> deterministisch aus Systemzeit.
     # Steht FRUEH, damit "uhrzeit" nicht als Website (uhrzeit.com) geoeffnet wird.
     ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
