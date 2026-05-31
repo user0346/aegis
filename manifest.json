@@ -1,0 +1,9 @@
+{
+  "latest_version": "v2.4.1",
+  "released_at": "2026-05-31T14:33:21Z",
+  "sha256": "5609c528df3b069db8deef7e09abd2c9a44385bbc67d3896a720cfbacebc2b1f",
+  "download_url": "https://github.com/user0346/aegis/releases/download/v2.4.1/AEGIS.zip",
+  "signature_url": "https://github.com/user0346/aegis/releases/download/v2.4.1/AEGIS.zip.sig",
+  "certificate_url": "https://github.com/user0346/aegis/releases/download/v2.4.1/AEGIS.zip.crt",
+  "rekor_index_search": "https://search.sigstore.dev/?hash=5609c528df3b069db8deef7e09abd2c9a44385bbc67d3896a720cfbacebc2b1f"
+}
