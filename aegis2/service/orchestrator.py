@@ -22,6 +22,7 @@ from ..shared.modules.usb_watch import UsbWatcher
 from ..shared.modules.keylog_watch import KeylogWatcher
 from ..shared.learner import SelfReflector
 from ..shared.updater import UpdateChecker
+from ..shared.github_updater import GitHubUpdateChecker
 from .command_schema import validate as validate_command
 
 if TYPE_CHECKING:
@@ -90,6 +91,10 @@ class Orchestrator:
         # UpdateChecker — Phase 3: passive Update-Notification
         if self.db.get_setting("enable_update_check", True):
             self.modules.append(UpdateChecker(self.bus, self.db))
+            # GitHub-Release-Checker — laedt + verifiziert (Sigstore) + staged das
+            # passende Asset (gefroren: exe-Bundle, sonst Source-Zip) und meldet es
+            # fuer den In-App-Update-Button (update.status/install).
+            self.modules.append(GitHubUpdateChecker(self.bus, self.db))
 
         # ============================================================
         #  Phase 5 — Driver/USB/Keylog detection
@@ -713,6 +718,17 @@ class Orchestrator:
             ))
         except Exception:
             pass
+
+        # Gefrorene .exe: Out-of-Process-Swap (PowerShell-Helfer ersetzt das Bundle
+        # und startet neu) — der Quellcode-Pfad unten gilt nur fuer py/pyw-Installs.
+        from ..shared import launcher
+        if launcher.is_frozen():
+            try:
+                from ..runtime.exe_update import apply_frozen_update
+                return apply_frozen_update(meta)
+            except Exception as e:  # noqa: BLE001
+                return {"ok": False,
+                        "error": f"frozen apply failed: {type(e).__name__}: {e}"}
 
         try:
             install_path = Path(__file__).resolve().parents[2]

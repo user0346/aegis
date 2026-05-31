@@ -105,3 +105,70 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           keep_files: true
+
+  # Baut die direkt ausfuehrbare AEGIS.exe (onedir) auf Windows, signiert das
+  # Bundle keyless mit Sigstore und haengt es an dasselbe Release. Der In-App-
+  # Updater einer gefrorenen .exe zieht GENAU dieses Asset (AEGIS-windows-x64.zip).
+  build-exe-windows:
+    runs-on: windows-latest
+    needs: build-and-sign        # Release existiert bereits -> Assets nur anhaengen
+    permissions:
+      contents: write
+      id-token: write            # OIDC -> Sigstore keyless
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies + PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_v2.txt pyinstaller
+
+      - name: Build AEGIS.exe (onedir)
+        run: python tools/build_exe.py
+
+      - name: Zip exe bundle (top-level AEGIS/)
+        shell: pwsh
+        run: Compress-Archive -Path dist/AEGIS -DestinationPath AEGIS-windows-x64.zip -Force
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign bundle with Sigstore (keyless)
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature AEGIS-windows-x64.zip.sig \
+            --output-certificate AEGIS-windows-x64.zip.crt \
+            AEGIS-windows-x64.zip
+
+      - name: Verify bundle signature locally
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign verify-blob \
+            --certificate AEGIS-windows-x64.zip.crt \
+            --signature AEGIS-windows-x64.zip.sig \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/tags/v.*" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            AEGIS-windows-x64.zip
+
+      - name: Attach bundle to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            AEGIS-windows-x64.zip \
+            AEGIS-windows-x64.zip.sig \
+            AEGIS-windows-x64.zip.crt \
+            --clobber

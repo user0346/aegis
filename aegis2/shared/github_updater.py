@@ -203,6 +203,26 @@ def sha256_of_file(p: Path) -> str:
     return h.hexdigest()
 
 
+# Name des Release-Assets, das wir herunterladen: gefrorene AEGIS.exe braucht das
+# komplette Windows-Bundle (exe + _internal), aus dem Quellcode reicht das Source-Zip.
+EXE_BUNDLE_ASSET = "AEGIS-windows-x64.zip"
+SOURCE_ASSET = "AEGIS.zip"
+
+# Standard-Update-Quelle (ueberschreibbar per Setting update_github_repo). Die
+# Signaturpruefung pinnt ohnehin auf genau dieses Repo + den release.yml-Workflow.
+DEFAULT_REPO = "user0346/aegis"
+
+
+def release_asset_name() -> str:
+    try:
+        from .launcher import is_frozen
+        if is_frozen():
+            return EXE_BUNDLE_ASSET
+    except Exception:  # noqa: BLE001
+        pass
+    return SOURCE_ASSET
+
+
 # ============================================================
 #  Updater Module
 # ============================================================
@@ -241,7 +261,7 @@ class GitHubUpdateChecker(Module):
             log.warning("forced check failed: %s", e)
 
     def _check_once(self) -> None:
-        repo = self.db.get_setting("update_github_repo", "")
+        repo = self.db.get_setting("update_github_repo", "") or DEFAULT_REPO
         if not repo:
             return    # Not configured
         rel = fetch_latest_release(repo)
@@ -269,16 +289,17 @@ class GitHubUpdateChecker(Module):
         except (ValueError, TypeError):
             pass
 
-        # Find assets
+        # Find assets — gefrorene .exe zieht das Windows-Bundle, Quellcode das Source-Zip
+        base = release_asset_name()
         zip_asset = sig_asset = cert_asset = None
         for a in rel.get("assets", []):
             n = a.get("name", "")
-            if n == "AEGIS.zip": zip_asset = a
-            elif n == "AEGIS.zip.sig": sig_asset = a
-            elif n == "AEGIS.zip.crt" or n == "AEGIS.zip.pem": cert_asset = a
+            if n == base: zip_asset = a
+            elif n == base + ".sig": sig_asset = a
+            elif n == base + ".crt" or n == base + ".pem": cert_asset = a
         if not zip_asset:
             self.emit(Severity.WARN, Category.SYSTEM,
-                      f"Release {tag} hat keine AEGIS.zip — skip")
+                      f"Release {tag} hat keine {base} — skip")
             return
 
         UPDATE_DIR.mkdir(parents=True, exist_ok=True)
