@@ -68,17 +68,18 @@
 
       // ---- Glow-Kern (Fresnel) ----
       const cu = { uTime: { value: 0 }, uColor: { value: this.col.clone() },
-                   uIntensity: { value: 1.0 }, uFres: { value: 2.5 } };
+                   uIntensity: { value: 1.0 }, uFres: { value: 2.5 }, uActive: { value: 0 } };
       this.cu = cu;
       const coreMat = new THREE.ShaderMaterial({
         uniforms: cu, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
         vertexShader: [
-          "uniform float uTime; varying vec3 vN; varying vec3 vV;",
+          "uniform float uTime; uniform float uActive; varying vec3 vN; varying vec3 vV;",
           "float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}",
           "float nz(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);",
           " return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),",
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
-          "void main(){vec3 p=position;float d=nz(normalize(p)*2.2+uTime*0.25)*0.13;p+=normal*d;",
+          "void main(){vec3 p=position;float amp=0.022+uActive*0.16;float sp=0.15+uActive*0.6;",
+          " float d=nz(normalize(p)*2.2+uTime*sp)*amp + nz(normalize(p)*4.5-uTime*sp*0.7)*amp*0.5*uActive;p+=normal*d;",
           " vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(p,1.0);vV=normalize(-mv.xyz);",
           " gl_Position=projectionMatrix*mv;}"
         ].join("\n"),
@@ -182,8 +183,11 @@
 
       const energy = Math.min(1.4, this.state * 0.7 + this.pulse * 0.8 + this.threat * 0.5);
       const speed = 0.6 + energy * 1.6 + this.threat * 1.0;
+      // "Aktivitaet" beim Denken/Arbeiten -> treibt Oberflaechen-Verformung, Tempo, Puls.
+      const active = Math.min(1, this.state * 0.95 + this.pulse * 0.5 + this.threat * 0.35);
 
       this.cu.uTime.value = t; this.cu.uColor.value.copy(this.col);
+      this.cu.uActive.value = active;
       this.cu.uIntensity.value = 0.85 + energy * 0.6; this.cu.uFres.value = 2.6 - this.state * 0.8;
       this.pu.uTime.value = t; this.pu.uColor.value.copy(this.col);
       this.pu.uSpeed.value = speed; this.pu.uIntensity.value = 0.7 + energy * 0.7;
@@ -191,7 +195,7 @@
       const k = dt * (0.4 + energy * 1.2);
       this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.12;
       this.inner.rotation.y -= k * 0.5;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * 2.0) * 0.02 + this.pulse * 0.06);
+      this.inner.scale.setScalar(1.0 + Math.sin(t * (2.0 + active * 5.0)) * (0.018 + active * 0.06) + this.pulse * 0.08);
       this.points.rotation.y += dt * (0.05 + energy * 0.15);
       for (const ring of this.rings) {
         ring.rotation.z += ring._spin * dt * (0.6 + energy);
