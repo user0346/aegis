@@ -113,6 +113,15 @@ class SelfProtect(Module):
 
     # ---- Integrity ----
     def _integrity_boot_check(self) -> None:
+        import sys as _sys
+        if getattr(_sys, "frozen", False):
+            # Gefrorene Binary: die .py-Hash-Baseline ist gegenstandslos — der Code
+            # liegt im (idealerweise signierten) Exe-Bundle, nicht als lose .py.
+            # Integritaet ist hier an die Binary + den Respawn-Watchdog gebunden;
+            # das .py-Pinning wird uebersprungen (sonst leere Baseline ohne Nutzen).
+            self.emit(Severity.INFO, Category.TAMPER,
+                      "Integrity: gefrorene Binary — .py-Pinning uebersprungen")
+            return
         current = collect_integrity_targets(self.root)
         # Pinned hashes aus Settings
         pinned_raw = self.db.get_setting("integrity_pinned_hashes")

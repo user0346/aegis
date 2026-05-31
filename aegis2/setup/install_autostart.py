@@ -1,50 +1,65 @@
 """AEGIS-Autostart beim Login einrichten/entfernen (HKCU Run-Key, kein Admin).
 
-Zwei fensterlose Eintraege (pythonw): Background-Service + UI-Shell (Tray).
+EIN fensterloser Eintrag startet die App; die UI sorgt selbst dafuer, dass der
+Hintergrund-Service laeuft (s. bin/aegis_app.py). Frozen-aware:
+  Gefroren:   "<...>\\AEGIS.exe"
+  Quellcode:  "<pythonw>" "<...>\\bin\\aegis_app.py"
+
   Einrichten:  python aegis2\\setup\\install_autostart.py
   Entfernen:   python aegis2\\setup\\install_autostart.py --uninstall
 """
-import sys, winreg
+import sys
+import winreg
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-_exe = Path(sys.executable)
-PYW = _exe.with_name("pythonw.exe")
-if not PYW.exists():
-    PYW = _exe
-SERVICE = ROOT / "bin" / "aegis_core_background.pyw"
-SHELL   = ROOT / "bin" / "aegis_shell.py"
-
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-VALS = [
-    ("AEGIS Guard Service", '"%s" "%s"' % (PYW, SERVICE)),
-    ("AEGIS Guard UI",      '"%s" "%s"' % (PYW, SHELL)),
-]
+
+# Aktueller Wertname + alle frueheren (fuer sauberes Entfernen/Migrieren).
+VALUE_NAME = "AEGIS Guard"
+_LEGACY_NAMES = ["AEGIS Guard Service", "AEGIS Guard UI"]
+
+
+def _pythonw() -> str:
+    cand = Path(sys.executable).with_name("pythonw.exe")
+    return str(cand) if cand.exists() else sys.executable
+
+
+def _command() -> str:
+    """Autostart-Kommando — gefrorene .exe ODER Quellcode-Entry."""
+    if getattr(sys, "frozen", False):
+        return '"%s"' % Path(sys.executable)
+    entry = ROOT / "bin" / "aegis_app.py"
+    return '"%s" "%s"' % (_pythonw(), entry)
+
+
+def _delete_all(k) -> None:
+    for name in [VALUE_NAME, *_LEGACY_NAMES]:
+        try:
+            winreg.DeleteValue(k, name)
+        except FileNotFoundError:
+            pass
 
 
 def install():
-    if not SERVICE.exists():
-        print("WARN: Service-Script fehlt:", SERVICE)
     k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY)
-    for name, cmd in VALS:
-        winreg.SetValueEx(k, name, 0, winreg.REG_SZ, cmd)
-        print("gesetzt:", name)
+    _delete_all(k)                       # alte/doppelte Eintraege migrieren
+    winreg.SetValueEx(k, VALUE_NAME, 0, winreg.REG_SZ, _command())
     winreg.CloseKey(k)
-    print("\nAutostart EIN. Service + UI (Tray) starten ab dem naechsten Login automatisch.")
+    print("Autostart EIN:", VALUE_NAME)
+    print("Kommando:", _command())
+    print("AEGIS (Service + UI/Tray) startet ab dem naechsten Login automatisch.")
 
 
 def uninstall():
     try:
         k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE)
     except FileNotFoundError:
-        print("Run-Key nicht vorhanden."); return
-    for name, _ in VALS:
-        try:
-            winreg.DeleteValue(k, name); print("entfernt:", name)
-        except FileNotFoundError:
-            print("war nicht gesetzt:", name)
+        print("Run-Key nicht vorhanden.")
+        return
+    _delete_all(k)
     winreg.CloseKey(k)
-    print("\nAutostart AUS.")
+    print("Autostart AUS.")
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ EXCLUDE_SUFFIXES = (
     ".log", ".env",
     ".key", ".pem", ".p12", ".pfx", ".cer", ".crt", ".sig",
     ".bak", ".old", ".tmp", ".temp", ".dump", ".bkp",
-    ".bat", ".cmd", ".ps1",   # Dev-Scripts raus; Endnutzer-Launcher via INCLUDE_BAT
+    ".bat", ".cmd", ".ps1",   # keine Launcher-/Dev-Skripte mehr — Produkt ist AEGIS.exe
 )
 # Dateinamen, die diese Substrings enthalten, werden ebenfalls ausgeschlossen.
 _EXCLUDE_SUBSTR = ("api_key", "api-key", "apikey",
@@ -43,21 +43,12 @@ _EXCLUDE_SUBSTR = ("api_key", "api-key", "apikey",
                    "private_key", "signing_key",
                    "ipc_token", "host_log", "ext_id")
 
-# Endnutzer-Launcher, die TROTZ .bat-Ausschluss ins ZIP MUESSEN (sonst kein Starter).
-INCLUDE_BAT = {
-    "AEGIS.bat",   # einziger Endnutzer-Launcher (alles ueber das Menue)
-}
-
-
 def should_skip(path: Path) -> bool:
     name = path.name
     if name in EXCLUDE_NAMES:
         return True
     if any(part in EXCLUDE_NAMES for part in path.parts):
         return True
-    # Endnutzer-Launcher trotz .bat-Ausschluss behalten
-    if name in INCLUDE_BAT:
-        return False
     if path.suffix.lower() in EXCLUDE_SUFFIXES:
         return True
     low = name.lower()

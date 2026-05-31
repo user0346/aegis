@@ -4,52 +4,57 @@ AEGIS - Installation
 REQUIREMENTS
 ------------
 - Windows 10 or 11 (64-bit)
-- Administrator account (first install only)
-- Python 3.11+  (the launcher uses the "py" launcher; install Python if missing)
+- No Python, no admin rights required. Everything is in the app.
 
 INSTALL
 -------
-1.  Move the entire extracted "AEGIS" folder to a permanent location,
-    e.g.  C:\AEGIS\   (avoid Desktop or Downloads).
+1.  Move the entire "AEGIS" folder to a permanent location,
+    e.g.  C:\Program Files\AEGIS\  or  C:\AEGIS\
+    (avoid Desktop or Downloads — keep the whole folder together).
 
-2.  Double-click  AEGIS.bat  and choose  [5] First-time setup.
-    Accept the Windows prompt if it appears.
+2.  Double-click  AEGIS.exe.
+    The interface opens and background protection starts automatically.
 
-3.  Wait until setup completes (1-2 minutes), then choose  [1] Start.
+3.  Open  Settings -> System  and click  "First-time setup".
+    This adds autostart at login, a desktop/start-menu shortcut, and the
+    integrity baseline. (One click — no console, no scripts.)
 
-AEGIS then runs quietly in the background and starts automatically
-with Windows.
+That's it. AEGIS protects in the background and starts with Windows.
 
-USE - everything is in one launcher: AEGIS.bat
-----------------------------------------------
-  [1] Start      [2] Open UI      [3] Stop      [4] Status
-  [5] First-time setup            [6]/[7] Autostart ON / OFF
-  [8] Re-pin integrity (after an update)
+USE - everything is a button in the app
+---------------------------------------
+Settings -> System card:
+  - First-time setup        (autostart + shortcut + baseline)
+  - Autostart ON / OFF
+  - Re-pin integrity        (after a deliberate update)
+  - Restart                 (clean restart of service + interface)
 
-The interface is optional - protection runs without it.
+Close the window any time — protection keeps running in the tray.
+Right-click the tray icon to reopen, hide, or fully stop protection.
 
 OPTIONAL FEATURES (off by default)
 ----------------------------------
-- Local AI (Ollama): enable in the app -> Settings.
+- Local AI (Ollama): enable in the app -> Settings. Runs fully local.
 - Voice control:      enable in the app -> Voice tab.
-Both run fully local; no account or key required.
+No account or API key required for either.
 
 SECURITY PIN
 ------------
-Set an Owner-PIN in Settings to protect autonomous actions.
+Set an Owner-PIN in Settings to protect autonomous actions and to require
+the PIN before protection can be stopped.
 
 UPDATES
 -------
-Updates are downloaded, signature-verified (cosign / Sigstore), and applied
-only after you confirm them in the app.
+New versions are shown in the app and applied after you confirm them
+(downloaded and signature-verified via cosign / Sigstore).
 
 UNINSTALL
 ---------
-1.  Run  AEGIS.bat -> [7] Autostart OFF   (stops autostart + scheduled task).
-2.  Delete the AEGIS folder.
+1.  Settings -> System -> Autostart OFF, then tray -> "Stop protection".
+2.  Delete the AEGIS folder. Remove the desktop/start-menu shortcut.
 
 SUPPORT
 -------
 Documentation:  https://github.com/user0346/aegis
 Security:       see SECURITY.md
-Bugs:           https://github.com/user0346/aegis/issues
+Issues:         https://github.com/user0346/aegis/issues
