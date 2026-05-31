@@ -134,6 +134,16 @@ class AegisWindow(QMainWindow):
                 _prof.clearHttpCache()
             except Exception:
                 log.exception("cache-disable failed (non-fatal)")
+            # KRITISCH: QtWebEngine sperrt den Zwischenablage-Zugriff aus JavaScript
+            # standardmaessig -> der Kopier-Button (clipboard-API UND execCommand("copy"))
+            # tut sonst GAR NICHTS und gibt keine Rueckmeldung. Hier explizit erlauben.
+            try:
+                from PyQt6.QtWebEngineCore import QWebEngineSettings
+                _st = self.view.page().settings()
+                _st.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+                _st.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanPaste, True)
+            except Exception:
+                log.exception("clipboard-settings failed (non-fatal)")
             self.channel = QWebChannel(self.view.page())
             self.channel.registerObject("aegis", self.bridge)
             self.view.page().setWebChannel(self.channel)

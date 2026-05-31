@@ -33,6 +33,10 @@ def _command() -> str:
     return '"%s" "%s"' % (_pythonw(), entry)
 
 
+_APPROVED_KEY = (r"Software\Microsoft\Windows\CurrentVersion"
+                 r"\Explorer\StartupApproved\Run")
+
+
 def _delete_all(k) -> None:
     for name in [VALUE_NAME, *_LEGACY_NAMES]:
         try:
@@ -41,11 +45,28 @@ def _delete_all(k) -> None:
             pass
 
 
+def _clean_startupapproved() -> None:
+    """Entfernt die Task-Manager-Status-Marker (StartupApproved) unserer Autostart-
+    Namen — sonst zeigt der Task-Manager 'Leichen' an, obwohl der Run-Wert weg ist."""
+    try:
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _APPROVED_KEY, 0,
+                           winreg.KEY_SET_VALUE)
+    except FileNotFoundError:
+        return
+    for name in [VALUE_NAME, *_LEGACY_NAMES]:
+        try:
+            winreg.DeleteValue(k, name)
+        except FileNotFoundError:
+            pass
+    winreg.CloseKey(k)
+
+
 def install():
     k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY)
     _delete_all(k)                       # alte/doppelte Eintraege migrieren
     winreg.SetValueEx(k, VALUE_NAME, 0, winreg.REG_SZ, _command())
     winreg.CloseKey(k)
+    _clean_startupapproved()
     print("Autostart EIN:", VALUE_NAME)
     print("Kommando:", _command())
     print("AEGIS (Service + UI/Tray) startet ab dem naechsten Login automatisch.")
@@ -59,6 +80,7 @@ def uninstall():
         return
     _delete_all(k)
     winreg.CloseKey(k)
+    _clean_startupapproved()
     print("Autostart AUS.")
 
 

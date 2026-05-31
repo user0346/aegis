@@ -310,8 +310,8 @@
 
   /* ---------- Chat-Verlauf (sichtbare Konversation) ---------- */
   function _copyToClipboard(text, btn){
-    const orig = "⧉ Kopieren";
-    function done(){ btn.textContent="✓ Kopiert"; setTimeout(function(){ btn.textContent=orig; }, 1200); }
+    const orig = btn ? btn.textContent : "";          // echten Button-Text merken (Bubble ODER "ganzer Chat")
+    function done(){ if(btn){ btn.textContent="✓ Kopiert"; setTimeout(function(){ btn.textContent=orig; }, 1200); } }
     function exec(){
       try{
         const ta=document.createElement("textarea");
@@ -327,6 +327,16 @@
     }catch(e){ /* fall through */ }
     exec();
   }
+  function copyWholeChat(){
+    const box=$("voice-history"); if(!box) return;
+    const lines=[];
+    box.querySelectorAll(".bubble").forEach(function(b){
+      const who = b.className.indexOf("bubble-user")>=0 ? "Du" : "AEGIS";
+      const t = (b.dataset && b.dataset.text) || "";
+      if(t) lines.push(who+": "+t);
+    });
+    if(lines.length) _copyToClipboard(lines.join("\n\n"), $("chat-copy-all"));
+  }
   function pushBubble(role, text){
     text=(text==null?"":String(text)).trim(); if(!text) return;
     const box=$("voice-history"); if(!box) return;
@@ -340,13 +350,11 @@
     tx.className="bubble-text";
     tx.textContent=text;                      // textContent -> XSS-sicher
     b.appendChild(tx);
-    if(role!=="user"){                        // Kopier-Button unter AEGIS-Antworten (wie im Chat gewohnt)
-      const cp=document.createElement("button");
-      cp.type="button"; cp.className="bubble-copy"; cp.title="Antwort kopieren";
-      cp.textContent="⧉ Kopieren";
-      cp.addEventListener("click", function(){ _copyToClipboard(text, cp); });
-      b.appendChild(cp);
-    }
+    const cp=document.createElement("button");  // Kopier-Button unter JEDER Nachricht (auch eigenen)
+    cp.type="button"; cp.className="bubble-copy"; cp.title="Nachricht kopieren";
+    cp.textContent="⧉ Kopieren";
+    cp.addEventListener("click", function(){ _copyToClipboard(text, cp); });
+    b.appendChild(cp);
     box.appendChild(b);
     while(box.children.length>40) box.removeChild(box.firstChild);
     box.scrollTop=box.scrollHeight;
@@ -394,6 +402,7 @@
       window._busyFailsafe=setTimeout(function(){ setVoiceState("idle"); },135000);  // Notbremse (>LLM-Timeout)
       if(window.aegis&&window.aegis.voiceText){ try{ window.aegis.voiceText(t); }catch(e){} } }
     const vsend=$("voice-send"); if(vsend) vsend.addEventListener("click",voiceSendText);
+    const ccopy=$("chat-copy-all"); if(ccopy) ccopy.addEventListener("click",copyWholeChat);
     const vinp=$("voice-text"); if(vinp) vinp.addEventListener("keydown",e=>{ if(e.key==="Enter") voiceSendText(); });
     const vmic=$("voice-mic"); if(vmic) vmic.addEventListener("click",()=>{ setTxt("voice-status","Hoere zu \u2026"); if(window.aegis&&window.aegis.voiceListen){ try{ window.aegis.voiceListen(); }catch(e){} } });
     const vstop=$("voice-stop"); if(vstop) vstop.addEventListener("click",()=>{ if(window.aegis&&window.aegis.stopSpeaking){ try{ window.aegis.stopSpeaking(); }catch(e){} } setTxt("voice-status","Abgebrochen"); });

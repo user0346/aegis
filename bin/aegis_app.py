@@ -91,7 +91,18 @@ def main() -> int:
         from aegis2.runtime.setup_all import main as m
         return m()
 
-    # default: UI-Shell (und sicherstellen, dass der Hintergrund-Schutz laeuft)
+    # default: UI-Shell (und sicherstellen, dass der Hintergrund-Schutz laeuft).
+    # Selbst-Installation: laeuft die gefrorene App aus einem losen Ort
+    # (Downloads/Desktop/Temp), an den festen Pfad kopieren + von dort neu starten;
+    # diese lose Instanz beendet sich dann (return 0).
+    try:
+        from aegis2.runtime.installer import (
+            maybe_self_install, run_first_time_setup_if_needed)
+        if maybe_self_install():
+            return 0
+        run_first_time_setup_if_needed()
+    except Exception:  # noqa: BLE001
+        pass
     _ensure_core_running()
     from aegis2.ui.app import run
     return run()

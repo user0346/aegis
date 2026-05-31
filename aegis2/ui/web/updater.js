@@ -16,6 +16,7 @@
 
   // Cached current update meta (set when modal opens, used by button clicks)
   let currentMeta = null;
+  let _progTimeout = null;      // Fallback, falls keine Server-Antwort kommt
 
   // ----- DOM refs -----
   const modal       = $("update-modal");
@@ -93,7 +94,9 @@
 
   // ----- Show / hide -----
   function open(meta) {
-    currentMeta = meta || {};
+    meta = meta || {};
+    if (!meta.version) return;          // leeres/kaputtes Event -> KEIN Modal zeigen
+    currentMeta = meta;
     titleEl.textContent = "Update verfügbar";
     subtitleEl.textContent =
       (meta.current ? "v" + meta.current : "—") + "  →  " + (meta.version || "—");
@@ -121,6 +124,7 @@
     document.body.style.overflow = "";
     currentMeta = null;
     progressEl.hidden = true;
+    if (_progTimeout) { clearTimeout(_progTimeout); _progTimeout = null; }
   }
 
   // ----- Backend calls -----
@@ -137,6 +141,10 @@
     }
   }
 
+  function _reenable() {
+    installBtn.disabled = false; laterBtn.disabled = false;
+    skipBtn.disabled = false; closeBtn.disabled = false;
+  }
   function startProgress(text, detail) {
     progressTxt.textContent = text || "Installation läuft…";
     progressSub.textContent = detail || "";
@@ -145,6 +153,12 @@
     laterBtn.disabled   = true;
     skipBtn.disabled    = true;
     closeBtn.disabled   = true;
+    if (_progTimeout) clearTimeout(_progTimeout);
+    _progTimeout = setTimeout(function () {
+      // keine Antwort vom Dienst -> nicht ewig haengen lassen, Schließen erlauben
+      progressSub.textContent = "Zeitüberschreitung — bitte erneut versuchen oder schließen.";
+      _reenable();
+    }, 120000);
   }
 
   // ----- Button handlers -----
@@ -209,7 +223,7 @@
       // GitHub-Updater emits with category=SYSTEM and msg starting "Update verfügbar"
       const cat  = (ev.category || ev.cat  || "").toString();
       const msg  = (ev.message  || ev.msg  || "").toString();
-      const data = ev.data || ev.payload || {};
+      const data = ev.metadata || ev.data || ev.payload || {};
 
       if (cat.toUpperCase() === "SYSTEM" && /update verf[uü]gbar/i.test(msg)) {
         open(data);
@@ -222,17 +236,19 @@
         if (name === "update.install") {
           const ok   = !!ev.ok;
           const step = (ev.step || ev.detail || "").toString();
+          if (_progTimeout) { clearTimeout(_progTimeout); _progTimeout = null; }
           if (ok && step === "done") {
             progressTxt.textContent = "Update installiert";
             progressSub.textContent = "Service wird neu gestartet…";
             setTimeout(close, 2500);
+          } else if (ok && step === "applying") {
+            // gefrorene .exe: der Swap-Helfer ersetzt + startet AEGIS gleich neu
+            progressTxt.textContent = "Update wird installiert";
+            progressSub.textContent = "AEGIS ersetzt sich und startet automatisch neu …";
           } else if (!ok) {
             progressTxt.textContent = "Installation fehlgeschlagen";
             progressSub.textContent = (ev.error || "siehe service-bg.log");
-            installBtn.disabled = false;
-            laterBtn.disabled   = false;
-            skipBtn.disabled    = false;
-            closeBtn.disabled   = false;
+            _reenable();
           } else if (step) {
             progressSub.textContent = step;
           }
