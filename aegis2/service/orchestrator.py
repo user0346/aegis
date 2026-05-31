@@ -337,9 +337,12 @@ class Orchestrator:
         """Testet den VirusTotal-Key (read-only Lookup des EICAR-Test-Hash) und
         meldet, wie viele Dateien bisher per VT geprueft wurden. Key bleibt DPAPI."""
         from ..cognition.secrets_store import get_secret
-        key = get_secret("vt_api_key")
+        # Test bevorzugt den GERADE EINGETIPPTEN Key (args) -> man kann vor dem Speichern
+        # testen. Sonst den gespeicherten. Beides leer -> klare Meldung statt Stille.
+        key = (args.get("vt_api_key") or "").strip() or get_secret("vt_api_key")
         if not key:
-            return {"configured": False}
+            return {"configured": False, "valid": False,
+                    "detail": "Kein Key eingegeben oder gespeichert."}
         try:
             lookups_done = self.db.count_vt_checked()
         except Exception:

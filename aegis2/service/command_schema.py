@@ -47,7 +47,7 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
         "tts_enabled": (_is_bool, False),
     },
     "settings.get": {},
-    "vt.status": {},
+    "vt.status": {"vt_api_key": (_is_str, False)},
 
     "consent.list":   {},
     "consent.decide": {

@@ -89,21 +89,30 @@ def main() -> int:
         ipc.start()
         token_path = Path.home() / ".aegis" / "ipc_token"
         token_path.parent.mkdir(parents=True, exist_ok=True)
-        token_path.write_text(ipc.token, encoding="utf-8")
-        # Token-Datei nur fuer den aktuellen User lesbar (defense-in-depth, wie in core.py).
+        # Evtl. kaputte ACL eines Vorlaufs nicht uebernehmen: erst loeschen (geht ueber
+        # das Ordner-Recht), dann frisch schreiben -> erbt saubere, lesbare Rechte.
         try:
-            import os as _os, sys as _sys
-            _os.chmod(token_path, 0o600)
+            token_path.unlink()
+        except Exception:  # noqa: BLE001
+            pass
+        token_path.write_text(ipc.token, encoding="utf-8")
+        # Token nur fuer den aktuellen User lesbar (defense-in-depth). WICHTIG: in EINEM
+        # icacls-Aufruf (Vererbung entfernen UND Grant zusammen) — getrennte Aufrufe koennen
+        # die Datei UNLESBAR machen, wenn der zweite fehlschlaegt (-> UI koppelt sich ab).
+        # Bei Fehler: /reset, damit die Datei garantiert lesbar bleibt.
+        try:
+            import sys as _sys
             if _sys.platform == "win32":
                 import getpass, subprocess as _sp
                 _usr = getpass.getuser()
-                _sp.run(["icacls", str(token_path), "/inheritance:r"],
-                        capture_output=True, timeout=5)
-                r = _sp.run(["icacls", str(token_path), "/grant:r", f"{_usr}:F"],
+                r = _sp.run(["icacls", str(token_path), "/inheritance:r",
+                             "/grant:r", f"{_usr}:F"],
                             capture_output=True, text=True, timeout=5)
                 if r.returncode != 0:
-                    log.warning("IPC-Token-ACL-Haertung fehlgeschlagen (icacls rc=%s).",
-                                r.returncode)
+                    log.warning("IPC-Token-ACL-Haertung fehlgeschlagen (rc=%s) — /reset, "
+                                "Datei bleibt lesbar.", r.returncode)
+                    _sp.run(["icacls", str(token_path), "/reset"],
+                            capture_output=True, timeout=5)
         except Exception:  # noqa: BLE001
             log.warning("IPC-Token-ACL-Haertung uebersprungen.")
         log.info("IPC running, token persisted (%s)", token_path)

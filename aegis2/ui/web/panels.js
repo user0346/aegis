@@ -414,8 +414,11 @@
     ["scan-filter-verdict","scan-filter-kind"].forEach(id=>{const e=$(id); if(e) e.addEventListener("change",()=>sendCmd("scan.items",{limit:500}));});
     const sv=$("save-settings"); if(sv) sv.addEventListener("click",saveSettings);
     const vtt=$("vt-test"); if(vtt) vtt.addEventListener("click",()=>{
-      const s=$("vt-status"); if(s){ s.textContent="Teste …"; s.style.color="var(--muted,#8a93a6)"; }
-      sendCmd("vt.status",{});
+      const s=$("vt-status");
+      const ke=$("vt-key"); const typed=ke?ke.value.trim():"";
+      if(s){ s.textContent="Teste …"; s.style.color="var(--muted,#8a93a6)"; }
+      // gerade eingetippten Key mittesten (vor dem Speichern); leer -> Backend meldet klar
+      sendCmd("vt.status", typed ? {vt_api_key:typed} : {});
     });
     const qr=$("quar-reload"); if(qr) qr.addEventListener("click",pollQuar);
     // voice-send + Enter sind bereits oben via voiceSendText (lokaler VoiceController) gebunden.

@@ -171,6 +171,10 @@ class AutonomyManager:
                     lv = int(pl)
                     if LEVEL_OFF <= lv <= LEVEL_SUGGEST:
                         self.session.level = lv
+                else:
+                    # Default beim ersten Start: SUGGEST (vorschlagen) statt OFF —
+                    # damit AEGIS von sich aus reagiert und Vorschlaege in die Consent-Queue legt.
+                    self.session.level = LEVEL_SUGGEST
             except Exception:  # noqa: BLE001
                 pass
 

@@ -76,6 +76,18 @@ class VoiceController:
         if bare:
             return self._finish(bare, text)
 
+        # 2b) DETERMINISTISCHE READ-ONLY-INFO-INTENTS — "was ist neu" (Changelog),
+        # "was hast du gelernt", KB-/Status-/Threats-/USB-Abfragen. Diese SOLLEN
+        # nicht vom Verstaendnis-Router als Smalltalk ("none") verworfen werden
+        # (der Ollama-Prompt kennt sie nicht). Sicher, weil rein lesend.
+        try:
+            det = intent_mod.classify(clean)
+            if det.get("intent") in ("whats_new", "learnings", "kb_status",
+                                      "status", "threats", "usb", "scan_status"):
+                return self._finish(det, text)
+        except Exception:  # noqa: BLE001
+            pass
+
         # 3) MODELL — VERSTÄNDNIS-ROUTER: klassifiziert natuerliche Sprache nach BEDEUTUNG
         # (volles Intent-Enum). Ist das Modell offline, faellt AEGIS auf die volle Regex
         # als Sicherheitsnetz zurueck (lieber funktionsfaehig mit seltenem Fehlgriff als
