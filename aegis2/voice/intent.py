@@ -47,6 +47,13 @@ _PATTERNS = [
         r"|\bdein\w*\s+fortschritt\b"
         r"|\bwie\s+(?:sehr\s+)?(?:entwickelst|verbesserst)\s+du\s+dich\b"
         r"|\bbist\s+du\s+(?:jetzt\s+)?besser\s+geworden\b", re.I)),
+    # Update-Signatur pruefen ("verifiziere mein Update", "pruefe die Signatur", "ist das
+    # Update echt?"). MUSS vor 'scan' stehen, sonst faengt scan das "pruef" ab.
+    ("verify", re.compile(
+        r"\bverifizier\w*\b|\bverify\b"
+        r"|\b(?:pr[üu]f\w*|check\w*|kontrollier\w*|teste?|stimmt)\b[^.?!]{0,30}\b(?:signatur\w*|update|version)\b"
+        r"|\bsignatur\w*\b[^.?!]{0,30}\b(?:pr[üu]f\w*|verifizier\w*|check\w*|stimmt|g[üu]ltig|echt|in\s+ordnung)\b"
+        r"|\bist\s+(?:das|mein\w*|die|der)\s+(?:update|version|exe|datei|download|zip)\b[^.?!]{0,30}\b(?:signiert|echt|verifiziert|original)\b", re.I)),
     # Datum/Uhrzeit-Frage (auch nacktes "uhrzeit"/"datum") -> deterministisch aus Systemzeit.
     # Steht FRUEH, damit "uhrzeit" nicht als Website (uhrzeit.com) geoeffnet wird.
     ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
@@ -117,7 +124,7 @@ _PATTERNS = [
 # status, threats, knowledge, learnings, usb, ...) sind hier BEWUSST NICHT drin -> sie
 # laufen ueber das Modell, das nach BEDEUTUNG entscheidet. So loest "scannow" oder ein
 # "suche" mitten im Satz keinen Fehl-Befehl mehr aus.
-_COMMAND_NAMES = {"run_command", "shell_denied", "restart", "development", "datetime",
+_COMMAND_NAMES = {"run_command", "shell_denied", "restart", "development", "verify", "datetime",
                   "set_wake", "forget", "set_alias", "remember", "learn_url", "learn",
                   "play", "media", "find_file", "close_app"}
 _COMMAND_PATTERNS = [(n, p) for (n, p) in _PATTERNS if n in _COMMAND_NAMES]

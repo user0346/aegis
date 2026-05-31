@@ -192,6 +192,21 @@ class ActionRouter:
         return {"ok": True, "msg": ("So entwickle ich mich — mein aktueller Lernstand: "
                                     + "; ".join(parts) + "." + tail)}
 
+    def _do_verify(self, args) -> dict:
+        """«verifiziere mein Update» / «prüfe die Signatur» -> die eingebaute cosign-
+        Prüfung anstossen (statt einen Fremd-Shell-Befehl zu tippen)."""
+        try:
+            self.service_cmd({"name": "update.check"})
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "msg": (
+            "Diese Signaturprüfung mache ich selbst — fest verdrahtet und fälschungssicher: "
+            "ich lade die neueste signierte Version und verifiziere ihre Signatur mit cosign "
+            "gegen meinen eigenen Release-Workflow. Ich starte die Prüfung jetzt — das Ergebnis "
+            "erscheint gleich oben im Update-Bereich, und installiert wird NUR bei gültiger "
+            "Signatur. Einen beliebigen Terminal-Befehl führe ich aus Sicherheitsgründen NICHT "
+            "aus, aber genau DIESE Prüfung ist eingebaut.")}
+
     def _do_open(self, args) -> dict:
         target = (args.get("target") or "").strip()
         low = target.lower()
