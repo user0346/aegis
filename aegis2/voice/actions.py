@@ -158,6 +158,14 @@ class ActionRouter:
         if low in ("browser", "brave", "chrome", "edge"):
             webbrowser.open("https://www.google.com", new=2)
             return {"ok": True, "msg": "Browser geöffnet"}
+        # Terminal/Shell ist KEINE Website (niemals cmd.com) und wird nicht blind
+        # gestartet -> ehrlich erklaeren, wie man sie oeffnet.
+        if low in ("cmd", "eingabeaufforderung", "command prompt", "kommandozeile",
+                   "powershell", "terminal", "konsole"):
+            return {"ok": True, "msg": (
+                "Die Eingabeaufforderung öffnest du mit Windows-Taste + R, «cmd» eintippen, "
+                "Enter (oder «cmd» ins Startmenü tippen). Für die Signaturprüfung von AEGIS "
+                "brauchst du sie aber nicht — sag «verifiziere mein Update», das mache ich selbst.")}
         # Website/URL? -> direkt oeffnen (mit Blocklist-Pruefung)
         if low.startswith(("http://", "https://")) or re.match(r"^[a-z0-9][a-z0-9.\-]*\.[a-z]{2,}(/.*)?$", low):
             return self._open_url(target if low.startswith("http") else "https://" + target)
@@ -1316,6 +1324,39 @@ class ActionRouter:
                 f"Ehrlich gesagt kann ich die Sicherheit von «{subj}» nicht aus dem Bauch garantieren — "
                 "dazu müsste ich die echte Datei prüfen, statt zu raten. Lade es nur aus der offiziellen "
                 "Quelle, gib es mir zum Scannen («scan»), und im Zweifel: Finger weg.")}
+        _q = text.lower()
+        # "verifiziere mein Update / prüfe die Signatur / ist das Update echt?" -> AEGIS macht
+        # die Sigstore-Prüfung SELBST (fest verdrahtet) statt einen Fremd-Shell-Befehl zu tippen.
+        _wants_verify = bool(
+            re.search(r"\bverifizier\w*\b|\bverify\b", _q)
+            or re.search(r"\b(pr[üu]f\w*|check\w*|kontrollier\w*)\b.{0,25}\b(signatur\w*|update|version|download|exe)\b", _q)
+            or re.search(r"\bsignatur\w*\b.{0,25}\b(pr[üu]f\w*|check\w*|verifizier\w*|stimmt|g[üu]ltig|echt|in\s+ordnung)\b", _q)
+            or re.search(r"\bist\s+(?:das|mein\w*|die|der)\s+(?:update|version|exe|datei|download|zip)\b.{0,30}\b(signiert|echt|verifiziert|original|unver[äa]ndert)\b", _q)
+            or (re.search(r"\bcosign\b", _q) and re.search(r"\b(mach\w*|f[üu]hr\w*|kannst|k[öo]nnt\w*|sollst|bitte)\b", _q)))
+        if _wants_verify:
+            try:
+                self.service_cmd({"name": "update.check"})
+            except Exception:  # noqa: BLE001
+                pass
+            return {"ok": True, "msg": (
+                "Diese Signaturprüfung mache ich selbst — fest verdrahtet und fälschungssicher: "
+                "ich lade die neueste signierte Version und verifiziere ihre Signatur mit cosign "
+                "gegen meinen eigenen Release-Workflow (dieselbe Identitäts- und Issuer-Prüfung wie "
+                "in dem Befehl, den du meinst). Ich starte die Prüfung jetzt — das Ergebnis erscheint "
+                "gleich oben im Update-Bereich, und installiert wird NUR bei gültiger Signatur. "
+                "Einen beliebigen Terminal-Befehl führe ich aus Sicherheitsgründen NICHT aus, aber "
+                "genau DIESE Prüfung ist eingebaut.")}
+        # "cmd / Eingabeaufforderung / Terminal" bzw. "cmd und dann?" -> ECHTE Hilfe,
+        # niemals das kleine Modell 'cmd.com' raten lassen.
+        if (re.search(r"\b(cmd|eingabeaufforderung|command\s*prompt|powershell|terminal|konsole|kommandozeile)\b", _q)
+                and not re.search(r"\bscan\w*|\bdatei\b|\bprozess\b|\bvirus\b|\bbeende\b|\bschlie[sß]\w*|\bsicher\b|\bgef[äa]hrlich\b", _q)):
+            return {"ok": True, "msg": (
+                "Mit «cmd» ist die Windows-Eingabeaufforderung gemeint. So öffnest du sie: "
+                "Windows-Taste + R drücken, «cmd» eintippen, Enter — oder «cmd» ins Startmenü tippen. "
+                "Dann mit «cd <Ordnerpfad>» in den Ordner mit deiner Datei wechseln und den Befehl "
+                "einfügen (Rechtsklick = Einfügen, dann Enter).\n\nFür AEGIS selbst brauchst du das "
+                "aber nicht: die Signaturprüfung deiner Version mache ich automatisch — sag einfach "
+                "«verifiziere mein Update».")}
         # Datum/Uhrzeit deterministisch aus der Systemzeit (NIE vom Modell raten -> kein "2023").
         if re.search(r"\b(welches?\s+jahr|welcher\s+(?:wochen)?tag|welches?\s+datum|"
                      r"der\s+wievielte|welcher\s+monat|wie\s+sp[äa]t|wie\s?viel\s+uhr|"

@@ -73,20 +73,38 @@
       const coreMat = new THREE.ShaderMaterial({
         uniforms: cu, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
         vertexShader: [
-          "uniform float uTime; uniform float uActive; varying vec3 vN; varying vec3 vV;",
+          "uniform float uTime; uniform float uActive; varying vec3 vN; varying vec3 vV; varying vec3 vP;",
           "float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}",
           "float nz(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);",
           " return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),",
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
-          "void main(){vec3 p=position;float amp=0.022+uActive*0.16;float sp=0.15+uActive*0.6;",
+          "void main(){vec3 p=position;vP=position;float amp=0.022+uActive*0.16;float sp=0.15+uActive*0.6;",
           " float d=nz(normalize(p)*2.2+uTime*sp)*amp + nz(normalize(p)*4.5-uTime*sp*0.7)*amp*0.5*uActive;p+=normal*d;",
           " vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(p,1.0);vV=normalize(-mv.xyz);",
           " gl_Position=projectionMatrix*mv;}"
         ].join("\n"),
         fragmentShader: [
-          "uniform vec3 uColor;uniform float uIntensity;uniform float uFres;varying vec3 vN;varying vec3 vV;",
-          "void main(){float f=pow(1.0-max(dot(vN,vV),0.0),uFres);float c=pow(max(dot(vN,vV),0.0),1.5)*0.45;",
-          " float a=(f*1.3+c)*uIntensity;gl_FragColor=vec4(uColor*(0.55+f*1.7)*uIntensity,a);}"
+          "uniform vec3 uColor;uniform float uIntensity;uniform float uFres;uniform float uTime;uniform float uActive;",
+          "varying vec3 vN;varying vec3 vV;varying vec3 vP;",
+          "float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}",
+          "float nz(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);",
+          " return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),",
+          " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
+          "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<4;i++){v+=a*nz(p);p*=2.03;a*=0.5;}return v;}",
+          "void main(){",
+          " float fr=pow(1.0-max(dot(vN,vV),0.0),uFres);",        // Rand-Glow
+          " float rim=pow(max(dot(vN,vV),0.0),1.5)*0.45;",
+          " float face=pow(max(dot(vN,vV),0.0),1.15);",           // 1 zur Mitte, 0 am Rand
+          " float sp=0.10+uActive*0.32;",                         // Fliess-Tempo (schneller beim Arbeiten)
+          " vec3 q=vP*1.9+vec3(0.0,0.0,uTime*sp);",
+          " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
+          " float n=clamp(fbm(q+w*1.3),0.0,1.0);",
+          " float veins=smoothstep(0.55,0.92,n);",                // weiche heisse Adern
+          " float plasma=((0.32+0.68*n)*face + veins*0.45*face)*(0.7+uActive*0.95);",
+          " vec3 hot=mix(uColor,vec3(1.0),0.55);",
+          " vec3 col=uColor*(0.5+fr*1.6)+hot*plasma;",
+          " float a=(fr*1.2+rim+plasma*0.8)*uIntensity;",
+          " gl_FragColor=vec4(col*uIntensity,a);}"
         ].join("\n"),
       });
       this.core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 5), coreMat);
@@ -95,11 +113,22 @@
       // ---- heller Innenkern (fast weiss) ----
       const innerMat = new THREE.ShaderMaterial({
         uniforms: cu, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
-        vertexShader: "varying vec3 vN;varying vec3 vV;void main(){vN=normalize(normalMatrix*normal);" +
-          "vec4 mv=modelViewMatrix*vec4(position,1.0);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}",
-        fragmentShader: "uniform vec3 uColor;uniform float uIntensity;varying vec3 vN;varying vec3 vV;" +
-          "void main(){float c=pow(max(dot(vN,vV),0.0),2.0);vec3 col=mix(uColor,vec3(1.0),0.72);" +
-          "gl_FragColor=vec4(col*c*1.5*uIntensity,c*uIntensity);}",
+        vertexShader: "varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vN=normalize(normalMatrix*normal);" +
+          "vP=position;vec4 mv=modelViewMatrix*vec4(position,1.0);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}",
+        fragmentShader: [
+          "uniform vec3 uColor;uniform float uIntensity;uniform float uTime;uniform float uActive;",
+          "varying vec3 vN;varying vec3 vV;varying vec3 vP;",
+          "float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}",
+          "float nz(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);",
+          " return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),",
+          " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
+          "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<3;i++){v+=a*nz(p);p*=2.05;a*=0.5;}return v;}",
+          "void main(){float c=pow(max(dot(vN,vV),0.0),2.0);",
+          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.14+uActive*0.4),0.0));",   // langsames inneres Wabern
+          " float flick=0.82+0.36*n;",
+          " vec3 col=mix(uColor,vec3(1.0),0.72);",
+          " gl_FragColor=vec4(col*c*1.5*flick*uIntensity,c*uIntensity);}"
+        ].join("\n"),
       });
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 3), innerMat);
       scene.add(this.inner);
