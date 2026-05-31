@@ -525,6 +525,7 @@
 
   window.AegisBrain = Brain;
   document.addEventListener("DOMContentLoaded", () => {
+    if (window.__aegisBrainGLActive) return;   // WebGL-Core (brain-gl.js) hat uebernommen
     const c = document.getElementById("brain-canvas");
     if (c) { try { Brain.init(c); } catch (e) { /* still — nie crashen */ } }
   });
