@@ -1120,7 +1120,8 @@ class ActionRouter:
           "detaillierte information", "detailliert", "ausf\u00fchrlich", "alles genau"),
          "Ich bin dein lokaler Sicherheits-W\u00e4chter und Assistent, komplett offline auf deinem PC. "
          "Im Detail \u2014 SCHUTZ: ich \u00fcberwache laufend Prozesse, Dateien, Netzwerk, USB-Ger\u00e4te und "
-         "Treiber, blocke Gefahren-Domains und mache auf Wunsch einen vollen System-Scan mit "
+         "Treiber, blocke Gefahren-Domains (frag «ist beispiel.com geblockt?») und mache "
+         "auf Wunsch einen vollen System-Scan mit "
          "Quarant\u00e4ne (frag \u00abStatus\u00bb oder \u00abscanne das System\u00bb). STEUERN: Apps \u00f6ffnen und "
          "schlie\u00dfen, Musik und Videos (pausieren, fortsetzen, n\u00e4chster Titel, lauter), Webseiten "
          "\u00f6ffnen und im Web suchen. WISSEN: nachschlagen und dauerhaft merken \u2014 \u00ablerne: \u2026\u00bb, "
@@ -1132,6 +1133,75 @@ class ActionRouter:
         (("danke", "dankesch\u00f6n", "merci"), "Gern. Ich bin da, wenn du mich brauchst."),
         (("hallo", "hi ", "hey", "guten tag", "moin"), "Hallo. Ich bin bereit \u2014 sag 'Status' oder stell mir eine Frage."),
     ]
+
+    @staticmethod
+    def _extract_domain(text: str):
+        """Findet einen Domain-Namen (foo.bar / sub.foo.co.uk) im Text, sonst None.
+        Kontext-gegated genutzt, damit 'spotify' (App, kein Punkt) nicht greift."""
+        m = re.search(r"\b((?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})\b",
+                      text, re.I)
+        if not m:
+            return None
+        d = m.group(1).lower().rstrip(".")
+        labels = d.split(".")
+        if len(labels) == 2 and len(labels[0]) < 2:   # "z.Beispiel" u.ae. aussortieren
+            return None
+        return d
+
+    _DOM_CAT_LABEL = {
+        "ip-logger": "IP-Logger/Grabber", "tracker": "Analyse-Tracker",
+        "ad-tracker": "Werbung & Tracker", "phishing": "Phishing/Betrug",
+        "malware": "Malware",
+    }
+
+    def _domain_query_answer(self, domain) -> dict:
+        """Beantwortet «ist X geblockt?» (konkreter Lookup) und «welche/wie viele
+        Domains blockst du?» (Zusammenfassung) aus der echten Blockliste."""
+        from ..shared.db import get_db
+        db = get_db()
+        if domain:
+            try:
+                hit = db.is_blocked_domain(domain)
+            except Exception:  # noqa: BLE001
+                hit = None
+            if hit:
+                cat = self._DOM_CAT_LABEL.get(hit["category"], hit["category"])
+                return {"ok": True, "msg": (
+                    f"Ja — «{domain}» steht auf meiner Blockliste (Kategorie: {cat}). "
+                    "Verbindungsversuche dorthin erkenne ich und schlage an.")}
+            return {"ok": True, "msg": (
+                f"Nein — «{domain}» ist NICHT auf meiner Blockliste. Das heißt nicht "
+                "automatisch, dass sie sicher ist — ich blocke bekannte Gefahren- und "
+                "Tracker-Domains. Im Zweifel gib mir den Link oder die Datei zum Scannen.")}
+        # Zusammenfassung der ganzen Liste
+        try:
+            cats = db.domain_count_by_category()
+        except Exception:  # noqa: BLE001
+            cats = {}
+        total = sum(cats.values())
+        if not total:
+            return {"ok": True, "msg": ("Meine Domain-Blockliste ist gerade leer — sie wird "
+                                        "beim ersten Start im Hintergrund gefüllt.")}
+
+        def _de(n):   # 87517 -> "87.517"
+            return f"{n:,}".replace(",", ".")
+        lines = [f"• {self._DOM_CAT_LABEL.get(k, k)}: {_de(v)}"
+                 for k, v in sorted(cats.items(), key=lambda x: -x[1])]
+        examples = []
+        for c in ("ip-logger", "phishing", "tracker"):
+            try:
+                for r in db.domains_by_category(c, limit=2):
+                    examples.append(r["domain"])
+            except Exception:  # noqa: BLE001
+                pass
+        msg = (f"Ich blocke aktuell {_de(total)} bekannte Gefahren- und Tracker-Domains "
+               "(kuratierte StevenBlack-Hosts-Liste + meine eigenen Muster):\n"
+               + "\n".join(lines))
+        if examples:
+            msg += "\n\nBeispiele: " + ", ".join(examples[:5]) + " …"
+        msg += ("\n\nFrag konkret «ist beispiel.com geblockt?» — dann prüfe ich die genaue "
+                "Domain für dich.")
+        return {"ok": True, "msg": msg}
 
     def _do_query(self, args) -> dict:
         text = (args.get("text", "") or "").strip()
@@ -1214,6 +1284,18 @@ class ActionRouter:
                         "msg": f"Ich laufe gerade auf dem lokalen Modell «{_m}» — über Ollama, komplett auf deinem PC."}
             return {"ok": True,
                     "msg": "Gerade läuft kein lokales Modell. Sag «ollama pull qwen2.5:7b», dann nutze ich es."}
+        # "welche/wie viele Domains blockst du?" + "ist X.com geblockt?" -> echte Blockliste
+        # abfragen, statt das Modell raten zu lassen.
+        _tlq = text.lower()
+        _block_word = bool(re.search(r"geblockt|blockst|blockier|gesperrt|sperrst|"
+                                     r"blocklist|blockliste|sperrliste", _tlq))
+        _dom_word = bool(re.search(r"\bdomains?\b|\bseiten\b|webseiten?|websites?|"
+                                   r"\badressen\b|\btracker\b", _tlq))
+        _dom_tok = self._extract_domain(text)
+        if ((_dom_tok and _block_word)
+                or (_dom_word and (_block_word
+                    or re.search(r"wie\s?viele?|wieviel|welche|liste|zeig|was\s+f[üu]r", _tlq)))):
+            return self._domain_query_answer(_dom_tok)
         # Sicherheits-Einschaetzung ("ist X safe/sicher/gefährlich/virus?") -> NIE halluzinieren.
         # Ein Security-Tool darf Unbekanntes nicht als 'safe' bezeichnen (Vorsichtsprinzip).
         sm = re.search(r"\bist\s+(?:der\s+|die\s+|das\s+|ein\s+|eine\s+)?(.+?)\s+(?:wirklich\s+)?"
