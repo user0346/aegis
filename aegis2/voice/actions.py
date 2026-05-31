@@ -824,6 +824,12 @@ class ActionRouter:
                                          "schließen — das machst du im Browser. Eine installierte App "
                                          "beende ich mit «beende <appname>», z.B. «beende spotify».")}
         base = re.sub(r"\.exe$", "", name)
+        # Alias -> tatsaechlicher Prozessname (z.B. "editor"->notepad, "rechner"->calc,
+        # "paint"->mspaint). Ohne diese Aufloesung wird die SELBST gestartete App beim
+        # Beenden nicht gefunden (sie laeuft ja als notepad.exe, nicht als "editor").
+        _mapped = SAFE_APPS.get(name) or SAFE_APPS.get(base)
+        if _mapped and ":" not in _mapped:    # URI-Apps (ms-settings:, camera:) auslassen
+            base = re.sub(r"\.exe$", "", _mapped.lower())
         try:                                  # Benutzer-Weckwort = ebenfalls Selbst-Alias
             from ..shared import user_memory
             own = (user_memory.get_wake_word() or "").strip().lower()
