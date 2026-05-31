@@ -1116,8 +1116,17 @@ class ActionRouter:
          "Ja \u2014 ich bin AEGIS, dein lokaler Sicherheits-Assistent. Ich laufe komplett auf deinem PC."),
         (("was kannst du lernen", "was lernst du", "wie lernst du", "kannst du lernen", "was kannst du dir merken", "wie merkst du dir"),
          "Lernen geht bei mir auf mehreren Wegen: \u00ablerne: \u2026\u00bb f\u00fcttert meine Wissensbasis, \u00abmerk dir, dass \u2026\u00bb speichert Fakten dauerhaft, und bei \u00abwas ist \u2026\u00bb schlage ich selbst nach und behalte es. Du kannst mir Shortcuts geben (\u00abspeicher das als lofi music \u2026\u00bb) und ein eigenes Weckwort. Aus Scans ziehe ich Erkenntnisse \u2014 frag \u00abwas hast du gelernt\u00bb."),
-        (("was kannst du", "hilfe", "kommando", "befehl", "was geht", "funktion", "was kannst du alles"),
-         "Ich \u00f6ffne und schlie\u00dfe Apps, spiele Musik/Videos ab, suche im Web, schlage Wissen nach und merke es mir, melde Status, scanne das System und zeige Bedrohungen. Sag z.B. \u00abstatus\u00bb, \u00ab\u00f6ffne discord\u00bb, \u00abspiele lofi\u00bb oder \u00ablerne: \u2026\u00bb."),
+        (("was kannst du", "hilfe", "kommando", "befehl", "was geht", "funktion", "was kannst du alles",
+          "detaillierte information", "detailliert", "ausf\u00fchrlich", "alles genau"),
+         "Ich bin dein lokaler Sicherheits-W\u00e4chter und Assistent, komplett offline auf deinem PC. "
+         "Im Detail \u2014 SCHUTZ: ich \u00fcberwache laufend Prozesse, Dateien, Netzwerk, USB-Ger\u00e4te und "
+         "Treiber, blocke Gefahren-Domains und mache auf Wunsch einen vollen System-Scan mit "
+         "Quarant\u00e4ne (frag \u00abStatus\u00bb oder \u00abscanne das System\u00bb). STEUERN: Apps \u00f6ffnen und "
+         "schlie\u00dfen, Musik und Videos (pausieren, fortsetzen, n\u00e4chster Titel, lauter), Webseiten "
+         "\u00f6ffnen und im Web suchen. WISSEN: nachschlagen und dauerhaft merken \u2014 \u00ablerne: \u2026\u00bb, "
+         "\u00abmerk dir, dass \u2026\u00bb, und \u00abwas hast du gelernt\u00bb. SYSTEM: Windows-Reparaturen "
+         "(sfc/dism/chkdsk), Uhrzeit, und in der App Update, Autostart, Neustart und die "
+         "Integrit\u00e4ts-Anzeige. Bedienen kannst du mich getippt oder per Sprache mit Weckwort."),
         (("wie geht", "alles gut", "wie l\u00e4uft", "geht es dir"),
          "Mir geht es gut, alle W\u00e4chter laufen. Sag 'Status' f\u00fcr die aktuelle Lage."),
         (("danke", "dankesch\u00f6n", "merci"), "Gern. Ich bin da, wenn du mich brauchst."),
