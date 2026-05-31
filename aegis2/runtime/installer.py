@@ -48,23 +48,28 @@ def is_canonical() -> bool:
 
 
 def _is_loose_location(d: Path) -> bool:
-    """True, wenn d unter Downloads/Desktop/Temp liegt (typischer 'einfach entpackt'-Ort)."""
-    nd = _norm(d)
+    """True, wenn der Bundle-Ordner DIREKT (1-2 Ebenen) in Downloads/Desktop/Temp
+    liegt — der typische 'ZIP einfach entpackt'-Fall. Tief verschachtelte/bewusste
+    Pfade (z.B. ein Projekt UNTER dem Desktop) werden NICHT verschoben.
+
+    Bewusst KEIN Substring-Check auf '\\desktop\\' — der wuerde jeden Pfad treffen,
+    der irgendwo 'desktop' enthaelt (auch ein Repo unter C:\\Users\\x\\Desktop\\...)."""
     home = os.environ.get("USERPROFILE") or str(Path.home())
-    cands = [
-        Path(home) / "Downloads", Path(home) / "Desktop",
-        Path(home) / "OneDrive" / "Desktop", Path(home) / "OneDrive" / "Downloads",
-    ]
+    loose = set()
+    for c in (Path(home) / "Downloads", Path(home) / "Desktop",
+              Path(home) / "OneDrive" / "Desktop",
+              Path(home) / "OneDrive" / "Downloads"):
+        loose.add(_norm(c))
     for var in ("TEMP", "TMP"):
         v = os.environ.get(var)
         if v:
-            cands.append(Path(v))
-    for c in cands:
-        nc = _norm(c)
-        if nd == nc or nd.startswith(nc + os.sep):
-            return True
-    return ("\\downloads\\" in nd or nd.endswith("\\downloads")
-            or "\\desktop\\" in nd or "\\temp\\" in nd)
+            loose.add(_norm(v))
+    parents = [d.parent]
+    try:
+        parents.append(d.parent.parent)     # 'Downloads\\AEGIS-x64\\AEGIS'-Fall
+    except Exception:  # noqa: BLE001
+        pass
+    return any(_norm(p) in loose for p in parents)
 
 
 def _spawn_cleanup_helper(src: Path) -> None:

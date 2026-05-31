@@ -22,6 +22,9 @@ def main():
     targets = collect_integrity_targets(ROOT)
     db.set_setting("integrity_pinned_hashes", targets)
     db.set_setting("integrity_pinned_at", time.time())
+    # Frozen-Selbstpruefung: Pin der AEGIS.exe loeschen -> die (neue) .exe pinnt sich
+    # beim naechsten Start frisch, statt einen Fehlalarm 'exe-mismatch' auszuloesen.
+    db.set_setting("integrity_pinned_exe_hash", "")
     removed = False
     try:
         if SAFE_MODE_FLAG.exists():

@@ -26,6 +26,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -54,12 +55,17 @@ def _extract_bundle(zip_path: Path, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     dest_root = dest.resolve()
     with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.namelist():
+        for zi in zf.infolist():
+            member = zi.filename
             if not member.startswith("AEGIS/"):
                 continue
             rel = member[len("AEGIS/"):]
             if not rel:
                 continue
+            # Symlinks NICHT mitnehmen — ein praeparierter Symlink-Eintrag koennte sonst
+            # ausserhalb des Staging schreiben (Defense gegen Symlink-Zip-Slip/TOCTOU).
+            if (zi.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError(f"symlink member rejected: {member}")
             rel_norm = rel.replace("\\", "/")
             if (rel_norm.startswith("/") or rel_norm.startswith("//")
                     or (len(rel_norm) >= 2 and rel_norm[1] == ":")):
@@ -72,8 +78,24 @@ def _extract_bundle(zip_path: Path, dest: Path) -> None:
                 resolved.mkdir(parents=True, exist_ok=True)
             else:
                 resolved.parent.mkdir(parents=True, exist_ok=True)
-                with zf.open(member) as src, open(resolved, "wb") as dst:
+                with zf.open(zi) as src, open(resolved, "wb") as dst:
                     shutil.copyfileobj(src, dst)
+    _reject_reparse_points(dest)
+
+
+def _reject_reparse_points(root: Path) -> None:
+    """Nach dem Entpacken sicherstellen, dass KEIN Reparse-Point (Symlink/Junction)
+    im Baum liegt — ein TOCTOU-praeparierter Link koennte sonst nach aussen zeigen."""
+    import stat as _stat
+    reparse = getattr(_stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    for dp, dns, fns in os.walk(str(root)):
+        for n in list(dns) + list(fns):
+            try:
+                attrs = os.lstat(os.path.join(dp, n)).st_file_attributes
+                if attrs & reparse:
+                    raise ValueError(f"reparse point in staging: {os.path.join(dp, n)}")
+            except (OSError, AttributeError):
+                continue
 
 
 # Out-of-Process-Swap. Laeuft als eigener, fensterloser PowerShell-Prozess
@@ -88,7 +110,7 @@ $updir = Join-Path $env:USERPROFILE '.aegis\updates'
 function Get-AegisProcs {
   Get-CimInstance Win32_Process | Where-Object {
     ($_.Name -eq 'AEGIS.exe' -or $_.Name -eq 'QtWebEngineProcess.exe') -and
-    ($_.CommandLine -like ('*' + $Install + '*'))
+    $_.CommandLine -and $_.CommandLine.Contains($Install)
   }
 }
 
@@ -128,9 +150,13 @@ def _write_helper(install_dir: Path, staging: Path) -> Path:
     content = (_HELPER_TEMPLATE
                .replace("@@INSTALL@@", str(install_dir).replace("'", "''"))
                .replace("@@STAGING@@", str(staging).replace("'", "''")))
-    p = _update_dir() / "apply_update.ps1"
-    p.write_text(content, encoding="utf-8")
-    return p
+    # Eindeutiger, FRISCH+exklusiv angelegter Name (kein fester Pfad, den ein Angreifer
+    # vorab als Symlink platzieren koennte). Der Helfer loescht sich am Ende selbst.
+    fd, path = tempfile.mkstemp(suffix=".ps1", prefix="apply_update_",
+                                dir=str(_update_dir()))
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(content)
+    return Path(path)
 
 
 def _launch_helper(helper: Path) -> None:

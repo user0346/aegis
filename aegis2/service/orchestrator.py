@@ -724,6 +724,12 @@ class Orchestrator:
         from ..shared import launcher
         if launcher.is_frozen():
             try:
+                # Der .exe-Hash aendert sich durch das Update legitim -> Selbstpruefungs-
+                # Pin loeschen, damit die NEUE .exe sich frisch pinnt (kein 'exe-mismatch').
+                self.db.set_setting("integrity_pinned_exe_hash", "")
+            except Exception:  # noqa: BLE001
+                pass
+            try:
                 from ..runtime.exe_update import apply_frozen_update
                 return apply_frozen_update(meta)
             except Exception as e:  # noqa: BLE001

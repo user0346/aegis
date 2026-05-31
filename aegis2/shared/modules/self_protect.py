@@ -114,13 +114,23 @@ class SelfProtect(Module):
     # ---- Integrity ----
     def _integrity_boot_check(self) -> None:
         import sys as _sys
+        # Lag aus einer FRUEHEREN Sitzung ein Safe-Mode-Flag vor (Manipulation war
+        # erkannt, dann Neustart)? -> erneut durchsetzen statt stillschweigend
+        # vergessen. (Audit: 'Safe-Mode-Flag wurde beim Start nie geprueft'.)
+        if SAFE_MODE_FLAG.exists() and not self._safe_mode:
+            try:
+                why = SAFE_MODE_FLAG.read_text(encoding="utf-8")[:120]
+            except OSError:
+                why = "persisted"
+            self._enter_safe_mode("persisted:" + why)
+            self.emit(Severity.CRITICAL, Category.TAMPER,
+                      "Safe-Mode aus vorheriger Sitzung aktiv — es war eine Manipulation "
+                      "erkannt worden. Autonome Aktionen bleiben gesperrt, bis du "
+                      "'Integritaet neu pinnen' klickst.")
         if getattr(_sys, "frozen", False):
-            # Gefrorene Binary: die .py-Hash-Baseline ist gegenstandslos — der Code
-            # liegt im (idealerweise signierten) Exe-Bundle, nicht als lose .py.
-            # Integritaet ist hier an die Binary + den Respawn-Watchdog gebunden;
-            # das .py-Pinning wird uebersprungen (sonst leere Baseline ohne Nutzen).
-            self.emit(Severity.INFO, Category.TAMPER,
-                      "Integrity: gefrorene Binary — .py-Pinning uebersprungen")
+            # Gefrorene Binary: die laufende AEGIS.exe SELBST gegen einen gepinnten
+            # SHA-256 pruefen (die .py-Hash-Baseline ist hier gegenstandslos).
+            self._frozen_exe_integrity_check()
             return
         current = collect_integrity_targets(self.root)
         # Pinned hashes aus Settings
@@ -172,6 +182,38 @@ class SelfProtect(Module):
         else:
             self.emit(Severity.INFO, Category.TAMPER,
                       f"Integrity: {len(current)} Files unverändert")
+
+    def _frozen_exe_integrity_check(self) -> None:
+        """Selbstpruefung der gefrorenen AEGIS.exe: SHA-256 beim ersten Start pinnen,
+        danach bei jedem Start vergleichen. Abweichung = moeglicherweise ersetzt/
+        manipuliert -> Safe-Mode + CRITICAL. Nach einem legitimen Update wird der Pin
+        geloescht (Updater/Repin), damit die neue .exe sauber neu pinnt.
+
+        Hinweis: Der eingebettete Python-Bytecode (PYZ) ist an die .exe angehaengt,
+        also vom Hash MIT abgedeckt; nur die _internal-DLLs (Standardbibliotheken)
+        bleiben aussen vor — die Hauptangriffsflaeche 'AEGIS.exe ersetzt' ist erfasst."""
+        import sys as _sys
+        h = _hash_file(Path(_sys.executable))
+        if not h:
+            return
+        pinned = self.db.get_setting("integrity_pinned_exe_hash")
+        if not pinned or not isinstance(pinned, str):
+            self.db.set_setting("integrity_pinned_exe_hash", h)
+            self.db.set_setting("integrity_pinned_exe_at", time.time())
+            self.emit(Severity.INFO, Category.TAMPER,
+                      "Integrity: AEGIS.exe erstmals gepinnt — Selbstpruefung aktiv",
+                      {"sha256": h, "verified": True})
+            return
+        if h == pinned:
+            self.emit(Severity.INFO, Category.TAMPER,
+                      "Integrity: AEGIS.exe unveraendert (Selbstpruefung OK)",
+                      {"sha256": h, "verified": True})
+        else:
+            self._enter_safe_mode("exe-mismatch")
+            self.emit(Severity.CRITICAL, Category.TAMPER,
+                      "INTEGRITY-BREACH: AEGIS.exe weicht vom gepinnten Stand ab — "
+                      "moeglicherweise ersetzt/manipuliert! Autonome Aktionen gesperrt.",
+                      {"verified": False, "expected": pinned[:16], "got": h[:16]})
 
     def _enter_safe_mode(self, reason: str) -> None:
         if self._safe_mode:
