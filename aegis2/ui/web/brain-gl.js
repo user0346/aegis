@@ -105,17 +105,18 @@
 
       // ---- Arc-Reactor-Ringe ----
       this.rings = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
-          blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5 - i * 0.1 });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2 + i * 0.55, 0.012 + i * 0.004, 8, 170), m);
-        ring.rotation.x = Math.PI / 2 + i * 0.3; ring.rotation.y = i * 0.4;
-        ring._spin = (i % 2 === 0 ? 1 : -1) * (0.12 + i * 0.05);
+          blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.26 - i * 0.08 });
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35 + i * 0.5, 0.010 + i * 0.003, 8, 170), m);
+        // bewusst GEKIPPT (nicht Math.PI/2 = flach) -> kein harter edge-on-Strich
+        ring.rotation.x = 1.02 + i * 0.5; ring.rotation.y = 0.4 + i * 0.7;
+        ring._spin = (i % 2 === 0 ? 1 : -1) * (0.10 + i * 0.05);
         scene.add(ring); this.rings.push(ring);
       }
 
       // ---- Partikel-Swirl-Feld (additiv) ----
-      const N = 4200;
+      const N = 1500;
       const pos = new Float32Array(N * 3), seed = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         const u = Math.random(), v = Math.random();
@@ -129,7 +130,7 @@
       pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       pg.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
       const pu = { uTime: { value: 0 }, uColor: { value: this.col.clone() },
-                   uSize: { value: H / 12 }, uSpeed: { value: 1.0 }, uIntensity: { value: 1.0 } };
+                   uSize: { value: H / 17 }, uSpeed: { value: 1.0 }, uIntensity: { value: 1.0 } };
       this.pu = pu;
       const pMat = new THREE.ShaderMaterial({
         uniforms: pu, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -142,7 +143,7 @@
         ].join("\n"),
         fragmentShader: "uniform vec3 uColor;uniform float uIntensity;varying float vA;" +
           "void main(){vec2 d=gl_PointCoord-0.5;float r=length(d);" +
-          "float al=pow(1.0-smoothstep(0.0,0.5,r),1.6)*vA*uIntensity;gl_FragColor=vec4(uColor*1.6,al);}",
+          "float al=pow(1.0-smoothstep(0.0,0.5,r),1.7)*vA*uIntensity;gl_FragColor=vec4(uColor*1.25,al);}",
       });
       this.points = new THREE.Points(pg, pMat); scene.add(this.points);
 
@@ -155,7 +156,7 @@
       const W = this.stage.clientWidth || 460, H = this.stage.clientHeight || 460;
       this.renderer.setSize(W, H, false);
       this.camera.aspect = W / H; this.camera.updateProjectionMatrix();
-      if (this.pu) this.pu.uSize.value = H / 12;
+      if (this.pu) this.pu.uSize.value = H / 17;
     },
 
     _loop() {
@@ -195,7 +196,7 @@
       for (const ring of this.rings) {
         ring.rotation.z += ring._spin * dt * (0.6 + energy);
         ring.material.color.copy(this.col);
-        ring.material.opacity = 0.32 + energy * 0.3;
+        ring.material.opacity = 0.16 + energy * 0.20;
       }
 
       try { this.renderer.render(this.scene, this.camera); } catch (e) {}
