@@ -124,8 +124,8 @@
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
           "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<3;i++){v+=a*nz(p);p*=2.05;a*=0.5;}return v;}",
           "void main(){float c=pow(max(dot(vN,vV),0.0),2.0);",
-          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.05+uActive*0.16),0.0));",  // idle: sehr langsam
-          " float flick=0.92+(0.07+uActive*0.18)*n;",                       // idle: kaum, aktiv: nur sanft
+          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.09+uActive*0.22),0.0));",  // sanfter, lebendiger Schimmer
+          " float flick=0.90+(0.10+uActive*0.22)*n;",                       // weich, aber nicht eingefroren
           " vec3 col=mix(uColor,vec3(1.0),0.72);",
           " gl_FragColor=vec4(col*c*1.5*flick*uIntensity,c*uIntensity);}"
         ].join("\n"),
@@ -189,10 +189,13 @@
       // Tab unsichtbar -> nicht rendern (Strom sparen)
       if (document.hidden || !this.stage || this.stage.clientWidth === 0) return;
 
+      // Beim Denken den Kern WACH halten (re-assert je Frame) — sonst zerfaellt die
+      // Aktivitaet sofort und der Kern wirkt eingefroren ("starr, nichts passiert").
+      if (this.thinkingOn) this.stateTarget = Math.max(this.stateTarget, 0.62);
       this.state = lerp(this.state, this.stateTarget, 1 - Math.pow(0.5, dt));   // weicher Anstieg, kein Sprung
       this.threat = lerp(this.threat, this.threatTarget, 1 - Math.pow(0.002, dt));
       this.pulse *= Math.pow(0.12, dt);
-      this.stateTarget *= Math.pow(0.32, dt);                                   // zerfaellt schneller -> nie "zu lange" aktiv
+      this.stateTarget *= Math.pow(0.55, dt);                                   // ruhiger, nicht abrupter Zerfall
       this.threatTarget *= Math.pow(0.7, dt);
 
       let target = this.threat > 0.5 ? C_THREAT
@@ -201,10 +204,10 @@
                  : ((this.thinkingOn || this.state > 0.4) ? C_THINK : C_IDLE)));
       this.col.lerp(target, 1 - Math.pow(0.01, dt));
 
-      const energy = Math.min(1.0, this.state * 0.4 + this.pulse * 0.28 + this.threat * 0.45);
-      // "Aktivitaet" -> treibt Oberflaeche/Puls — bewusst STARK GEDAEMPFT, damit auch der
-      // Denk-Zustand ruhig bleibt (nur die FARBE wechselt deutlich, nicht das Tempo).
-      const active = Math.min(1, this.state * 0.5 + this.pulse * 0.16 + this.threat * 0.3);
+      const energy = Math.min(1.0, this.state * 0.45 + this.pulse * 0.3 + this.threat * 0.45);
+      // "Aktivitaet" -> treibt Drehung/Oberflaeche/Puls. Ruhig im Idle, beim Denken
+      // SPUERBAR (aber smooth) mehr — weder eingefroren noch hektisch.
+      const active = Math.min(1, this.state * 0.6 + this.pulse * 0.18 + this.threat * 0.3);
 
       this.cu.uTime.value = t; this.cu.uColor.value.copy(this.col);
       this.cu.uActive.value = active;
@@ -212,13 +215,13 @@
       this.pu.uTime.value = t; this.pu.uColor.value.copy(this.col);
       this.pu.uSpeed.value = 0.5 + energy * 0.5; this.pu.uIntensity.value = 0.7 + energy * 0.6;
 
-      // Drehung: eine RUHIGE, nahezu konstante Drift — ENTKOPPELT vom Denk-Zustand.
-      // Nur ein ECHTER Alarm (threat) zieht sie minimal an; Denken/Idle gleich langsam.
-      const k = dt * (0.04 + this.threat * 0.16);
-      this.core.rotation.y += k * 0.25; this.core.rotation.x += k * 0.035;
-      this.inner.rotation.y -= k * 0.28;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * (0.55 + active * 0.5)) * (0.004 + active * 0.018) + this.pulse * 0.02);
-      this.points.rotation.y += dt * 0.025;
+      // Drehung: ruhig, aber DEUTLICH lebendig — Idle driftet sanft sichtbar, Denken zieht
+      // spuerbar (aber smooth) an. Kein Einfrieren mehr, aber auch kein hektisches Spinnen.
+      const k = dt * (0.11 + active * 0.4 + this.threat * 0.35);
+      this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.05;
+      this.inner.rotation.y -= k * 0.34;
+      this.inner.scale.setScalar(1.0 + Math.sin(t * (0.8 + active * 0.9)) * (0.009 + active * 0.024) + this.pulse * 0.03);
+      this.points.rotation.y += dt * (0.04 + active * 0.12);
       // Gedanken-Ringe: zentrierte Halo-Kreise — im Idle ruhig sichtbar, beim Denken SANFT
       // heller (kein Aufblitzen). Kein Drehen (frontal) -> bleiben exakt zentriert.
       for (let ri = 0; ri < this.rings.length; ri++) {

@@ -62,7 +62,7 @@ _PATTERNS = [
     # echt/signiert" dort bleibt) und VOR query/search (sonst schwafelt das Modell,
     # statt wirklich zu pruefen).
     ("update", re.compile(
-        r"^\s*updates?\s*[?.!]*\s*$"
+        r"^\s*updat\w*\s*[?.!]*\s*$"                              # nacktes "Update/Updates", auch Tippfehler "Updatre"
         r"|\bgib\w*\b[^.?!]{0,18}\bupdates?\b"                    # "gibt es ein update", auch "gibt esd ein update"
         r"|\bist\s+[^.?!]{0,22}\b(?:update|version)\b[^.?!]{0,18}\b(?:da|verf[üu]gbar|drau[sß]en|online|raus|neuer)\b"
         r"|\b(?:update|neue\s+version)\b[^.?!]{0,12}\b(?:verf[üu]gbar|vorhanden|drau[sß]en)\b"

@@ -3,6 +3,10 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.7
+- „Update", „gibt es ein Update?" und Ähnliches lösen jetzt auch im getippten Chat wirklich die echte Versionsprüfung aus (vorher lief getippter Text am Befehl vorbei direkt ins Sprachmodell, das nur allgemeine Hinweise gab) — inklusive Toleranz für Tippfehler wie „Updatre"
+- Der Denk-Kern lebt wieder sichtbar: er war zuletzt zu still (fast eingefroren). Jetzt dreht er sich sanft sichtbar, bleibt beim Nachdenken wach und atmet ruhig — lebendig, aber ohne Hektik
+
 ## v2.4.6
 - „Gibt es ein Update?" beantworte ich jetzt wirklich: ich vergleiche deine Version mit der neuesten offiziellen und sage klar, ob du aktuell bist oder ob ein Update bereitsteht — statt nur allgemeine Hinweise zu geben. Auch „Update", „nach Updates suchen" oder „bin ich aktuell?" lösen die echte Prüfung aus
 - Die ausgewählte Stimme wird jetzt auch wirklich gesprochen: die neuronalen Stimmen (Killian, Conrad …) brauchen das Paket „edge-tts" — fehlte es, klang alles gleich (eine einzelne System-Stimme, weiblich), egal was du gewählt hast. Es gehört jetzt fest dazu. Das Stimmen-Menü sagt außerdem ehrlich, dass die Neural-Stimmen online laufen, während die „System-Stimme" offline funktioniert

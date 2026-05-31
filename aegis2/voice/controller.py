@@ -88,7 +88,8 @@ class VoiceController:
         try:
             det = intent_mod.classify(clean)
             if det.get("intent") in ("whats_new", "learnings", "kb_status",
-                                      "status", "threats", "usb", "scan_status"):
+                                      "status", "threats", "usb", "scan_status",
+                                      "update", "verify"):
                 return self._finish(det, text)
         except Exception:  # noqa: BLE001
             pass
