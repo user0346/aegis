@@ -114,20 +114,30 @@ class SelfProtect(Module):
     # ---- Integrity ----
     def _integrity_boot_check(self) -> None:
         import sys as _sys
-        # Lag aus einer FRUEHEREN Sitzung ein Safe-Mode-Flag vor (Manipulation war
-        # erkannt, dann Neustart)? -> erneut durchsetzen statt stillschweigend
-        # vergessen. (Audit: 'Safe-Mode-Flag wurde beim Start nie geprueft'.)
+        _frozen = getattr(_sys, "frozen", False)
+        # Entwickler-Checkout (git-Working-Tree, nur im Quellcode-Modus): Code-Aenderungen
+        # sind normale Entwicklung, KEIN Tamper -> Datei-Integritaet nicht als Alarm werten.
+        # Der echte Tamper-Schutz greift bei der GEFRORENEN exe (eigener SHA-Pin).
+        _is_dev = (not _frozen) and (self.root / ".git").exists()
+        # Lag aus einer FRUEHEREN Sitzung ein Safe-Mode-Flag vor? -> erneut durchsetzen.
+        # Im Dev-Checkout aber NICHT (kam meist aus einer Code-Aenderung) -> aufraeumen.
         if SAFE_MODE_FLAG.exists() and not self._safe_mode:
-            try:
-                why = SAFE_MODE_FLAG.read_text(encoding="utf-8")[:120]
-            except OSError:
-                why = "persisted"
-            self._enter_safe_mode("persisted:" + why)
-            self.emit(Severity.CRITICAL, Category.TAMPER,
-                      "Safe-Mode aus vorheriger Sitzung aktiv — es war eine Manipulation "
-                      "erkannt worden. Autonome Aktionen bleiben gesperrt, bis du "
-                      "'Integritaet neu pinnen' klickst.")
-        if getattr(_sys, "frozen", False):
+            if _is_dev:
+                try:
+                    SAFE_MODE_FLAG.unlink()
+                except OSError:
+                    pass
+            else:
+                try:
+                    why = SAFE_MODE_FLAG.read_text(encoding="utf-8")[:120]
+                except OSError:
+                    why = "persisted"
+                self._enter_safe_mode("persisted:" + why)
+                self.emit(Severity.CRITICAL, Category.TAMPER,
+                          "Safe-Mode aus vorheriger Sitzung aktiv — es war eine Manipulation "
+                          "erkannt worden. Autonome Aktionen bleiben gesperrt, bis du "
+                          "'Integritaet neu pinnen' klickst.")
+        if _frozen:
             # Gefrorene Binary: die laufende AEGIS.exe SELBST gegen einen gepinnten
             # SHA-256 pruefen (die .py-Hash-Baseline ist hier gegenstandslos).
             self._frozen_exe_integrity_check()
@@ -155,6 +165,20 @@ class SelfProtect(Module):
         for rel in current:
             if rel not in pinned_raw:
                 added.append(rel)
+
+        if _is_dev:
+            # Dev-Checkout: jede Aenderung/Neudatei ist normale Entwicklung -> still NEU
+            # PINNEN, KEIN Alarm, KEIN Safe-Mode (der Tamper-Schutz greift bei der exe).
+            if mismatches or missing or added:
+                self.db.set_setting("integrity_pinned_hashes", current)
+                self.db.set_setting("integrity_pinned_at", time.time())
+                self.emit(Severity.INFO, Category.TAMPER,
+                          f"Integrity (Dev-Checkout): {len(mismatches)} geaendert, "
+                          f"{len(added)} neu, {len(missing)} entfernt -> neu gepinnt")
+            else:
+                self.emit(Severity.INFO, Category.TAMPER,
+                          f"Integrity: {len(current)} Files unveraendert")
+            return
 
         if mismatches or missing:
             # Tamper detected → safe mode + critical event

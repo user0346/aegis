@@ -133,24 +133,8 @@
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
-      // ---- Gedanken-Ringe: konzentrische, EXAKT ZENTRIERTE Halo-Kreise um den Kern ----
-      // FRONTAL zur Kamera (rotation 0) -> perfekte konzentrische Kreise ohne Perspektiv-
-      // Versatz (keine Neigung = kein Verschieben), klar AUSSERHALB des Kerns/Glows.
+      // ---- Ringe entfernt (Nutzerwunsch — sahen nicht gut aus) — nur der Plasma-Kern ----
       this.rings = [];
-      const _rs = [
-        { r: 1.98, tube: 0.040, base: 0.20 },
-        { r: 2.28, tube: 0.035, base: 0.15 },
-        { r: 2.58, tube: 0.030, base: 0.11 },
-      ];
-      for (let i = 0; i < _rs.length; i++) {
-        const o = _rs[i];
-        const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
-          blending: THREE.AdditiveBlending, depthWrite: false, opacity: o.base });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(o.r, o.tube, 14, 220), m);
-        ring.rotation.set(0, 0, 0);          // frontal -> zentriert, kein Versatz
-        ring._base = o.base;
-        scene.add(ring); this.rings.push(ring);
-      }
 
       // ---- Partikel-Swirl-Feld (additiv) — auf Wunsch deaktiviert (0 = aus) ----
       const N = 0;
