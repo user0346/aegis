@@ -22,12 +22,12 @@ _PATTERNS = [
     ("run_command", re.compile(
         r"^\s*ollama\s+(?:pull|list|ls|ps|show|--version|-v)\b"
         r"|^\s*(?:sfc|chkdsk|dism|ipconfig|systeminfo|tasklist|driverquery|getmac|ping|tracert|tracepath|nslookup|pathping"
-        r"|netstat|arp|route|nbtstat|whoami|hostname|ver|vol|gpresult|where|tree|set|assoc|ftype|fc|sc|net|powershell|pwsh)\b"
+        r"|netstat|arp|route|nbtstat|whoami|hostname|ver|vol|gpresult|where|tree|set|assoc|ftype|fc|sc|net|query|klist|schtasks|powershell|pwsh)\b"
         r"|\b(?:sfc|chkdsk|dism)\s+[/\-]?\w"      # "sfc /scannow" auch nach Floskel ("mache bitte ...")
         r"|\b(?:f[üu]hr\w*|starte?|run|mach\w*|ausf[üu]hr\w*)\s+(?:bitte\s+)?"
         r"(?:den\s+(?:powershell-?)?(?:befehl|command)\s+|das\s+kommando\s+)?"
         r"(?:sfc|chkdsk|dism|ipconfig|systeminfo|tasklist|driverquery|getmac|ping|tracert|tracepath|nslookup|pathping"
-        r"|netstat|arp|route|nbtstat|whoami|hostname|ver|vol|gpresult|where|tree|sc|net|powershell|pwsh)\b", re.I)),
+        r"|netstat|arp|route|nbtstat|whoami|hostname|ver|vol|gpresult|where|tree|sc|net|query|klist|schtasks|powershell|pwsh)\b", re.I)),
     # Verlangter ZERSTÖRERISCHER/zu maechtiger Befehl -> ehrlich ablehnen (statt als
     # AEGIS-Scan misszudeuten). Sichere Diagnose-Tools sind oben bereits abgefangen.
     ("shell_denied", re.compile(
@@ -154,7 +154,7 @@ def _match(t: str, patterns: list, conf: float):
             # ("mache bitte sfc /scannow" / "führe den befehl sfc /scannow aus" -> "sfc /scannow")
             _tools = (r"ollama|sfc|chkdsk|dism|ipconfig|systeminfo|tasklist|driverquery|getmac|"
                       r"ping|tracert|tracepath|nslookup|pathping|netstat|arp|route|nbtstat|whoami|"
-                      r"hostname|ver|vol|gpresult|where|tree|set|assoc|ftype|fc|sc|net|powershell|pwsh")
+                      r"hostname|ver|vol|gpresult|where|tree|set|assoc|ftype|fc|sc|net|query|klist|schtasks|powershell|pwsh")
             mm = re.search(r"\b(?:" + _tools + r")\b.*$", t, flags=re.I)
             cmd = mm.group(0) if mm else t
             cmd = re.sub(r"\s+(?:bitte\s+)?(?:aus|ausf[üu]hren)\s*$", "", cmd, flags=re.I)

@@ -973,7 +973,10 @@ class ActionRouter:
         "ollama": {"pull", "list", "ls", "ps", "show", "--version", "-v"},
     }
     _CMD_BACKGROUND = {"pull"}     # langer Download -> nicht blockieren
-    _CMD_BAD_CHARS = set("&|;`$<>\"'\\") | {"\n", "\r", "\t"}
+    # Metachar-Block (Web-Recherche-gehaertet): zusaetzlich ^ % ! ( ) { } [ ] @ -> verhindert
+    # PowerShell-Subexpressions/Scriptblocks/Typ-Literale ( (...) {...} [...] ) UND cmd-
+    # Obfuskation (Caret ^, Env-Var %VAR%, Delayed-Expansion !VAR!, Splatting @).
+    _CMD_BAD_CHARS = set("&|;`$<>\"'\\^%!(){}[]@") | {"\n", "\r", "\t"}
 
     # Kuratierte, SICHERE Windows-Diagnose-/Reparatur-Tools, die AEGIS ausfuehren darf.
     # Wert = erlaubte Argumente ({"*"} = genau EIN Hostname/IP, leeres Set = ohne Args).
@@ -996,20 +999,39 @@ class ActionRouter:
         "ver": {"*flags*"}, "vol": {"*flags*"}, "netstat": {"*flags*"}, "nbtstat": {"*flags*"},
         "gpresult": {"*flags*"}, "where": {"*flags*"}, "tree": {"*flags*"},
         "set": {"*flags*"}, "assoc": {"*flags*"}, "ftype": {"*flags*"}, "fc": {"*flags*"},
-        # --- Tools MIT zerstoererischen Subbefehlen -> nur die LESENDEN zugelassen ---
-        "arp": {"-a", "-g"},
+    }
+    # Tools mit LESENDEM Unterbefehl + freiem Wert (z.B. «sc query <dienst>», «net view»,
+    # «arp -a <ip>», «query session»). parts[1] muss ein erlaubter Lese-Unterbefehl sein,
+    # weitere Args nur sichere Werte. Zerstoererische Unterbefehle (create/delete/stop/
+    # add/config/user/-d/-s/purge/print-only) sind NICHT in der Liste -> abgelehnt.
+    _SUBCMD_TOOLS = {
+        "arp":   {"-a", "-g", "-v"},
         "route": {"print"},
-        "sc": {"query", "queryex", "qc", "getdisplayname", "getkeyname", "enumdepend", "showsid"},
-        "net": {"view", "statistics", "config", "time", "accounts", "helpmsg"},
+        "sc":    {"query", "queryex", "qc", "qdescription", "qfailure", "qtriggerinfo",
+                  "enumdepend", "getkeyname", "getdisplayname", "showsid"},
+        "net":   {"view", "statistics", "config", "time", "session", "file", "accounts",
+                  "helpmsg", "help"},
+        "query": {"process", "session", "user", "termserver"},
+        "klist": {"", "tickets", "tgt", "sessions"},     # "" = klist ohne Unterbefehl; purge NICHT dabei
+        "schtasks": {"/query"},
     }
     _SAFE_BG = {"sfc", "dism", "chkdsk"}      # laufen lange -> im Hintergrund
 
     # Rein lesende/anzeigende PowerShell-Verben. Alles, was AENDERT/LOESCHT/STARTET
     # (Remove/Set/New/Stop/Start/Clear/Invoke/Add/Disable/Enable/Uninstall/Export/…)
     # ist bewusst NICHT dabei. Pipes/Verkettung sind durch den Metachar-Block ohnehin aus.
-    _PS_SAFE_VERBS = {"get", "test", "measure", "select", "sort", "where", "format",
-                      "compare", "group", "resolve", "show", "convertfrom", "convertto",
-                      "out", "find", "trace", "read", "split", "join"}
+    # Rein lesende PowerShell-Verben. BEWUSST RAUS (Web-Recherche): 'format' (Format-Volume
+    # formatiert Platten!), 'out' (Out-File schreibt Dateien), 'read' (Read-Host haengt),
+    # 'show'/'trace'/'write'/'split'/'join' (GUI/Datei/wertlos ohne Pipe). Bleibt: nur
+    # eindeutig zustandslose Verben.
+    _PS_SAFE_VERBS = {"get", "test", "measure", "select", "compare", "group",
+                      "resolve", "convertfrom", "convertto", "find", "sort"}
+    # Cmdlets, die trotz "sicherem" Verb NIE laufen duerfen (Code-Exec/Download/Datei/Hang).
+    _PS_BLOCK_CMDLETS = {"invoke-expression", "iex", "invoke-command", "invoke-item",
+                         "invoke-webrequest", "invoke-restmethod", "iwr", "curl", "wget",
+                         "new-object", "add-type", "start-process", "read-host",
+                         "out-file", "out-gridview", "get-credential", "tee-object",
+                         "format-volume", "start-bitstransfer", "set-content", "add-content"}
 
     # cmd.exe-INTERNE Befehle (haben keine eigene .exe) -> via «cmd /c» ausfuehren.
     # Sicher, weil parts bereits allowlisted + metachar-gefiltert sind.
@@ -1083,6 +1105,8 @@ class ActionRouter:
         tool = parts[0].lower()
         if tool in self._SAFE_TOOLS:           # sichere Windows-Diagnose-/Reparatur-Tools
             return self._run_safe_diag(tool, parts, command)
+        if tool in self._SUBCMD_TOOLS:         # Tools mit lesendem Unterbefehl + freiem Wert
+            return self._run_subcmd_tool(tool, parts, command)
         if tool in ("powershell", "pwsh", "ps"):   # nur EIN rein lesendes PowerShell-Cmdlet
             return self._run_safe_powershell(parts, command)
         allowed = self._CMD_WHITELIST.get(tool)
@@ -1184,6 +1208,14 @@ class ActionRouter:
         Pipes/Verkettung/Subexpressions sind durch den Metachar-Block bereits ausgeschlossen,
         also kann hier nur ein einzelnes Cmdlet stehen. Das Verb muss in _PS_SAFE_VERBS sein —
         alles, was aendert/loescht/startet, wird abgelehnt. shell=False, -NoProfile."""
+        # Gefaehrliche Cmdlets/Aliase (iex/iwr/curl/wget/Invoke-*/New-Object/Add-Type/Out-File/
+        # Read-Host/Format-Volume/…) ZUERST hart sperren — egal an welcher Stelle sie stehen
+        # (auch Aliase ohne Verb-Nomen-Form).
+        for p in parts[1:]:
+            if p.lower() in self._PS_BLOCK_CMDLETS:
+                return {"ok": False,
+                        "msg": (f"«{p}» führe ich nicht aus — das kann Code ausführen, herunterladen, "
+                                "Dateien schreiben oder hängen. Nur reine Lese-Cmdlets (Get-/Test-/Measure-…).")}
         cmdlet = ""
         idx = -1
         for i in range(1, len(parts)):
@@ -1218,6 +1250,34 @@ class ActionRouter:
         if proc.returncode == 0:
             return {"ok": True, "msg": (f"✓ «{command}»\n{out}" if out else f"✓ «{command}» ausgeführt.")}
         return {"ok": False, "msg": f"«{command}» fehlgeschlagen (Code {proc.returncode}).\n{out}"}
+
+    def _run_subcmd_tool(self, tool: str, parts: list, command: str) -> dict:
+        """Tools mit LESENDEM Unterbefehl + freiem Wert (sc query <dienst>, net view,
+        arp -a <ip>, query session, klist tickets, schtasks /query). parts[1] muss ein
+        erlaubter Lese-Unterbefehl sein; weitere Args nur sichere Werte (Flag-Muster)."""
+        subs = self._SUBCMD_TOOLS[tool]
+        sub = parts[1].lower() if len(parts) > 1 else ""
+        if sub not in subs:
+            ok_list = ", ".join(sorted(s for s in subs if s)) or "(ohne Unterbefehl)"
+            return {"ok": False,
+                    "msg": (f"«{tool} {sub}» ist nicht freigegeben — nur LESENDE Unterbefehle: "
+                            f"{ok_list}. Änderndes (create/delete/start/stop/add/set/-d/-s/print) lehne ich ab.")}
+        for a in parts[2:]:
+            if not re.match(r"^[/-]?[a-z0-9][a-z0-9/:._\-]{0,48}$", a.lower()):
+                return {"ok": False, "msg": f"«{a}» ist kein zulässiges Argument — abgelehnt."}
+        try:
+            proc = subprocess.run(parts, capture_output=True, text=True, errors="replace",
+                                  timeout=45, shell=False, creationflags=_NO_WINDOW)
+        except FileNotFoundError:
+            return {"ok": False, "msg": f"«{tool}» ist auf diesem System nicht verfügbar."}
+        except subprocess.TimeoutExpired:
+            return {"ok": True, "msg": f"«{command}» läuft länger als erwartet — im Hintergrund weiter."}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "msg": f"Fehler: {e}"}
+        out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        if len(out) > 700:
+            out = out[:700] + " …"
+        return {"ok": True, "msg": (f"✓ «{command}»\n{out}" if out else f"✓ «{command}» ausgeführt.")}
 
     def _run_diag_bg(self, parts: list, command: str) -> None:
         """Langlaufendes Diagnose-Tool im Hintergrund + Status merken + Abschluss-Meldung."""
