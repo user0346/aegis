@@ -29,7 +29,12 @@ class VoiceController:
         if on_stage: on_stage("listening")
         wav = recorder.record_until_silence()
         if not wav:
-            return {"ok": False, "stage": "record", "msg": "Kein Audio / kein Mikrofon."}
+            if not getattr(recorder, "HAS_AUDIO", True):
+                return {"ok": False, "stage": "record", "quiet": True,
+                        "msg": "Spracheingabe ist in dieser Version nicht aktiv — "
+                               "tippe deine Anweisung einfach unten ein."}
+            return {"ok": False, "stage": "record",
+                    "msg": "Kein Mikrofon gefunden — tippe deine Anweisung unten ein."}
         if on_stage: on_stage("thinking")
         text = stt.transcribe_wav(wav, language=language, prefer_local=self.prefer_local)
         if not text:

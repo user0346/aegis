@@ -28,6 +28,24 @@ TAB_ALIASES = {
 }
 
 
+def _is_log_noise(text: str) -> bool:
+    """True, wenn der Text wie eine rohe Log-/Ereigniszeile aussieht (kein 'Wissen')
+    — z.B. eine Bedrohungs-/Scan-Meldung. Solche Zeilen sollen NICHT als Fakt/Wissen
+    gemerkt werden, sonst vermuellt die Memory mit Telemetrie statt echtem Wissen."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if re.match(r"^\[?(?:THREAT|WARN|INFO|CRITICAL|QUARANTINE|DEBUG|ERROR)\]?[\s:\]]", t, re.I):
+        return True
+    if re.match(r"^\d{1,2}:\d{2}:\d{2}\b", t):              # fuehrender HH:MM:SS-Zeitstempel
+        return True
+    if re.search(r"\b(?:ProcessWatcher|FullScan|NetworkWatcher|FileWatcher|SelfProtect|"
+                 r"Scan-Item|EncodedCommand|MALICIOUS process pattern|Download/Exec-Cradle)\b",
+                 t, re.I):
+        return True
+    return False
+
+
 # Per Voice startbare Standard-Apps (Whitelist — keine beliebigen Programme!)
 SAFE_APPS = {
     "rechner": "calc", "calculator": "calc", "calc": "calc",
@@ -176,10 +194,22 @@ class ActionRouter:
         # Fuellwoerter (mir/mal/das/...) NIE als Domain interpretieren.
         _STOP = {"mir", "mal", "mich", "dir", "uns", "das", "die", "der", "den",
                  "es", "doch", "bitte", "eben", "kurz", "schnell", "etwas", "was"}
-        if low not in _STOP and re.match(r"^[a-z0-9][a-z0-9\-]{1,30}$", low):
+        if not target or low in _STOP:
+            return {"ok": False,
+                    "msg": "Was soll ich öffnen? Sag z.B. «öffne Discord» oder "
+                           "«öffne Visual Studio Code»."}
+        if re.match(r"^[a-z0-9][a-z0-9\-]{1,30}$", low):
+            # Einzelwort -> als Webseite <name>.com (Nutzer will "oeffnen")
             return self._open_url("https://" + low + ".com")
-        return {"ok": False,
-                "msg": f"'{target}' verstehe ich nicht. Sag 'öffne {low}.com' oder 'suche {target}'."}
+        # Mehrwort-Name, der KEINE installierte App / URL / bekannte Site ist (z.B.
+        # "VS Code", aber nicht installiert) -> ehrlich sagen + im Web nachschlagen,
+        # statt unsinnig '<name>.com' vorzuschlagen (Mehrwort-Namen sind keine Domains).
+        res = self._do_search({"query": target})
+        if isinstance(res, dict) and res.get("ok"):
+            res["msg"] = (f"«{target}» ist hier nicht als App installiert — "
+                          f"ich suche es für dich im Web.")
+            return res
+        return {"ok": False, "msg": f"«{target}» finde ich nicht als installierte App."}
 
     def _open_url(self, url: str) -> dict:
         try:
@@ -494,6 +524,9 @@ class ActionRouter:
         if not text or len(text) < 3:
             return {"ok": False,
                     "msg": "Was soll ich lernen? Sag z.B. «lerne: unser Büro-WLAN heißt Fritzbox7»."}
+        if _is_log_noise(text):
+            return {"ok": False,
+                    "msg": "Das ist eine Log-/Ereigniszeile, kein Wissen — die lerne ich bewusst nicht."}
         try:
             from ..shared import knowledge_base
             knowledge_base.learn(text)
@@ -574,6 +607,12 @@ class ActionRouter:
         text = (args.get("text") or "").strip().rstrip(".!").strip()
         if not text:
             return {"ok": False, "msg": "Was soll ich mir merken?"}
+        if _is_log_noise(text):
+            return {"ok": False,
+                    "msg": ("Das sieht nach einer Log-/Ereigniszeile aus (z.B. eine "
+                            "Bedrohungs-Meldung) — die merke ich mir bewusst NICHT als "
+                            "Wissen. Sag mir lieber einen echten Fakt, z.B. «merk dir, "
+                            "dass mein Hund Rex heißt».")}
         from ..shared import user_memory
         # Meta-Referenz aufs Gespraech -> echten Verlauf merken statt des Satzes
         if re.search(r"\b(gespräch\w*|gesprächsverlauf|unterhaltung|chat\w*|verlauf|"
