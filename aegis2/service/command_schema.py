@@ -53,6 +53,7 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
     "system.repin":     {},
     "system.setup":     {},
     "system.restart":   {},
+    "integrity.status": {},
 
     "consent.list":   {},
     "consent.decide": {

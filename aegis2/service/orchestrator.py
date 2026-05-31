@@ -197,6 +197,20 @@ class Orchestrator:
         launcher.spawn("restart")
         return {"restarting": True}
 
+    def _cmd_integrity_status(self, args: dict) -> dict:
+        """Selbst-Integritaets-Status fuer das Header-Badge (gefrorene .exe-Pruefung).
+        verified = gefroren, exe gepinnt UND kein Safe-Mode."""
+        import sys as _s
+        from pathlib import Path as _P
+        frozen = bool(getattr(_s, "frozen", False))
+        safe = (_P.home() / ".aegis" / ".safe_mode").exists()
+        try:
+            pinned = bool(self.db.get_setting("integrity_pinned_exe_hash"))
+        except Exception:  # noqa: BLE001
+            pinned = False
+        return {"frozen": frozen, "pinned": pinned, "safe_mode": safe,
+                "verified": bool(frozen and pinned and not safe)}
+
     def _cmd_event_inject(self, args: dict) -> dict:
         """Externer Client (Browser-Guard Native-Host) injiziert ein Event in den
         Live-Bus -> erscheint sofort im Stream.

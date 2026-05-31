@@ -382,12 +382,36 @@
       else if(ev.name==="autonomy.set_pin") setTxt("autonomy-hint",(ev.data&&ev.data.ok)?"✓ Pin gesetzt — Stufe jetzt wählbar":("Pin abgelehnt: "+((ev.data&&ev.data.msg)||"?")));
       else if(ev.name==="autonomy.end_session") loadAutonomy();
       else if(ev.name==="vt.status") renderVtStatus(ev.data);
+      else if(ev.name==="integrity.status") updateIntegrityPill(ev.data);
       return;
     }
     if(ev.severity&&ev.source==="NetworkWatcher") onNetEvent(ev);
+    // Selbst-Integritaets-Event -> Badge sofort (Breach nicht erst beim naechsten Poll)
+    if(ev.category && String(ev.category).toUpperCase()==="TAMPER" && ev.message){
+      const m=String(ev.message);
+      if(/INTEGRITY-BREACH|exe-mismatch|weicht vom gepinnten|Safe-Mode/i.test(m)) updateIntegrityPill({safe_mode:true});
+      else if(/AEGIS\.exe.*(unver|gepinnt)|Selbstpruefung OK/i.test(m)) updateIntegrityPill({frozen:true,verified:true});
+    }
     // echtes Live-Event -> Gehirn feuert den passenden Waechter-Knoten (data-driven)
     if(ev.category && window.AegisBrain && window.AegisBrain.activateForEvent){
       try{ window.AegisBrain.activateForEvent(ev); }catch(e){}
+    }
+  }
+
+  function updateIntegrityPill(d){
+    const el=$("integrity-pill"); if(!el) return;
+    if(d && d.safe_mode){
+      el.className="pill pill-bad"; el.textContent="⛨ VERÄNDERT?";
+      el.title="Selbst-Integrität: möglicher Eingriff erkannt (Safe-Mode). Nach einem legitimen Update «Integrität neu pinnen».";
+    } else if(d && d.frozen===false){
+      el.className="pill pill-mute"; el.textContent="⛨ DEV";
+      el.title="Läuft aus dem Quellcode — keine .exe-Selbstprüfung.";
+    } else if(d && d.verified){
+      el.className="pill pill-ok"; el.textContent="⛨ UNVERÄNDERT";
+      el.title="Die laufende AEGIS.exe entspricht dem gepinnten, geprüften Stand.";
+    } else {
+      el.className="pill pill-mute"; el.textContent="⛨ …";
+      el.title="Selbst-Integrität wird geprüft …";
     }
   }
 
@@ -492,7 +516,8 @@
     if(!window.aegis||!window.aegis.eventReceived||!window.aegis.eventReceived.connect){ setTimeout(attach,150); return; }
     window.aegis.eventReceived.connect(function(json){ let ev; try{ev=JSON.parse(json);}catch(_){return;} try{onEvent(ev);}catch(_){} });
     loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama();
-    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
+    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); sendCmd("integrity.status",{}); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
+    setTimeout(function(){ sendCmd("integrity.status",{}); }, 1500);   // frueh ein Status fuers Badge
     setInterval(renderNet,1000);
   }
 

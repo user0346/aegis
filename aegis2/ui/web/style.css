@@ -62,6 +62,7 @@ h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
 .pill{font-size:11px; font-weight:600; letter-spacing:.8px; padding:6px 13px; border-radius:999px; border:1px solid var(--line-2)}
 .pill-ok{color:var(--ok); border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.08); box-shadow:0 0 14px rgba(52,211,153,.14)}
 .pill-warn{color:var(--warn); border-color:rgba(251,191,36,.4); background:rgba(251,191,36,.08)}
+.pill-bad{color:#fca5a5; border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.12); box-shadow:0 0 14px rgba(248,113,113,.2)}
 .pill-mute{color:var(--dim)}
 
 /* ---------- views ---------- */
