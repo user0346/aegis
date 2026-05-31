@@ -57,7 +57,7 @@ _PATTERNS = [
     # Medien-Steuerung der LAUFENDEN Wiedergabe ("stoppe die musik", "pausiere
     # youtube", "nächster song", "lauter"). Verlangt Medien-Verb UND Medien-Objekt
     # (egal in welcher Reihenfolge) -> sendet einen Media-Tastendruck, KEINE Suche.
-    ("media", re.compile(r"(?=.*\b(stop\w*|pausier\w*|pause|anhalten|weiter|fortsetz\w*|n[äa]chst\w*|skip|[üu]berspring\w*|vorherig\w*|lauter|leiser|stumm\w*|mute|abspiel\w*|play)\b)(?=.*\b(musik|music|video|song|lied|wiedergabe|playback|youtube|spotify|titel|track|sound|ton)\b)", re.I)),
+    ("media", re.compile(r"(?=.*\b(stop\w*|pausier\w*|pause|anhalten|weiter\w*|fort\w*|n[äa]chst\w*|skip|[üu]berspring\w*|vorherig\w*|lauter|leiser|stumm\w*|mute|abspiel\w*|play)\b)(?=.*\b(musik|music|video|song|lied|wiedergabe|playback|youtube|spotify|titel|track|sound|ton)\b)", re.I)),
     # Nackte URL/Domain ("youtube.com", "https://...") -> direkt oeffnen
     ("open", re.compile(r"^\s*(https?://\S+|[a-z0-9][a-z0-9\-]*\.[a-z]{2,}(?:/\S*)?)\s*$", re.I)),
     # Lokale Datei-Suche (VOR 'search', sonst faengt 'finde' die Web-Suche).
