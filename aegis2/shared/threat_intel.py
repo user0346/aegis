@@ -408,20 +408,29 @@ SUSPICIOUS_CMD_PATTERNS = [
 
 
 _PS_ENC_RE = re.compile(r"-(?:enc\w*|ec)\b\s+([A-Za-z0-9+/=]{16,})", re.IGNORECASE)
-_PS_CRADLE_RE = re.compile(
-    r"(?:iex|invoke-expression|downloadstring|downloadfile|invoke-webrequest|\biwr\b|"
-    r"net\.webclient|frombase64string|start-process|reflection\.assembly|http://|https://)",
+# Ein echter Download/Exec-Cradle ist die KOMBINATION aus (a) etwas aus dem Netz
+# NACHLADEN und (b) es sofort AUSFUEHREN. Einzeln ist nichts davon boesartig: ein
+# blosses Start-Process, eine URL im Skript, ein lokales iex oder ein
+# Invoke-WebRequest -OutFile nutzen Entwickler-/Admin-Tools (und Code-Assistenten,
+# die PowerShell ueber -EncodedCommand starten) staendig voellig legitim.
+_PS_FETCH_RE = re.compile(
+    r"(?:downloadstring|downloadfile|downloaddata|invoke-webrequest|\biwr\b|"
+    r"invoke-restmethod|\birm\b|net\.webclient|net\.http|start-bitstransfer)",
     re.IGNORECASE)
+_PS_EXEC_RE = re.compile(
+    r"(?:\biex\b|invoke-expression|\|\s*iex\b|\[reflection\.assembly\]::|frombase64string)",
+    re.IGNORECASE)
+_PS_URL_RE = re.compile(r"https?://", re.IGNORECASE)
 
 
 def _check_encoded_powershell(cmdline: str):
-    """PowerShell -EncodedCommand bewerten OHNE pauschalen Fehlalarm. Legitime Tools
-    (Entwickler-/Admin-Tools wie z.B. Code-Assistenten, Paketmanager) nutzen -EncodedCommand
-    voellig normal -> nicht blind als Bedrohung werten. Erst DEKODIEREN und schauen, was der
-    Befehl WIRKLICH tut:
-      - dekodiert + Download/Exec-Cradle (iex, DownloadString, WebClient ...) -> echte
-        Verschleierung (score 80 -> THREAT)
-      - encoded, aber harmlos / nicht dekodierbar -> nur mild verdaechtig (score 45 -> WARN)
+    """PowerShell -EncodedCommand bewerten OHNE Fehlalarm-Flut. Legitime Tools
+    (Entwickler-/Admin-Tools, Paketmanager, Code-Assistenten) nutzen -EncodedCommand
+    voellig normal. Erst DEKODIEREN und schauen, was der Befehl WIRKLICH tut:
+      - dekodiert + aus dem Netz NACHLADEN *und* AUSFUEHREN (+ URL) -> echter
+        Download/Exec-Cradle (score 80 -> THREAT)
+      - sonst (encoded, aber kein Fetch-und-Run) -> nur informativ, KEIN Alarm
+        (score 35 < Suspicious-Schwelle); sonst schlaegt jedes Dev-Tool dauernd an.
     Returns (score, reason) oder (0, '')."""
     if not cmdline or "powershell" not in cmdline.lower():
         return 0, ""
@@ -435,9 +444,13 @@ def _check_encoded_powershell(cmdline: str):
             blob = base64.b64decode(bm.group(1) + "===").decode("utf-16-le", errors="ignore")
         except Exception:  # noqa: BLE001
             blob = ""
-    if blob and _PS_CRADLE_RE.search(blob):
-        return 80, "PowerShell EncodedCommand mit Download/Exec-Cradle (dekodiert) — echte Verschleierung"
-    return 45, "PowerShell EncodedCommand (verschleiert; oft auch legitime Entwickler-/Admin-Tools)"
+    if blob:
+        # NUR die Kombination Fetch + URL + Exec ist der echte Cradle-Pattern.
+        if (_PS_FETCH_RE.search(blob) and _PS_URL_RE.search(blob)
+                and _PS_EXEC_RE.search(blob)):
+            return 80, ("PowerShell EncodedCommand: aus dem Netz nachgeladen UND "
+                        "ausgefuehrt (Download/Exec-Cradle, dekodiert)")
+    return 35, "PowerShell EncodedCommand (verschleiert; bei Entwickler-/Admin-Tools normal)"
 
 
 def classify_process(name: str, cmdline: str, exe: str) -> dict:

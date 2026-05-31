@@ -309,15 +309,44 @@
   function voiceSend(){ const i=$("voice-text"); if(i&&i.value.trim()){ const t=$("voice-transcript"); if(t) t.textContent="…"; const st=$("voice-status"); if(st) st.textContent="Denkt…"; sendCmd("voice.text",{text:i.value.trim()}); i.value=""; } }
 
   /* ---------- Chat-Verlauf (sichtbare Konversation) ---------- */
+  function _copyToClipboard(text, btn){
+    const orig = "⧉ Kopieren";
+    function done(){ btn.textContent="✓ Kopiert"; setTimeout(function(){ btn.textContent=orig; }, 1200); }
+    function exec(){
+      try{
+        const ta=document.createElement("textarea");
+        ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; ta.style.left="-9999px";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta); done();
+      }catch(e){ /* still */ }
+    }
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, exec); return;
+      }
+    }catch(e){ /* fall through */ }
+    exec();
+  }
   function pushBubble(role, text){
     text=(text==null?"":String(text)).trim(); if(!text) return;
     const box=$("voice-history"); if(!box) return;
     const cls="bubble-"+(role==="user"?"user":"aegis");
     const last=box.lastElementChild;
-    if(last && last.textContent===text && last.className.indexOf(cls)>=0) return;  // dedup
+    if(last && last.dataset && last.dataset.text===text && last.className.indexOf(cls)>=0) return;  // dedup
     const b=document.createElement("div");
     b.className="bubble "+cls;
-    b.textContent=text;                       // textContent -> XSS-sicher
+    b.dataset.text=text;
+    const tx=document.createElement("div");
+    tx.className="bubble-text";
+    tx.textContent=text;                      // textContent -> XSS-sicher
+    b.appendChild(tx);
+    if(role!=="user"){                        // Kopier-Button unter AEGIS-Antworten (wie im Chat gewohnt)
+      const cp=document.createElement("button");
+      cp.type="button"; cp.className="bubble-copy"; cp.title="Antwort kopieren";
+      cp.textContent="⧉ Kopieren";
+      cp.addEventListener("click", function(){ _copyToClipboard(text, cp); });
+      b.appendChild(cp);
+    }
     box.appendChild(b);
     while(box.children.length>40) box.removeChild(box.firstChild);
     box.scrollTop=box.scrollHeight;

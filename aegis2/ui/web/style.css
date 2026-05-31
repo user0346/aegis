@@ -272,6 +272,10 @@ kbd{font-family:var(--fm); font-size:12px; background:rgba(255,255,255,.07); bor
 .bubble{max-width:85%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 .bubble-user{align-self:flex-end;background:linear-gradient(90deg,#38bdf8,#818cf8);color:#0b1020}
 .bubble-aegis{align-self:flex-start;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#e5e7eb}
+.bubble-text{white-space:pre-wrap;word-break:break-word}
+.bubble-copy{display:inline-flex;align-items:center;gap:4px;margin-top:7px;padding:3px 9px;font-size:11px;font-weight:500;line-height:1;cursor:pointer;color:#9fb0c3;background:transparent;border:1px solid rgba(255,255,255,.14);border-radius:7px;opacity:.6;transition:opacity .15s,background .15s,color .15s}
+.bubble-copy:hover{opacity:1;background:rgba(255,255,255,.08);color:#dbeafe}
+.bubble-copy:active{transform:translateY(1px)}
 /* ---- Memory-Ansicht ---- */
 .mem-body{display:flex;flex-direction:column;gap:1px}
 .mem-row{display:flex;gap:14px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.06)}

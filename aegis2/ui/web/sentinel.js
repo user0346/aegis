@@ -153,8 +153,19 @@
   document.addEventListener("DOMContentLoaded", () => {
     const reScan = $("driver-rescan");
     if (reScan) reScan.addEventListener("click", () => {
+      // Sichtbares Feedback: ohne diese Rueckmeldung weiss der Nutzer nicht, ob
+      // der Klick etwas ausgeloest hat (gerade wenn es keine auffaelligen Treiber gibt).
+      if (reScan.disabled) return;
+      const orig = reScan.dataset.label || reScan.textContent;
+      reScan.dataset.label = orig;
+      reScan.disabled = true;
+      reScan.textContent = "Scanne …";
       cmd("driver.rescan", {});
-      setTimeout(refresh, 2000);
+      setTimeout(() => {
+        refresh();
+        reScan.textContent = "✓ Aktualisiert";
+        setTimeout(() => { reScan.textContent = orig; reScan.disabled = false; }, 1800);
+      }, 2000);
     });
     const usbAdd = $("usb-block-add");
     if (usbAdd) usbAdd.addEventListener("click", () => {
