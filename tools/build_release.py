@@ -28,6 +28,11 @@ EXCLUDE_NAMES = {
     ".env", "staged.zip", "staged.json",
     ".ext_id", "install_host_log.txt", "generated_indexed_rulesets",
 }
+# Ausdruecklich ERLAUBTE Dateinamen — ueberschreiben den generischen Suffix-Ausschluss
+# (NICHT die Verzeichnis-/Secret-Ausschluesse). z.B. der legitime Quellcode-Installer,
+# der trotz ".cmd"-Regel ins Quell-Bundle gehoert.
+INCLUDE_NAMES = {"install.cmd"}
+
 # Suffixe, die NIE ins Release-ZIP gehoeren (State, Secrets, Build-Muell).
 EXCLUDE_SUFFIXES = (
     ".pyc", ".pyo", ".pyd",
@@ -49,6 +54,8 @@ def should_skip(path: Path) -> bool:
         return True
     if any(part in EXCLUDE_NAMES for part in path.parts):
         return True
+    if name in INCLUDE_NAMES:          # legitime Ausnahme (z.B. install.cmd) -> behalten
+        return False
     if path.suffix.lower() in EXCLUDE_SUFFIXES:
         return True
     low = name.lower()

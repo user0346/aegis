@@ -3,6 +3,9 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.5
+- Installation aus dem Quellcode ist jetzt ein Doppelklick: die neue `install.cmd` findet Python, installiert alles Nötige, richtet Autostart und Verknüpfung ein und startet mich. Das ist der zuverlässige Weg auf Rechnern, auf denen Windows „Smart App Control" die (noch unsignierte) .exe blockiert — und liegt jetzt auch dem Quellcode-Download bei
+
 ## v2.4.4
 - Der Denk-Kern ist jetzt durchgehend ruhig: Er dreht sich nur noch sehr langsam und gleichmäßig und wird auch beim Nachdenken nicht mehr hektisch. Den Denkzustand zeigt er über die hellere Farbe (und das Label „DENKE"), nicht über Tempo. Hintergrund-Ereignisse lassen ihn nicht mehr ständig aufflackern und klingen schnell wieder ab — dadurch hebt sich ein echter Alarm klar ab
 
