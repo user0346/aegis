@@ -133,18 +133,21 @@
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
-      // ---- Gedanken-Ringe (Gedankengaenge) ----
-      // Im Idle praktisch unsichtbar + fast still; beim Denken/Arbeiten ziehen sie an
-      // und kreisen sichtbar (ueber 'active' im Loop gesteuert) -> spiegeln die Kognition.
+      // ---- Gedanken-Ringe (Gedankengaenge) — 2 KRAEFTIGE, klar sichtbare Bahnen ----
+      // Sichtbar auch im Idle (ruhig kreisend), beim Denken heller + schneller -> Kognition.
+      // Dicke Tube (kein Haar-Strich) + gekreuzte Achsen = Atom-/Gyroskop-Look.
       this.rings = [];
-      for (let i = 0; i < 3; i++) {
+      const _rs = [
+        { r: 2.05, tube: 0.055, rx: 1.18, ry: 0.15, spin:  0.9, base: 0.24 },
+        { r: 2.36, tube: 0.048, rx: 0.42, ry: 1.22, spin: -0.7, base: 0.19 },
+      ];
+      for (let i = 0; i < _rs.length; i++) {
+        const o = _rs[i];
         const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
-          blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.0 });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.95 + i * 0.42, 0.012 + i * 0.004, 10, 220), m);
-        // auf verschiedenen Achsen GEKIPPT -> "Denk-Sphaere", kein harter edge-on-Strich
-        ring.rotation.x = 1.0 + i * 0.55; ring.rotation.y = 0.35 + i * 0.8;
-        ring._spin = (i % 2 === 0 ? 1 : -1) * (0.6 + i * 0.35);
-        ring._tilt = 0.10 + i * 0.05;
+          blending: THREE.AdditiveBlending, depthWrite: false, opacity: o.base });
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(o.r, o.tube, 18, 260), m);
+        ring.rotation.x = o.rx; ring.rotation.y = o.ry;
+        ring._spin = o.spin; ring._tilt = 0.05 + i * 0.03; ring._base = o.base;
         scene.add(ring); this.rings.push(ring);
       }
 
@@ -230,15 +233,14 @@
       this.inner.rotation.y -= k * 0.4;
       this.inner.scale.setScalar(1.0 + Math.sin(t * (1.3 + active * 5.0)) * (0.003 + active * 0.07) + this.pulse * 0.05);
       this.points.rotation.y += dt * (0.02 + energy * 0.15);
-      // Gedanken-Ringe: Opazitaet + Tempo spiegeln die Denk-Aktivitaet — Idle ~unsichtbar
-      // und ruhig, beim Denken sichtbar kreisend; ein Ereignis-Puls laesst sie aufblitzen.
+      // Gedanken-Ringe: im Idle SICHTBAR + ruhig kreisend, beim Denken heller + schneller;
+      // ein Ereignis-Puls laesst sie aufblitzen.
       for (let ri = 0; ri < this.rings.length; ri++) {
         const ring = this.rings[ri];
-        ring.rotation.z += ring._spin * dt * (0.12 + active * 1.7);
-        ring.rotation.x += ring._tilt * dt * active * 0.6;
+        ring.rotation.z += ring._spin * dt * (0.16 + active * 1.5);
+        ring.rotation.x += ring._tilt * dt * (0.1 + active * 0.6);
         ring.material.color.copy(this.col);
-        const fade = Math.max(0.0, active * (0.5 - ri * 0.12) - 0.012);
-        ring.material.opacity = fade + this.pulse * (0.18 - ri * 0.045);
+        ring.material.opacity = Math.min(0.85, ring._base + active * 0.42 + this.pulse * 0.25);
       }
 
       try { this.renderer.render(this.scene, this.camera); } catch (e) {}
