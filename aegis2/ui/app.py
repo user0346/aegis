@@ -9,10 +9,15 @@ from pathlib import Path
 # ─── CRITICAL: QtWebEngine-Setup MUSS vor QApplication passieren ──────────
 from PyQt6.QtCore import Qt, QCoreApplication
 QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
-# Chromium-Flag: Defender-CodeIntegrity-Check kann renderer blockieren
+# Chromium-Flags: (1) Defender-CodeIntegrity-Check kann renderer blockieren;
+# (2) GPU freischalten, damit das WebGL-Cognition-Visual echte Hardware nutzt statt
+# still auf SwiftShader (Software) zu fallen. Bei fehlender/blockierter GPU faellt
+# Chromium ohnehin sauber zurueck — und brain-gl.js erkennt SwiftShader und nutzt
+# dann den Canvas2D-Core (nie ein schwarzer Kern).
 os.environ.setdefault(
     "QTWEBENGINE_CHROMIUM_FLAGS",
-    "--disable-features=RendererCodeIntegrity",
+    "--disable-features=RendererCodeIntegrity "
+    "--ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy",
 )
 
 from PyQt6.QtCore import QSharedMemory
