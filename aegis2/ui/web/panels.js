@@ -383,6 +383,7 @@
       else if(ev.name==="autonomy.end_session") loadAutonomy();
       else if(ev.name==="vt.status") renderVtStatus(ev.data);
       else if(ev.name==="integrity.status") updateIntegrityPill(ev.data);
+      else if(ev.name==="learning.stats") updateDevelopment(ev.data);
       return;
     }
     if(ev.severity&&ev.source==="NetworkWatcher") onNetEvent(ev);
@@ -412,6 +413,37 @@
     } else {
       el.className="pill pill-mute"; el.textContent="⛨ …";
       el.title="Selbst-Integrität wird geprüft …";
+    }
+  }
+
+  /* ---------- Entwicklungs-/Lern-Anzeige (Dashboard) ---------- */
+  const DEV_ROWS=[
+    ["programs_known","Programme als normal gelernt"],
+    ["knowledge_entries","Wissens-Themen durchsuchbar"],
+    ["domains_blocked","Gefahren-Domains geblockt"],
+    ["patterns","Erkennungs-Muster verfeinert"],
+    ["malicious_known","Bösartige Objekte erkannt"],
+    ["insights","Reflektierte Erkenntnisse"],
+    ["notes","Notizen & Shortcuts"]
+  ];
+  function _devFmt(n){ return String(n==null?0:n).replace(/\B(?=(\d{3})+(?!\d))/g,"."); }
+  function updateDevelopment(d){
+    const ul=$("dev-list"); if(!ul||!d||!d.current) return;
+    const cur=d.current, delta=d.delta7||{};
+    let html="";
+    for(let i=0;i<DEV_ROWS.length;i++){
+      const k=DEV_ROWS[i][0], label=DEV_ROWS[i][1];
+      const v=cur[k]||0, dv=delta[k]||0;
+      const badge = dv>0 ? '<span class="dev-up">▲ +'+_devFmt(dv)+'</span>' : '';
+      html += '<li><span class="dev-label">'+label+'</span>'
+            + '<span class="dev-val">'+_devFmt(v)+badge+'</span></li>';
+    }
+    ul.innerHTML=html;
+    const since=$("dev-since");
+    if(since){
+      since.textContent = (d.days_tracked>1)
+        ? ('Trend über '+d.days_tracked+' Tage · ▲ = seit ~1 Woche')
+        : 'Sammle ab heute den Verlauf …';
     }
   }
 
@@ -516,8 +548,8 @@
     if(!window.aegis||!window.aegis.eventReceived||!window.aegis.eventReceived.connect){ setTimeout(attach,150); return; }
     window.aegis.eventReceived.connect(function(json){ let ev; try{ev=JSON.parse(json);}catch(_){return;} try{onEvent(ev);}catch(_){} });
     loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama();
-    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); sendCmd("integrity.status",{}); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
-    setTimeout(function(){ sendCmd("integrity.status",{}); }, 1500);   // frueh ein Status fuers Badge
+    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
+    setTimeout(function(){ sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); }, 1500);   // frueh: Badge + Lernstand
     setInterval(renderNet,1000);
   }
 

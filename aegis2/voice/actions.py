@@ -152,6 +152,46 @@ class ActionRouter:
         return {"ok": True, "msg": "Ich starte mich neu — das Fenster kommt gleich von selbst wieder. "
                                    "Einen Moment."}
 
+    def _do_development(self, args) -> dict:
+        """«zeig deine Entwicklung» / «Lernstand» -> aktueller Lernstand + Wochen-Trend.
+        Macht messbar sichtbar, dass AEGIS dazulernt."""
+        try:
+            from ..shared.db import get_db
+            from ..shared.development import development_stats
+            d = development_stats(get_db())
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "msg": "Meinen Lernstand konnte ich gerade nicht abrufen."}
+        cur = d.get("current", {})
+        delta = d.get("delta7", {})
+
+        def de(n):
+            return f"{int(n):,}".replace(",", ".")
+
+        def wd(k):
+            base = de(cur.get(k, 0))
+            dv = int(delta.get(k, 0) or 0)
+            return base + (f" (+{de(dv)})" if dv > 0 else "")
+        parts = [
+            f"{wd('programs_known')} Programme als normal gelernt",
+            f"{wd('knowledge_entries')} Wissens-Themen durchsuchbar",
+            f"{wd('domains_blocked')} Gefahren-Domains geblockt",
+            f"{wd('patterns')} Erkennungs-Muster verfeinert",
+            f"{wd('malicious_known')} bösartige Objekte erkannt",
+        ]
+        grew = any(int(delta.get(k, 0) or 0) > 0 for k in delta)
+        if d.get("days_tracked", 1) > 1 and grew:
+            tail = (" Die (+…) sind der Zuwachs seit rund einer Woche — ich werde messbar mehr. "
+                    "Den Live-Verlauf siehst du im Dashboard unter «Meine Entwicklung».")
+        else:
+            tail = (" Ab heute halte ich täglich einen Stand fest — dann erscheint hier der "
+                    "wöchentliche Zuwachs. Die Live-Karte ist im Dashboard unter «Meine Entwicklung».")
+        try:
+            self.ui_cmd({"action": "switch_tab", "tab": "dashboard"})
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "msg": ("So entwickle ich mich — mein aktueller Lernstand: "
+                                    + "; ".join(parts) + "." + tail)}
+
     def _do_open(self, args) -> dict:
         target = (args.get("target") or "").strip()
         low = target.lower()

@@ -64,6 +64,14 @@ h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
 .pill-warn{color:var(--warn); border-color:rgba(251,191,36,.4); background:rgba(251,191,36,.08)}
 .pill-bad{color:#fca5a5; border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.12); box-shadow:0 0 14px rgba(248,113,113,.2)}
 .pill-mute{color:var(--dim)}
+/* Entwicklungs-/Lern-Anzeige (Dashboard) */
+.dev-list{list-style:none;margin:0;padding:0}
+.dev-list li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+.dev-list li:last-child{border-bottom:none}
+.dev-list li.empty{justify-content:center;color:var(--dim);border:none}
+.dev-label{color:var(--dim);font-size:13px}
+.dev-val{font-variant-numeric:tabular-nums;font-weight:600;color:#dfe8f3;white-space:nowrap}
+.dev-up{color:#37d39a;font-size:12px;font-weight:600;margin-left:8px}
 
 /* ---------- views ---------- */
 .views{flex:1; padding:22px; max-width:1320px; width:100%; margin:0 auto}

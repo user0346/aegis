@@ -124,6 +124,11 @@ class Orchestrator:
                 m.start()
             except Exception:  # noqa: BLE001
                 log.exception("Module start failed: %s", getattr(m, "name", "?"))
+        try:                                   # taeglicher Lern-Schnappschuss (Trend-Basis)
+            from aegis2.shared.development import record_snapshot
+            record_snapshot(self.db)
+        except Exception:  # noqa: BLE001
+            pass
 
     def stop_all(self) -> None:
         for m in self.modules:
@@ -210,6 +215,12 @@ class Orchestrator:
             pinned = False
         return {"frozen": frozen, "pinned": pinned, "safe_mode": safe,
                 "verified": bool(frozen and pinned and not safe)}
+
+    def _cmd_learning_stats(self, args: dict) -> dict:
+        """Lern-/Entwicklungs-Statistik fuer die Dashboard-Karte + Sprachbefehl:
+        aktueller Lernstand + Wochen-Trend (aus Tages-Schnappschuessen)."""
+        from aegis2.shared.development import development_stats
+        return development_stats(self.db)
 
     def _cmd_event_inject(self, args: dict) -> dict:
         """Externer Client (Browser-Guard Native-Host) injiziert ein Event in den

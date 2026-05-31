@@ -143,6 +143,9 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
         "version": (lambda v: _is_str(v, 64), False),
     },
 
+    # Lern-/Entwicklungs-Statistik (read-only) — fuer die Dashboard-Karte + Sprachbefehl
+    "learning.stats": {},
+
     # Phase 5 — Driver/USB/Keylog (UI control + queries)
     "driver.list":    {"limit": (lambda v: _is_int(v, 1, 500), False)},
     "driver.rescan":  {},
