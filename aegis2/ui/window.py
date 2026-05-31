@@ -77,6 +77,29 @@ class AegisWindow(QMainWindow):
         self.setCentralWidget(self._fallback)
         log.info("AegisWindow constructor done (web deferred)")
 
+    def closeEvent(self, event):
+        # "X" minimiert in den Tray statt zu beenden — der Schutz laeuft im
+        # Background-Service weiter; die UI ist nur eine Ansicht.
+        if getattr(self, "_force_quit", False):
+            event.accept()
+            return
+        from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
+        tray = getattr(QApplication.instance(), "_aegis_tray", None)
+        if tray is None:
+            event.accept()
+            return
+        event.ignore()
+        self.hide()
+        if not getattr(self, "_tray_hint_shown", False):
+            try:
+                tray.showMessage(
+                    "AEGIS l\u00e4uft weiter",
+                    "Die \u00dcberwachung bleibt aktiv. \u00dcber das Tray-Icon wieder \u00f6ffnen.",
+                    QSystemTrayIcon.MessageIcon.Information, 4000)
+            except Exception:
+                pass
+            self._tray_hint_shown = True
+
     def showEvent(self, event):
         super().showEvent(event)
         QTimer.singleShot(50, lambda: _enable_mica(int(self.winId())))

@@ -35,6 +35,7 @@ class BootState:
     tpm_ready: Optional[bool] = None
     tpm_manufacturer: str = ""
     pcr_hashes: dict = field(default_factory=dict)  # {pcr_index: sha256}
+    pcr_available: Optional[bool] = None  # None=unbekannt, False=Elevation noetig, True=gelesen
     wdac_active: Optional[bool] = None
     wdac_policies: list = field(default_factory=list)
     defender_tamper: Optional[bool] = None
@@ -63,8 +64,23 @@ class BootState:
         sys_bitlocker = self.bitlocker_status.get("C:", {})
         if sys_bitlocker.get("protection") == "On": score += 10
         else: recommendations.append("BitLocker für C: nicht aktiv — Vollverschlüsselung empfohlen")
+        # PCR-/Boot-Chain-Status explizit ausweisen. Bei fehlender Elevation sind
+        # die PCRs NICHT lesbar -> Boot-Integritaet ist UNBEKANNT, nicht "intakt".
+        # Wir duerfen hier keinen "verified-clean"-Eindruck erwecken (fail-closed).
+        if self.pcr_available is True:
+            pcr_state = "available"
+        elif self.pcr_available is False:
+            pcr_state = "unavailable"
+            recommendations.append(
+                "PCR-Daten nicht verfügbar (Elevation nötig) — "
+                "Boot-Chain-Integrität ist UNBEKANNT, nicht verifiziert")
+        else:
+            pcr_state = "unknown"
+        # boot_chain_verified nur True, wenn PCRs tatsaechlich gelesen wurden.
         return {"score": score, "max": 100,
                 "level": "high" if score >= 80 else "medium" if score >= 50 else "low",
+                "pcr_state": pcr_state,
+                "boot_chain_verified": self.pcr_available is True,
                 "recommendations": recommendations}
 
 
@@ -108,9 +124,15 @@ def check_tpm() -> dict:
         return {"present": None, "ready": None, "manufacturer": ""}
 
 
-def check_pcr_hashes() -> dict:
+def check_pcr_hashes() -> tuple[dict, bool]:
     """Lese PCR-Register 0-7 (Pre-OS-Hash-Chain).
     Get-PcrTable ist in Win11+ verfügbar, sonst Fallback auf tpmtool.
+
+    Returns (hashes, available). available=False bedeutet, dass die PCR-Daten
+    NICHT gelesen werden konnten (i.d.R. fehlende Elevation/Adminrechte) — das
+    ist ausdruecklich KEIN sauberer Boot-Zustand, sondern "unbekannt". Der
+    Aufrufer darf available=False niemals als "Boot-Chain intakt" werten
+    (fail-closed).
     """
     out = _ps(
         "try {"
@@ -120,13 +142,17 @@ def check_pcr_hashes() -> dict:
         "  ConvertTo-Json -Compress"
         "} catch { '' }"
     )
-    if not out: return {}
+    # Leere Ausgabe = Cmdlet fehlgeschlagen (Elevation noetig / nicht verfuegbar)
+    # -> als "nicht verfuegbar" markieren, nicht als leeres/sauberes Ergebnis.
+    if not out: return {}, False
     try:
         data = json.loads(out)
         if isinstance(data, dict): data = [data]
-        return {str(d["Index"]): d.get("Hash", "") for d in data if "Index" in d}
+        hashes = {str(d["Index"]): d.get("Hash", "") for d in data if "Index" in d}
+        # Parste JSON, aber keine einzige PCR enthalten -> ebenfalls unbrauchbar.
+        return hashes, bool(hashes)
     except Exception:  # noqa: BLE001
-        return {}
+        return {}, False
 
 
 def check_wdac() -> dict:
@@ -206,7 +232,7 @@ def capture_state() -> BootState:
     state.tpm_present = tpm.get("present")
     state.tpm_ready = tpm.get("ready")
     state.tpm_manufacturer = tpm.get("manufacturer", "")
-    state.pcr_hashes = check_pcr_hashes()
+    state.pcr_hashes, state.pcr_available = check_pcr_hashes()
     wdac = check_wdac()
     state.wdac_active = wdac.get("active")
     state.wdac_policies = wdac.get("policies", [])
@@ -227,10 +253,18 @@ def compare_to_pin(current: BootState, pinned_dict: dict) -> list[str]:
         msgs.append("TPM-Manufacturer geändert — Hardware-Swap?")
     # PCR-Mismatches sind sehr aussagekräftig
     pinned_pcr = pinned_dict.get("pcr_hashes", {})
-    for k, v in pinned_pcr.items():
-        cur = current.pcr_hashes.get(k)
-        if cur and cur != v:
-            msgs.append(f"PCR{k} Mismatch (Boot-Chain manipuliert?)")
+    if pinned_pcr and current.pcr_available is False:
+        # Wir haben gepinnte PCRs, koennen sie aber aktuell NICHT lesen
+        # (Elevation noetig). Das ist kein "alles ok" — sondern wir koennen die
+        # Boot-Chain schlicht nicht verifizieren. Klar ausweisen (fail-closed),
+        # statt den Mismatch-Check stillschweigend zu ueberspringen.
+        msgs.append("PCR-Daten nicht verfügbar (Elevation nötig) — "
+                    "Boot-Chain gegen Pin nicht prüfbar")
+    else:
+        for k, v in pinned_pcr.items():
+            cur = current.pcr_hashes.get(k)
+            if cur and cur != v:
+                msgs.append(f"PCR{k} Mismatch (Boot-Chain manipuliert?)")
     # WDAC wurde ausgeschaltet
     if pinned_dict.get("wdac_active") and not current.wdac_active:
         msgs.append("WDAC-Policy wurde deaktiviert")

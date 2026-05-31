@@ -2,6 +2,7 @@
 
 Every function takes a `consent_token` (HMAC-signed) and verifies it
 via consent.consume() BEFORE executing the side effect. No bypass.
+Additionally gated by cognition.gate (Master-Toggle) as defense-in-depth.
 """
 from __future__ import annotations
 
@@ -17,6 +18,9 @@ from .consent import get_manager
 
 # ---------- Web search (low risk) ----------
 def execute_web_search(consent_token: str, query: str) -> dict:
+    from .gate import action_allowed, reason_blocked
+    if not action_allowed("web_search"):
+        return {"ok": False, "error": reason_blocked("web_search")}
     if not get_manager().consume(consent_token, "web_search"):
         return {"ok": False, "error": "consent missing or expired"}
     if not query or len(query) > 500:
@@ -39,6 +43,9 @@ _SHELL_WHITELIST = {
 
 def execute_shell(consent_token: str, command: str, args: list[str]) -> dict:
     """Whitelisted system-introspection commands only. NO arbitrary shell."""
+    from .gate import action_allowed, reason_blocked
+    if not action_allowed("shell_exec"):
+        return {"ok": False, "error": reason_blocked("shell_exec")}
     if not get_manager().consume(consent_token, "shell_exec"):
         return {"ok": False, "error": "consent missing or expired"}
     cmd = (command or "").lower().strip()
@@ -73,6 +80,9 @@ def execute_shell(consent_token: str, command: str, args: list[str]) -> dict:
 # ---------- Learning write ----------
 def execute_learning_write(consent_token: str, section: str, title: str,
                            body: str) -> dict:
+    from .gate import action_allowed, reason_blocked
+    if not action_allowed("learning_write"):
+        return {"ok": False, "error": reason_blocked("learning_write")}
     if not get_manager().consume(consent_token, "learning_write"):
         return {"ok": False, "error": "consent missing or expired"}
     if section not in ("performance", "bugs"):

@@ -7,10 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write     # für GitHub-Release-Upload
+  contents: write     # für GitHub-Release-Upload + gh-pages-Push
   id-token: write     # für OIDC → Sigstore keyless signing
-  pages: write
-  attestations: write
+  pages: write        # gh-pages Manifest-Deploy
 
 jobs:
   build-and-sign:
@@ -47,7 +46,7 @@ jobs:
           cosign verify-blob \
             --certificate AEGIS.zip.crt \
             --signature AEGIS.zip.sig \
-            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.*" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/tags/v.*" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             AEGIS.zip
 
@@ -74,7 +73,7 @@ jobs:
             cosign verify-blob \
               --certificate AEGIS.zip.crt \
               --signature AEGIS.zip.sig \
-              --certificate-identity-regexp "https://github.com/${{ github.repository }}/.*" \
+              --certificate-identity-regexp "^https://github.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/tags/v.*" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               AEGIS.zip
             ```

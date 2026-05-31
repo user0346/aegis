@@ -2,9 +2,9 @@
   "manifest_version": 3,
   "name": "AEGIS Guard",
   "short_name": "AEGIS",
-  "version": "2.0.0",
+  "version": "2.4.0",
   "description": "Schützt deinen Browser vor IP-Loggern, Phishing-URLs und verdächtigen Downloads. Komplementär zur AEGIS-Desktop-App.",
-  "default_locale": "de",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtFKjI/vi2godyqdXpmXVegItSRp29WQs0oOyufMOywjG0i3KqpMIx7zRFtopJYlzYO3zf/kq11W9ua6ga0td6uXFhSRiEWrcy7SFTfsqCoSyLsFi1H67DKKoR7xOgyyLxlDwblCwk9CqeqhcwWYLsPtWucKcuQ6U+yQKtJ5cjriG4Xz78DMExucH6lHTqvxo6jS0g1YjkWaNQnE96EJdfM6RxcjBw8t2mYaIO5chz+GZYPrfGs0Rqk0Nao72G8zuf0sq95reat0KyMCosL38q+aSfTEjIz9lcjSuzxHClpAqqwysHXJXNq9AkVmONqlu/fMY+HKRUx/AxyQmGAsmPwIDAQAB",
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
@@ -15,33 +15,56 @@
     "default_title": "AEGIS Guard",
     "default_icon": {
       "16": "icons/icon-16.png",
-      "48": "icons/icon-48.png"
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "permissions": [
     "storage",
-    "tabs",
     "webNavigation",
     "downloads",
-    "notifications"
+    "notifications",
+    "declarativeNetRequest",
+    "scripting",
+    "nativeMessaging",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_start"
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "aegis_blocklist",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
   "web_accessible_resources": [
     {
-      "resources": ["warn.html", "warn.css"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "warn.html",
+        "warn.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

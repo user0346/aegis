@@ -150,6 +150,15 @@ CREATE TABLE IF NOT EXISTS baseline (
     status      TEXT NOT NULL DEFAULT 'learning',
     PRIMARY KEY (kind, ident)
 );
+CREATE TABLE IF NOT EXISTS reputation (
+    kind        TEXT NOT NULL,
+    ident       TEXT NOT NULL,
+    mal_hits    REAL NOT NULL DEFAULT 0,
+    ben_hits    REAL NOT NULL DEFAULT 0,
+    first_seen  REAL NOT NULL,
+    last_seen   REAL NOT NULL,
+    PRIMARY KEY (kind, ident)
+);
 """
 
 
@@ -170,6 +179,7 @@ class Database:
             c = sqlite3.connect(str(self.path), timeout=10, isolation_level=None,
                                 check_same_thread=False)
             c.execute("PRAGMA journal_mode=WAL")
+            c.execute("PRAGMA busy_timeout=4000")
             c.execute("PRAGMA synchronous=NORMAL")
             c.execute("PRAGMA foreign_keys=ON")
             c.row_factory = sqlite3.Row
@@ -211,6 +221,14 @@ class Database:
         params.append(limit)
         return list(self._conn().execute(q, params).fetchall())
 
+    def recent_events_by_source(self, source: str, limit: int = 100) -> list[sqlite3.Row]:
+        """Letzte Events eines bestimmten Moduls (z.B. 'DriverScanner'), neueste zuerst.
+        Speist die Sentinel-Karten, die nach Quelle filtern (Treiber-Liste etc.)."""
+        return list(self._conn().execute(
+            "SELECT * FROM events WHERE source = ? ORDER BY ts DESC LIMIT ?",
+            (source, limit)
+        ).fetchall())
+
     def count_events_last(self, seconds: int = 3600,
                           severity: Optional[str] = None) -> int:
         since = time.time() - seconds
@@ -230,23 +248,55 @@ class Database:
                     source_url: str = "", status: str = "unknown") -> bool:
         """
         Returns True if file is NEW (first-seen), False if already known.
+
+        ATOMAR: connections laufen im Autocommit (isolation_level=None), daher
+        war SELECT-dann-INSERT/UPDATE ein Race — zwei Threads sahen beide "nicht
+        vorhanden" und der zweite INSERT verlor (oder Lost-Update). BEGIN
+        IMMEDIATE nimmt sofort den Schreib-Lock, sodass die Pruefung+Schreiben
+        atomar ist. sqlite3.IntegrityError (paralleler INSERT gewann das Rennen)
+        wird als "schon bekannt" behandelt -> False.
         """
         now = time.time()
-        existing = self._conn().execute(
-            "SELECT sha256 FROM files WHERE sha256 = ?", (sha256,)
-        ).fetchone()
-        if existing:
-            self._conn().execute(
-                "UPDATE files SET last_seen = ?, path = ? WHERE sha256 = ?",
-                (now, path, sha256)
+        c = self._conn()
+        c.execute("BEGIN IMMEDIATE")
+        try:
+            existing = c.execute(
+                "SELECT sha256 FROM files WHERE sha256 = ?", (sha256,)
+            ).fetchone()
+            if existing:
+                c.execute(
+                    "UPDATE files SET last_seen = ?, path = ? WHERE sha256 = ?",
+                    (now, path, sha256)
+                )
+                c.execute("COMMIT")
+                return False
+            c.execute(
+                "INSERT INTO files (sha256, first_seen, last_seen, size, path, "
+                "source_url, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (sha256, now, now, size, path, source_url, status)
             )
+            c.execute("COMMIT")
+            return True
+        except sqlite3.IntegrityError:
+            # Paralleler INSERT desselben Hash gewann -> Datei ist nun bekannt.
+            try:
+                c.execute("ROLLBACK")
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                c.execute(
+                    "UPDATE files SET last_seen = ?, path = ? WHERE sha256 = ?",
+                    (now, path, sha256)
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return False
-        self._conn().execute(
-            "INSERT INTO files (sha256, first_seen, last_seen, size, path, "
-            "source_url, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (sha256, now, now, size, path, source_url, status)
-        )
-        return True
+        except Exception:  # noqa: BLE001
+            try:
+                c.execute("ROLLBACK")
+            except Exception:  # noqa: BLE001
+                pass
+            raise
 
     def set_file_status(self, sha256: str, status: str, notes: str = ""):
         self._conn().execute(
@@ -266,10 +316,25 @@ class Database:
         ).fetchall())
 
     def set_vt_result(self, sha256: str, vt_data: dict):
+        now = time.time()
+        # Row anlegen falls noch nicht bekannt (Scanner kann VT VOR upsert_file fragen),
+        # damit vt_checked_at zuverlaessig gesetzt wird (Lookup-Zaehler stimmt).
+        self._conn().execute(
+            "INSERT OR IGNORE INTO files (sha256, first_seen, last_seen, status) "
+            "VALUES (?, ?, ?, 'unknown')",
+            (sha256, now, now)
+        )
         self._conn().execute(
             "UPDATE files SET vt_result = ?, vt_checked_at = ? WHERE sha256 = ?",
-            (json.dumps(vt_data), time.time(), sha256)
+            (json.dumps(vt_data), now, sha256)
         )
+
+    def count_vt_checked(self) -> int:
+        """Anzahl Dateien mit durchgefuehrtem VT-Lookup (vt_checked_at gesetzt)."""
+        row = self._conn().execute(
+            "SELECT COUNT(*) FROM files WHERE vt_checked_at IS NOT NULL"
+        ).fetchone()
+        return int(row[0]) if row else 0
 
     # ------------ Connections ------------
     def log_connection(self, pid: int, process_name: str, process_exe: str,
@@ -379,23 +444,52 @@ class Database:
 
     # ------------ Source IPs (for portscan/flood) ------------
     def touch_source(self, source_ip: str) -> int:
-        """Increment hit count for a source IP. Returns new count."""
+        """Increment hit count for a source IP. Returns new count.
+
+        ATOMAR: SELECT-dann-UPDATE im Autocommit verlor unter Last Zaehlungen
+        (zwei Threads lesen denselben hit_count, beide schreiben +1 -> ein Hit
+        geht verloren). Das verfaelscht Portscan-/Flood-Schwellen. BEGIN
+        IMMEDIATE serialisiert Lesen+Schreiben pro Aufruf. Bei parallelem INSERT
+        (IntegrityError) wird der Zaehler stattdessen atomar hochgezaehlt."""
         now = time.time()
-        r = self._conn().execute(
-            "SELECT hit_count FROM sources WHERE source_ip = ?", (source_ip,)
-        ).fetchone()
-        if r:
-            new_count = r["hit_count"] + 1
-            self._conn().execute(
-                "UPDATE sources SET hit_count = ?, last_seen = ? WHERE source_ip = ?",
-                (new_count, now, source_ip)
+        c = self._conn()
+        c.execute("BEGIN IMMEDIATE")
+        try:
+            r = c.execute(
+                "SELECT hit_count FROM sources WHERE source_ip = ?", (source_ip,)
+            ).fetchone()
+            if r:
+                new_count = r["hit_count"] + 1
+                c.execute(
+                    "UPDATE sources SET hit_count = ?, last_seen = ? WHERE source_ip = ?",
+                    (new_count, now, source_ip)
+                )
+                c.execute("COMMIT")
+                return new_count
+            c.execute(
+                "INSERT INTO sources (source_ip, first_seen, last_seen) VALUES (?, ?, ?)",
+                (source_ip, now, now)
             )
-            return new_count
-        self._conn().execute(
-            "INSERT INTO sources (source_ip, first_seen, last_seen) VALUES (?, ?, ?)",
-            (source_ip, now, now)
-        )
-        return 1
+            c.execute("COMMIT")
+            return 1
+        except sqlite3.IntegrityError:
+            # Paralleler INSERT gewann -> Zeile existiert, atomar +1.
+            try:
+                c.execute("ROLLBACK")
+            except Exception:  # noqa: BLE001
+                pass
+            row = c.execute(
+                "UPDATE sources SET hit_count = hit_count + 1, last_seen = ? "
+                "WHERE source_ip = ? RETURNING hit_count",
+                (now, source_ip)
+            ).fetchone()
+            return int(row[0]) if row else 1
+        except Exception:  # noqa: BLE001
+            try:
+                c.execute("ROLLBACK")
+            except Exception:  # noqa: BLE001
+                pass
+            raise
 
     def flag_source(self, source_ip: str, flag: str):
         self._conn().execute(
@@ -425,21 +519,47 @@ class Database:
 
     # ------------ Baseline / Pattern-Memory ------------
     def baseline_observe(self, kind: str, ident: str) -> dict:
-        """Sichtung erfassen. learning -> known nach >=3 Sichtungen oder >=24h."""
+        """Sichtung erfassen. learning -> known nach >=3 Sichtungen oder >=24h.
+
+        ATOMAR: SELECT-dann-INSERT/UPDATE im Autocommit war ein Race — zwei
+        Threads konnten dieselbe (kind, ident) als neu sehen, doppelt einfuegen
+        (IntegrityError) oder seen_count verlieren, was die known/learning-
+        Einstufung verfaelscht. BEGIN IMMEDIATE serialisiert Pruefung+Schreiben.
+        Bei parallelem INSERT (IntegrityError) wird der vorhandene Datensatz
+        regulaer als Folge-Sichtung fortgeschrieben."""
         now = time.time()
         c = self._conn()
-        r = c.execute("SELECT first_seen, seen_count, status FROM baseline "
-                      "WHERE kind=? AND ident=?", (kind, ident)).fetchone()
-        if r is None:
-            c.execute("INSERT INTO baseline (kind, ident, first_seen, last_seen, seen_count, status) "
-                      "VALUES (?, ?, ?, ?, 1, 'learning')", (kind, ident, now, now))
-            return {"status": "learning", "seen_count": 1, "age_s": 0.0, "is_new": True}
-        fs = r["first_seen"]; cnt = r["seen_count"] + 1; st = r["status"]
-        if st == "learning" and (cnt >= 3 or (now - fs) >= 86400):
-            st = "known"
-        c.execute("UPDATE baseline SET last_seen=?, seen_count=?, status=? "
-                  "WHERE kind=? AND ident=?", (now, cnt, st, kind, ident))
-        return {"status": st, "seen_count": cnt, "age_s": now - fs, "is_new": False}
+        c.execute("BEGIN IMMEDIATE")
+        try:
+            r = c.execute("SELECT first_seen, seen_count, status FROM baseline "
+                          "WHERE kind=? AND ident=?", (kind, ident)).fetchone()
+            if r is None:
+                try:
+                    c.execute(
+                        "INSERT INTO baseline (kind, ident, first_seen, last_seen, seen_count, status) "
+                        "VALUES (?, ?, ?, ?, 1, 'learning')", (kind, ident, now, now))
+                    c.execute("COMMIT")
+                    return {"status": "learning", "seen_count": 1, "age_s": 0.0, "is_new": True}
+                except sqlite3.IntegrityError:
+                    # Paralleler INSERT gewann -> als Folge-Sichtung behandeln.
+                    r = c.execute("SELECT first_seen, seen_count, status FROM baseline "
+                                  "WHERE kind=? AND ident=?", (kind, ident)).fetchone()
+                    if r is None:
+                        c.execute("COMMIT")
+                        return {"status": "learning", "seen_count": 1, "age_s": 0.0, "is_new": True}
+            fs = r["first_seen"]; cnt = r["seen_count"] + 1; st = r["status"]
+            if st == "learning" and (cnt >= 3 or (now - fs) >= 86400):
+                st = "known"
+            c.execute("UPDATE baseline SET last_seen=?, seen_count=?, status=? "
+                      "WHERE kind=? AND ident=?", (now, cnt, st, kind, ident))
+            c.execute("COMMIT")
+            return {"status": st, "seen_count": cnt, "age_s": now - fs, "is_new": False}
+        except Exception:  # noqa: BLE001
+            try:
+                c.execute("ROLLBACK")
+            except Exception:  # noqa: BLE001
+                pass
+            raise
 
     def baseline_counts(self) -> dict:
         rows = self._conn().execute(
@@ -447,6 +567,45 @@ class Database:
         m = {row["status"]: row["c"] for row in rows}
         return {"known": m.get("known", 0), "learning": m.get("learning", 0),
                 "total": sum(m.values())}
+
+    # ------------ Reputation (adaptiver Lern-Layer) ------------
+    def reputation_get(self, kind: str, ident: str):
+        return self._conn().execute(
+            "SELECT * FROM reputation WHERE kind=? AND ident=?", (kind, ident)).fetchone()
+
+    # Whitelist: bool -> erlaubter Spaltenname. Verhindert, dass jemals ein
+    # nicht-konstanter Wert in den SQL-Text interpoliert wird (Defense-in-Depth,
+    # auch wenn 'malicious' aktuell nur bool ist).
+    _REPUTATION_COLS = {True: "mal_hits", False: "ben_hits"}
+
+    def reputation_update(self, kind: str, ident: str, malicious: bool, weight: float = 1.0):
+        now = time.time()
+        col = self._REPUTATION_COLS[bool(malicious)]   # nur Werte aus der Whitelist
+        self._conn().execute(
+            "INSERT INTO reputation (kind, ident, mal_hits, ben_hits, first_seen, last_seen) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(kind, ident) DO UPDATE SET {c} = {c} + ?, last_seen = ?".format(c=col),
+            (kind, ident, weight if malicious else 0.0,
+             0.0 if malicious else weight, now, now, weight, now))
+
+    def reputation_all(self) -> list:
+        return list(self._conn().execute(
+            "SELECT kind, ident, mal_hits, ben_hits FROM reputation").fetchall())
+
+    def reputation_pardon(self, kind: str, ident: str):
+        """User-Override: als gut markieren -> boese Historie loeschen."""
+        now = time.time()
+        self._conn().execute(
+            "INSERT INTO reputation (kind, ident, mal_hits, ben_hits, first_seen, last_seen) "
+            "VALUES (?, ?, 0, 2, ?, ?) "
+            "ON CONFLICT(kind, ident) DO UPDATE SET mal_hits = 0, ben_hits = ben_hits + 2, last_seen = ?",
+            (kind, ident, now, now, now))
+
+    def reputation_counts(self) -> dict:
+        c = self._conn()
+        total = c.execute("SELECT COUNT(*) FROM reputation").fetchone()[0]
+        bad = c.execute("SELECT COUNT(*) FROM reputation WHERE mal_hits > ben_hits").fetchone()[0]
+        return {"total": total, "bad": bad}
 
     # ------------ Stats ------------
     def stats(self) -> dict:
@@ -520,9 +679,12 @@ class Database:
 
 
 _db_instance = None
+_db_lock = threading.Lock()
 
 def get_db():
     global _db_instance
     if _db_instance is None:
-        _db_instance = Database()
+        with _db_lock:              # thread-sichere Singleton-Init (double-checked)
+            if _db_instance is None:
+                _db_instance = Database()
     return _db_instance

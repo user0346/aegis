@@ -67,8 +67,27 @@ class SelfReflector(Module):
                           f"Reflektor-Zyklus crashed: {type(e).__name__}: {e}")
             self._stop.wait(60)
 
+    @staticmethod
+    def _llm_available() -> bool:
+        """LLM da? Lokales Ollama bevorzugt (gratis, offline), sonst Anthropic-Key."""
+        try:
+            from ..voice import llm
+            if llm.available():
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+        return bool(get_secret("anthropic_api_key"))
+
     def _should_run_now(self) -> bool:
-        if not get_secret("anthropic_api_key"):
+        # Self-Learning muss vom Nutzer erlaubt sein (Master-Toggle in Settings).
+        try:
+            from ..cognition.gate import capability_enabled
+            if not capability_enabled("learning"):
+                return False
+        except Exception:  # noqa: BLE001
+            pass
+        # Ein LLM muss verfuegbar sein: Ollama lokal ODER Anthropic-Key (opt-in).
+        if not self._llm_available():
             return False
         # First-run-Trigger: nach N Events ohne 6h-Wait
         if not self._first_run_done:
@@ -118,10 +137,42 @@ class SelfReflector(Module):
         section = prop.get("section", "performance")
         body = prop.get("body", "")
         detail_preview = body.replace("\n", " ").strip()
-        if len(detail_preview) > 280:
-            detail_preview = detail_preview[:277] + "…"
+        if len(detail_preview) > 600:
+            detail_preview = detail_preview[:597] + "…"
+
+        # Dedup: denselben Vorschlag nicht wiederholt einreihen (sonst kommt er nach
+        # OK/Nein immer wieder, weil der Reflektor dieselben Events erneut sieht).
+        import hashlib as _hl
+        thash = _hl.sha1((title or "").lower().strip().encode("utf-8")).hexdigest()[:16]
+        seen = self.db.get_setting("reflector_seen", [])
+        if not isinstance(seen, list):
+            seen = []
+        if thash in seen:
+            self.emit(Severity.INFO, Category.SYSTEM,
+                      "Reflektor: Vorschlag bereits bekannt — uebersprungen")
+            return
+        # Schon (aehnlich) in LEARNINGS vermerkt? -> gar nicht erst erneut vorschlagen.
+        try:
+            from .memory import find_learnings_file, _already_present
+            _lf = find_learnings_file()
+            if _lf.exists() and _already_present(_lf.read_text(encoding="utf-8"), title):
+                self.emit(Severity.INFO, Category.SYSTEM,
+                          "Reflektor: Erkenntnis steht schon in LEARNINGS — uebersprungen")
+                return
+        except Exception:  # noqa: BLE001
+            pass
 
         cm = get_manager()
+        # Nicht fluten: solange noch EIN Reflektor-Vorschlag offen ist, keinen neuen
+        # einreihen (sonst stapeln sich aehnliche Erkenntnisse trotz Titel-Variation).
+        try:
+            for _p in cm.list_pending():
+                if str(_p.get("title", "")).startswith("Erkenntnis vorschlagen"):
+                    self.emit(Severity.INFO, Category.SYSTEM,
+                              "Reflektor: es ist bereits ein Vorschlag offen — kein neuer")
+                    return
+        except Exception:  # noqa: BLE001
+            pass
         cid = cm.request(
             action="learning_write",
             title=f"Erkenntnis vorschlagen: {title}",
@@ -131,6 +182,11 @@ class SelfReflector(Module):
             severity="normal",
             ttl_sec=24 * 3600,    # Lern-Vorschläge dürfen lange in der Queue stehen
         )
+        seen.append(thash)
+        try:
+            self.db.set_setting("reflector_seen", seen[-200:])
+        except Exception:  # noqa: BLE001
+            pass
         # Body+section MUST be associated with the request for execution.
         # We use a side-channel: the consent_manager stores the proposal
         # in a in-RAM map by consent-id. When user approves, the action

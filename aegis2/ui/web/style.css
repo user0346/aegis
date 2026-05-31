@@ -194,7 +194,7 @@ input::placeholder{color:var(--dim)}
 .table-scan th:nth-child(6),.table-scan td:nth-child(6){width:62px}
 .table-scan td:nth-child(3),.table-scan td:nth-child(5){overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .table-scan td:nth-child(4){white-space:normal; word-break:break-all; font-size:12px; line-height:1.45}
-.scan-group td{background:rgba(56,189,248,.07); color:var(--acc2); font-weight:600; font-size:11px; letter-spacing:.7px; text-transform:uppercase; white-space:nowrap}
+.scan-group td{background:rgba(56,189,248,.07); color:var(--acc2); font-weight:600; font-size:11px; letter-spacing:.7px; text-transform:uppercase; white-space:nowrap;cursor:pointer;user-select:none}
 
 /* ---------- sentinel ---------- */
 .sentinel-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(380px,1fr)); gap:18px}
@@ -206,10 +206,17 @@ input::placeholder{color:var(--dim)}
 
 /* ---------- voice / cognition ---------- */
 .cognition-hero{display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:24px; align-items:center}
-.brain-stage{position:relative; aspect-ratio:1; min-height:260px}
+.brain-stage{
+  position:relative; aspect-ratio:1; min-height:260px; border-radius:50%;
+  /* recessed core well — sits the Jarvis reactor in a dark glass dish */
+  background:
+    radial-gradient(circle at 50% 50%, rgba(56,189,248,.05), transparent 62%),
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.20) 70%, transparent 78%);
+  box-shadow:inset 0 0 60px rgba(0,0,0,.6), inset 0 0 0 1px rgba(56,189,248,.08);
+}
 .brain-stage canvas{width:100%; height:100%; display:block}
-.brain-overlay{position:absolute; left:14px; top:14px; display:flex; flex-direction:column; gap:3px}
-.brain-overlay-label{font-size:11px; letter-spacing:2px; color:var(--acc)}
+.brain-overlay{position:absolute; left:14px; top:14px; display:flex; flex-direction:column; gap:3px; pointer-events:none; z-index:1}
+.brain-overlay-label{font-size:11px; letter-spacing:2px; color:var(--acc); text-shadow:0 0 12px var(--glow)}
 .brain-overlay-stats{font-family:var(--fm); font-size:11px; color:var(--muted)}
 .voice-state h2{font-size:26px; margin-bottom:8px}
 .voice-transcript{margin:14px 0; padding:12px 14px; border-radius:var(--r-sm); background:rgba(0,0,0,.3); border:1px solid var(--line); font-family:var(--fm); font-size:13px; color:#b7c6db; min-height:42px}
@@ -252,3 +259,21 @@ kbd{font-family:var(--fm); font-size:12px; background:rgba(255,255,255,.07); bor
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:900px){.cognition-hero{grid-template-columns:1fr} .tabs{justify-content:flex-start}}
+
+/* Voice-Feedback (Live-Zustaende) */
+#voice-status{transition:color .2s}
+.voice-state.vs-listening #voice-status{color:#f87171}
+.voice-state.vs-thinking #voice-status{color:#fbbf24}
+.voice-state.vs-speaking #voice-status{color:#34d399}
+#voice-mic.mic-on{background:rgba(248,113,113,.18);border-color:rgba(248,113,113,.6);color:#f87171;animation:micpulse 1.1s ease-in-out infinite}
+@keyframes micpulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* ---- Chat-Verlauf (Voice) ---- */
+.voice-history{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;margin:10px 0;padding-right:4px}
+.bubble{max-width:85%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.bubble-user{align-self:flex-end;background:linear-gradient(90deg,#38bdf8,#818cf8);color:#0b1020}
+.bubble-aegis{align-self:flex-start;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#e5e7eb}
+/* ---- Memory-Ansicht ---- */
+.mem-body{display:flex;flex-direction:column;gap:1px}
+.mem-row{display:flex;gap:14px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.06)}
+.mem-k{flex:0 0 150px;color:#94a3b8;font-size:13px}
+.mem-v{flex:1;color:#e5e7eb;font-size:14px;word-break:break-word}

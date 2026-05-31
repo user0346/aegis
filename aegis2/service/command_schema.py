@@ -22,6 +22,14 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
     "stats": {},
     "module_status": {},
 
+    "event.inject": {
+        "severity": (lambda v: v in ("INFO","WARN","THREAT","CRITICAL","QUARANTINE"), True),
+        "category": (lambda v: v in ("FILE","PROCESS","NETWORK","URL","DNS","SYSTEM","QUARANTINE","VOICE","TAMPER"), True),
+        "message":  (lambda v: isinstance(v, str) and 0 < len(v) <= 2000, True),
+        "source":   (_is_str_short, False),
+        "metadata": (_is_dict, False),
+    },
+
     "settings.save": {
         "vt_api_key":      (_is_str, False),
         "claude_api_key":  (_is_str, False),
@@ -32,9 +40,14 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
         "allow_websearch": (_is_bool, False),
         "allow_shell":     (_is_bool, False),
         "allow_learning":  (_is_bool, False),
+        "enable_active_response": (_is_bool, False),
+        "adaptive_autoblock": (_is_bool, False),
         "consent_ttl_min": (lambda v: _is_int(v, 1, 1440), False),
+        "tts_voice": (lambda v: _is_str(v, 80), False),
+        "tts_enabled": (_is_bool, False),
     },
     "settings.get": {},
+    "vt.status": {},
 
     "consent.list":   {},
     "consent.decide": {
@@ -65,25 +78,7 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
     # Autonomy
     "autonomy.status":  {},
     "autonomy.set_pin": {
-        "pin":     (lambda v: _is_str(v, 12) and v.isdigit() and len(v) >= 4, True),
-        "old_pin": (_is_str, False),
-    },
-    "autonomy.set_level": {
-        "level":       (lambda v: _is_int(v, 0, 4), True),
-        "pin":         (_is_str_short, True),
-        "ttl_minutes": (lambda v: _is_int(v, 1, 480), False),
-    },
-    "autonomy.disable_action": {
-        "action": (_is_str_short, True),
-        "pin":    (_is_str_short, True),
-    },
-    "autonomy.enable_action": {
-        "action": (_is_str_short, True),
-        "pin":    (_is_str_short, True),
-    },
-    "autonomy.status":  {},
-    "autonomy.set_pin": {
-        "pin":     (lambda v: _is_str(v, 12) and v.isdigit() and len(v) >= 4, True),
+        "pin":     (lambda v: _is_str(v, 64) and len(v) >= 4, True),
         "old_pin": (_is_str, False),
     },
     "autonomy.set_level": {

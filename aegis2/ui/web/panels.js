@@ -31,6 +31,7 @@
         });
       }
       btn.appendChild(cap);
+      sel.addEventListener("input",function(){ cap.textContent=cur(); });
       btn.addEventListener("click",function(e){ e.stopPropagation();
         document.querySelectorAll(".dd.open").forEach(x=>{if(x!==dd)x.classList.remove("open");});
         if(!dd.classList.contains("open")) rebuild(); dd.classList.toggle("open"); });
@@ -41,7 +42,7 @@
 
   /* ---------- custom toggles (settings checkboxes) ---------- */
   function buildToggles(){
-    ["auto-q","wake-active","cloud-stt","allow-websearch","allow-shell","allow-learning"].forEach(function(id){
+    ["auto-q","wake-active","cloud-stt","tts-enabled","allow-websearch","allow-shell","allow-learning"].forEach(function(id){
       const cb=$(id); if(!cb||cb.dataset.tgl) return; cb.dataset.tgl="1";
       const lbl=document.createElement("label"); lbl.className="tgl";
       const track=document.createElement("span"); track.className="track";
@@ -105,7 +106,7 @@
   function pollQuar(){ sendCmd("quarantine.list",{}); }
 
   /* ---------- Scan ---------- */
-  let scanTimer=null;
+  let scanTimer=null,scanCollapsed={},lastScanData=null,voiceAnim=null,_scanWasRunning=false;
   function scanStart(){ sendCmd("scan.start",{}); scanPoll(); if(!scanTimer) scanTimer=setInterval(scanPoll,1500); }
   function scanCancel(){ sendCmd("scan.cancel",{}); }
   function scanPoll(){ sendCmd("scan.status",{}); sendCmd("scan.items",{limit:500}); }
@@ -117,6 +118,17 @@
     setTxt("scan-stat-phase",phase);
     const sc=$("scan-start"), cc=$("scan-cancel"); if(sc) sc.disabled=!!d.running; if(cc) cc.disabled=!d.running;
     const fill=$("scan-bar-fill"); if(fill){ const pct=Math.min(100,Math.round(((s.locations_scanned||0)/17)*100)); fill.style.width=(d.running&&pct<6?6:pct)+"%"; }
+    // Läuft ein Scan (egal wie gestartet — auch per Voice)? -> UI-Poll starten, damit die Items erscheinen.
+    if(d.running && !scanTimer){ scanTimer=setInterval(scanPoll,1500); }
+    // Gerade fertig geworden? -> einmal kompakt melden, bei Funden klar warnen.
+    if(!d.running && _scanWasRunning){
+      const blk=s.items_block||0, wrn=s.items_warn||0, tot=s.items_total||0;
+      const m = blk>0 ? ("⚠ "+blk+" gefährliche Funde"+(wrn?(" + "+wrn+" Warnungen"):"")+" — unten mit «Quar» isolieren!")
+              : wrn>0 ? (wrn+" Warnung(en) zum Prüfen, nichts akut Gefährliches.")
+              : ("✓ Sauber — nichts Gefährliches gefunden ("+tot+" Objekte geprüft).");
+      setTxt("scan-stat-phase","fertig · "+m);
+    }
+    _scanWasRunning=!!d.running;
     if(!d.running&&scanTimer){ clearInterval(scanTimer); scanTimer=null; }
   }
   const KIND_LABEL={registry_run:"Registry-Autostart",startup_folder:"Startup-Ordner",scheduled_task:"Geplante Tasks",service:"Dienste",temp:"Temp / AppData",browser_ext:"Browser-Extensions",wmi_subscription:"WMI-Subscriptions"};
@@ -129,7 +141,9 @@
       "</td><td title='"+esc(it.name||"")+"'>"+esc(it.name||"")+"</td><td class='mono' title='"+esc(path)+"'>"+esc(path)+
       "</td><td title='"+esc((it.reasons||[]).join(", "))+"'>"+esc((it.reasons||[]).join(", "))+"</td><td>"+act+"</td></tr>";
   }
-  function onScanItems(d){
+  function onScanItems(d){ lastScanData=d; renderScanItems(); }
+  function renderScanItems(){
+    const d=lastScanData; if(!d) return;
     const tb=$("scan-tbody"); if(!tb) return; const items=d.items||[]; items.forEach((it,i)=>it._idx=i);
     const fv=selVal("scan-filter-verdict"), fk=selVal("scan-filter-kind");
     const rows=items.filter(it=>(!fv||it.verdict===fv)&&(!fk||it.kind===fk));
@@ -141,11 +155,13 @@
       const g=groups[k].sort((a,b)=>(VORDER[a.verdict]==null?9:VORDER[a.verdict])-(VORDER[b.verdict]==null?9:VORDER[b.verdict]));
       const nb=g.filter(x=>x.verdict==="block").length, nw=g.filter(x=>x.verdict==="warn").length;
       const tag=(nb?" · "+nb+" block":"")+(nw?" · "+nw+" warn":"");
-      html.push("<tr class='scan-group'><td colspan='6'>"+esc(KIND_LABEL[k]||k)+" ("+g.length+")"+tag+"</td></tr>");
-      g.slice(0,400).forEach(it=>html.push(scanRow(it)));
+      const collapsed=!!scanCollapsed[k]; const arrow=collapsed?"\u25B6":"\u25BC";
+      html.push("<tr class='scan-group' data-grp='"+esc(k)+"'><td colspan='6'>"+arrow+"  "+esc(KIND_LABEL[k]||k)+" ("+g.length+")"+tag+"</td></tr>");
+      if(!collapsed){ g.slice(0,400).forEach(it=>html.push(scanRow(it))); }
     });
     tb.innerHTML=html.join("");
-    tb.querySelectorAll("button[data-sq]").forEach(b=>b.addEventListener("click",()=>sendCmd("scan.quarantine_item",{index:parseInt(b.dataset.sq,10)})));
+    tb.querySelectorAll("button[data-sq]").forEach(b=>b.addEventListener("click",(e)=>{e.stopPropagation();sendCmd("scan.quarantine_item",{index:parseInt(b.dataset.sq,10)});}));
+    tb.querySelectorAll("tr.scan-group[data-grp]").forEach(h=>h.addEventListener("click",()=>{const k=h.dataset.grp;scanCollapsed[k]=!scanCollapsed[k];renderScanItems();}));
   }
 
   /* ---------- Settings (load/save, leak-safe) ---------- */
@@ -153,6 +169,8 @@
   function applySettings(d){
     const set=(id,v)=>{const e=$(id); if(e) e.checked=!!v;};
     set("auto-q",d.auto_quarantine); set("wake-active",d.wake_active); set("cloud-stt",d.cloud_stt);
+    { const e=$("tts-enabled"); if(e) e.checked=(d.tts_enabled!==false); }   // default an
+    const tv=$("tts-voice"); if(tv&&d.tts_voice){ tv.value=d.tts_voice; tv.dispatchEvent(new Event("input")); }
     set("allow-websearch",d.allow_websearch); set("allow-shell",d.allow_shell); set("allow-learning",d.allow_learning);
     const ttl=$("consent-ttl"); if(ttl) ttl.value=d.consent_ttl_min||10;
     const ph=(id,on)=>{const e=$(id); if(e&&on) e.placeholder="●●●●●●●●  (gesetzt · DPAPI-verschluesselt)";};
@@ -161,6 +179,7 @@
   function saveSettings(){
     const c=(id)=>{const e=$(id); return e?!!e.checked:false;}; const v=(id)=>{const e=$(id); return e?e.value.trim():"";};
     const args={ auto_quarantine:c("auto-q"), wake_active:c("wake-active"), cloud_stt:c("cloud-stt"),
+      tts_enabled:c("tts-enabled"),
       allow_websearch:c("allow-websearch"), allow_shell:c("allow-shell"), allow_learning:c("allow-learning") };
     const ttl=parseInt(v("consent-ttl"),10); if(!isNaN(ttl)) args.consent_ttl_min=Math.min(1440,Math.max(1,ttl));
     const vt=v("vt-key"), ck=v("claude-key"), pv=v("pv-key");
@@ -170,58 +189,266 @@
     const b=$("save-settings"); if(b){ const o=b.textContent; b.textContent="Gespeichert ✓"; setTimeout(()=>{b.textContent=o;},1500); }
     setTimeout(loadSettings,400);
   }
+  function renderVtStatus(d){
+    const el=$("vt-status"); if(!el) return; d=d||{};
+    let txt, col;
+    if(!d.configured){ txt="kein Key gesetzt"; col="var(--muted,#8a93a6)"; }
+    else if(d.valid){ const n=(typeof d.lookups_done==="number")?d.lookups_done:0;
+      txt="Gültig ✓ · "+n+" Lookups gesamt"+(d.detail?" — "+d.detail:""); col="var(--ok,#34d399)"; }
+    else { txt="Ungültig — "+(d.detail||"Key prüfen"); col="var(--bad,#f87171)"; }
+    el.textContent=esc(txt); el.style.color=col;
+  }
 
   /* ---------- Consent ---------- */
   function pollConsent(){ sendCmd("consent.list",{}); }
   function renderConsent(items){
     const box=$("consent-list"), cnt=$("consent-count"); if(!box) return; if(cnt) cnt.textContent=(items||[]).length;
     if(!items||!items.length){ box.innerHTML="<div class='empty'>Keine offenen Anfragen.</div>"; return; }
-    box.innerHTML=items.map(it=>"<div class='consent-item'><div><strong>"+esc(it.title||it.action||"")+"</strong><br><span class='muted'>"+esc(it.detail||it.scope||"")+"</span></div><div class='ci-actions'><button class='btn-tiny' data-ca='"+esc(it.id)+"'>OK</button><button class='btn-tiny' data-cd='"+esc(it.id)+"'>Nein</button></div></div>").join("");
+    box.innerHTML=items.map(it=>"<div class='consent-item'><div style='flex:1;min-width:0;'><strong>"+esc(it.title||it.action||"")+"</strong><div class='muted' style='white-space:normal;word-break:break-word;margin-top:4px;'>"+esc(it.detail||it.scope||"")+"</div></div><div class='ci-actions'><button class='btn-tiny' data-ca='"+esc(it.id)+"'>OK</button><button class='btn-tiny' data-cd='"+esc(it.id)+"'>Nein</button></div></div>").join("");
     box.querySelectorAll("button[data-ca]").forEach(b=>b.addEventListener("click",()=>{sendCmd("consent.decide",{id:b.dataset.ca,decision:"approve"});setTimeout(pollConsent,400);}));
     box.querySelectorAll("button[data-cd]").forEach(b=>b.addEventListener("click",()=>{sendCmd("consent.decide",{id:b.dataset.cd,decision:"deny"});setTimeout(pollConsent,400);}));
+  }
+
+  /* ---------- Autonomy (Level + Owner-Pin) ---------- */
+  function loadAutonomy(){ sendCmd("autonomy.status",{}); }
+  function renderAutonomy(s){
+    if(!s) return;
+    const st=$("autonomy-status");
+    let txt=(s.level_name||"OFF");
+    if(s.active&&s.remaining_sec>0) txt+=" · "+Math.ceil(s.remaining_sec/60)+" min";
+    if(s.auto_demoted) txt+=" · auto-zurückgestuft";
+    if(st) st.textContent=txt;
+    const sel=$("autonomy-level"); if(sel&&typeof s.level==="number"){ sel.value=String(s.level); sel.dispatchEvent(new Event("input",{bubbles:true})); }
+    const hint=$("autonomy-hint");
+    if(hint){
+      if(s.has_owner_pin){ if(hint.textContent.indexOf("kein Owner-Pin")>=0) hint.textContent=""; }
+      else if(!hint.textContent.trim()){ hint.textContent="Noch kein Owner-Pin gesetzt — zuerst Pin setzen, dann ist die Stufe wählbar."; }
+    }
+  }
+  function autonomyApply(){
+    const pin=(($("autonomy-pin")||{}).value||"").trim();
+    const level=parseInt((($("autonomy-level")||{}).value||"0"),10);
+    let ttl=parseInt((($("autonomy-ttl")||{}).value||"60"),10); if(isNaN(ttl)) ttl=60;
+    if(!pin){ setTxt("autonomy-hint","Bitte Owner-Pin eingeben."); return; }
+    sendCmd("autonomy.set_level",{level:level,pin:pin,ttl_minutes:Math.min(480,Math.max(1,ttl))});
+    const p=$("autonomy-pin"); if(p) p.value="";
+    setTimeout(loadAutonomy,500);
+  }
+  function autonomySetPin(){
+    const pin=(($("autonomy-pin")||{}).value||"").trim();
+    const oldp=(($("autonomy-oldpin")||{}).value||"").trim();
+    if(pin.length<4||pin.length>64){ setTxt("autonomy-hint","Pin/Passwort muss 4–64 Zeichen sein."); return; }
+    const args={pin:pin}; if(oldp) args.old_pin=oldp;
+    setTxt("autonomy-hint","Pin wird gesetzt …");
+    sendCmd("autonomy.set_pin",args);
+    ["autonomy-pin","autonomy-oldpin"].forEach(id=>{const e=$(id); if(e) e.value="";});
+    setTimeout(loadAutonomy,800);
+  }
+  function autonomyStop(){ sendCmd("autonomy.end_session",{}); setTimeout(loadAutonomy,500); }
+
+  /* ---------- Lokale KI (Ollama Auto-Install) ---------- */
+  let _ollamaAutoTried=false, _ollamaOK=false, _pullActive=false;
+  function loadOllama(){
+    // Bridge evtl. noch nicht injiziert -> selbstheilend erneut versuchen
+    if(!(window.aegis&&window.aegis.ollamaStatus)){ setTimeout(loadOllama,400); return; }
+    // QWebChannel-Slots mit Rueckgabe sind ASYNCHRON -> Callback statt sync-Return!
+    // (sync-Aufruf gab undefined zurueck -> Card blieb ewig auf "—").
+    try{
+      window.aegis.ollamaStatus(function(js){
+        let s={}; try{ s=JSON.parse(js||"{}"); }catch(_){ s={}; }
+        renderOllama(s);
+        _ollamaOK = !!s.running;
+        _pullActive = !!s.pull_active;
+        // installiert aber gestoppt -> einmal automatisch starten (KEIN Re-Install)
+        if(s.installed&&!s.running&&!_ollamaAutoTried&&window.aegis.ollamaStart){
+          _ollamaAutoTried=true;
+          try{ window.aegis.ollamaStart(); }catch(e){}
+          const stg=$("ollama-status"); if(stg) stg.textContent="starte Ollama …";
+          setTimeout(loadOllama,4000);
+        }
+      });
+    }catch(e){ setTimeout(loadOllama,1000); }
+  }
+  function renderOllama(s){
+    const st=$("ollama-status"), btn=$("ollama-install");
+    if(!st||!s) return;
+    if(s.pull_active){ st.textContent="lädt "+(s.pull_model||"Modell")+" · "+(s.pull_pct||0)+"%"; if(btn){ btn.textContent="lädt …"; btn.disabled=true; } return; }
+    if(s.running){ st.textContent = s.active_model ? ("aktiv ✓ · "+s.active_model) : "aktiv ✓"; if(btn){ btn.textContent="Aktiv ✓"; btn.disabled=true; } }
+    else if(s.installed){
+      st.textContent = s.model ? "installiert · gestoppt" : "installiert · Modell fehlt";
+      if(btn){ btn.textContent = s.model ? "Ollama starten" : "Modell laden"; btn.disabled=false; }
+    } else {
+      st.textContent="nicht installiert"; if(btn){ btn.textContent="Lokale KI aktivieren"; btn.disabled=false; }
+    }
+  }
+
+  /* ---------- Memory-Ansicht (was AEGIS sich dauerhaft gemerkt hat) ---------- */
+  function loadMemory(){
+    if(!(window.aegis&&window.aegis.memoryGet)){ setTimeout(loadMemory,400); return; }
+    try{ window.aegis.memoryGet(function(js){ let d={}; try{d=JSON.parse(js||"{}");}catch(_){} renderMemory(d); }); }
+    catch(e){ setTimeout(loadMemory,800); }
+  }
+  function renderMemory(d){
+    const body=$("mem-body"); if(!body) return;
+    d=d||{};
+    if(d.error){ body.textContent="Gedächtnis nicht lesbar: "+d.error; return; }
+    const cnt=$("mem-count"); if(cnt) cnt.textContent=(d.knowledge_count||0)+" Wissens-Einträge";
+    const row=(k,v)=>"<div class='mem-row'><span class='mem-k'>"+esc(k)+"</span><span class='mem-v'>"+v+"</span></div>";
+    const notes=d.notes||[], al=d.aliases||{}, ak=Object.keys(al), tc=d.top_cmds||[];
+    const out=[];
+    out.push(row("Anrede", d.address?esc(d.address):"—"));
+    out.push(row("Weckwort", d.wake_word?esc(d.wake_word):"AEGIS (Standard)"));
+    out.push(row("Notizen ("+notes.length+")", notes.length?notes.map(esc).join("<br>"):"—"));
+    out.push(row("Shortcuts ("+ak.length+")", ak.length?ak.map(k=>esc(k)+" → "+esc(String(al[k]))).join("<br>"):"—"));
+    out.push(row("Oft genutzt", tc.length?tc.map(esc).join(", "):"—"));
+    body.innerHTML=out.join("");
   }
 
   /* ---------- Voice send (war auch unverdrahtet) ---------- */
   function onVoiceReply(d){ const t=$("voice-transcript"); if(t) t.textContent=(d&&d.voice_reply)||"(keine Antwort)"; const st=$("voice-status"); if(st) st.textContent="Antwort"; }
   function voiceSend(){ const i=$("voice-text"); if(i&&i.value.trim()){ const t=$("voice-transcript"); if(t) t.textContent="…"; const st=$("voice-status"); if(st) st.textContent="Denkt…"; sendCmd("voice.text",{text:i.value.trim()}); i.value=""; } }
 
+  /* ---------- Chat-Verlauf (sichtbare Konversation) ---------- */
+  function pushBubble(role, text){
+    text=(text==null?"":String(text)).trim(); if(!text) return;
+    const box=$("voice-history"); if(!box) return;
+    const cls="bubble-"+(role==="user"?"user":"aegis");
+    const last=box.lastElementChild;
+    if(last && last.textContent===text && last.className.indexOf(cls)>=0) return;  // dedup
+    const b=document.createElement("div");
+    b.className="bubble "+cls;
+    b.textContent=text;                       // textContent -> XSS-sicher
+    box.appendChild(b);
+    while(box.children.length>40) box.removeChild(box.firstChild);
+    box.scrollTop=box.scrollHeight;
+  }
+
   /* ---------- event ingress ---------- */
   function onEvent(ev){
     if(!ev) return;
     if(ev.t==="cmd_result"){
-      if(!ev.ok||!ev.data) return;
+      if(!ev.ok){
+        // Backend-/Validierungsfehler fuer Autonomy sichtbar machen (nicht verschlucken)
+        if(ev.name&&ev.name.indexOf("autonomy.")===0)
+          setTxt("autonomy-hint","Fehler: "+(ev.error||"unbekannt"));
+        return;
+      }
+      if(!ev.data) return;
       if(ev.name==="quarantine.list") renderQuar(ev.data.items||[]);
       else if(ev.name==="settings.get") applySettings(ev.data);
       else if(ev.name==="scan.status") onScanStatus(ev.data);
       else if(ev.name==="scan.items") onScanItems(ev.data);
       else if(ev.name==="consent.list") renderConsent(ev.data.consent_items||ev.data.items||[]);
       else if(ev.name==="voice.text") onVoiceReply(ev.data);
+      else if(ev.name==="autonomy.status") renderAutonomy(ev.data);
+      else if(ev.name==="autonomy.set_level"){ if(ev.data&&ev.data.status) renderAutonomy(ev.data.status); setTxt("autonomy-hint",(ev.data&&ev.data.ok)?"Stufe gesetzt.":("Abgelehnt: "+((ev.data&&ev.data.msg)||"?"))); }
+      else if(ev.name==="autonomy.set_pin") setTxt("autonomy-hint",(ev.data&&ev.data.ok)?"✓ Pin gesetzt — Stufe jetzt wählbar":("Pin abgelehnt: "+((ev.data&&ev.data.msg)||"?")));
+      else if(ev.name==="autonomy.end_session") loadAutonomy();
+      else if(ev.name==="vt.status") renderVtStatus(ev.data);
       return;
     }
     if(ev.severity&&ev.source==="NetworkWatcher") onNetEvent(ev);
+    // echtes Live-Event -> Gehirn feuert den passenden Waechter-Knoten (data-driven)
+    if(ev.category && window.AegisBrain && window.AegisBrain.activateForEvent){
+      try{ window.AegisBrain.activateForEvent(ev); }catch(e){}
+    }
   }
 
   function wireAll(){
     buildDropdowns(); buildToggles(); buildKeyEyes();
     const ns=$("net-search"); if(ns) ns.addEventListener("input",()=>{netDirty=true;renderNet();});
+    // ---- Voice ----
+    function voiceSendText(){ const i=$("voice-text"); if(!i||!i.value.trim()||window._aegisVoiceBusy) return;
+      const t=i.value.trim(); i.value=""; setTxt("voice-transcript",t); pushBubble("user",t);
+      setVoiceState("thinking");                 // sofort sperren + "denkt nach" anzeigen
+      if(window._busyFailsafe) clearTimeout(window._busyFailsafe);
+      window._busyFailsafe=setTimeout(function(){ setVoiceState("idle"); },135000);  // Notbremse (>LLM-Timeout)
+      if(window.aegis&&window.aegis.voiceText){ try{ window.aegis.voiceText(t); }catch(e){} } }
+    const vsend=$("voice-send"); if(vsend) vsend.addEventListener("click",voiceSendText);
+    const vinp=$("voice-text"); if(vinp) vinp.addEventListener("keydown",e=>{ if(e.key==="Enter") voiceSendText(); });
+    const vmic=$("voice-mic"); if(vmic) vmic.addEventListener("click",()=>{ setTxt("voice-status","Hoere zu \u2026"); if(window.aegis&&window.aegis.voiceListen){ try{ window.aegis.voiceListen(); }catch(e){} } });
+    const vstop=$("voice-stop"); if(vstop) vstop.addEventListener("click",()=>{ if(window.aegis&&window.aegis.stopSpeaking){ try{ window.aegis.stopSpeaking(); }catch(e){} } setTxt("voice-status","Abgebrochen"); });
+    function setVoiceState(st){
+      const L={listening:"\ud83c\udfa4  H\u00f6re zu \u2026",thinking:"\u2026 verarbeite",speaking:"\ud83d\udd0a  AEGIS spricht",idle:"Bereit"};
+      window._aegisVoiceBusy=(st==="speaking"||st==="listening"||st==="thinking");
+      // Eingabe sperren, solange AEGIS arbeitet -> kein Überlappen + klares "arbeitet noch"-Signal
+      ["voice-text","voice-send","voice-mic"].forEach(function(id){ const e=$(id); if(e) e.disabled=window._aegisVoiceBusy; });
+      if(!window._aegisVoiceBusy && window._busyFailsafe){ clearTimeout(window._busyFailsafe); window._busyFailsafe=null; }
+      const _vst=$("voice-stop"); if(_vst) _vst.style.display = window._aegisVoiceBusy ? "" : "none";
+      setTxt("voice-status", L[st]||st||"Bereit");
+      const vs=document.querySelector(".voice-state");
+      if(vs){ vs.classList.remove("vs-listening","vs-thinking","vs-speaking"); if(st&&st!=="idle") vs.classList.add("vs-"+st); }
+      const mic=$("voice-mic"); if(mic) mic.classList.toggle("mic-on", st==="listening");
+      // Gehirn reagiert auf den Voice-Zustand — KEIN Zufalls-Feuern mehr
+      const B=window.AegisBrain;
+      if(voiceAnim){ clearInterval(voiceAnim); voiceAnim=null; }
+      if(B){
+        if(st==="idle"){ if(B.thinking) B.thinking(false); }
+        else {
+          // ein echter VOICE-Impuls je Zustandswechsel (kein Intervall-Spam)
+          if(B.activateForEvent){ try{ B.activateForEvent({category:"VOICE",source:st,severity:"INFO"}); }catch(e){} }
+          if(B.thinking) B.thinking(true);
+        }
+      }
+    }
+    if(window.aegis&&window.aegis.voiceState&&window.aegis.voiceState.connect){
+      window.aegis.voiceState.connect((kind,payload)=>{
+        if(kind==="transcript"){ if(payload){ setTxt("voice-transcript","\u201E"+payload+"\u201C"); pushBubble("user",payload); } }
+        else if(kind==="reply"){ if(payload){ setTxt("voice-transcript",payload); pushBubble("aegis",payload); } }
+        else if(kind==="state"){ setVoiceState(payload); }
+        else if(kind==="status"){ setTxt("voice-status",payload||"Bereit"); }
+        else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
+      });
+    }
+    const ttsSel=$("tts-voice");
+    if(ttsSel) ttsSel.addEventListener("change",()=>{ sendCmd("settings.save",{tts_voice:ttsSel.value}); });
+    const ttsEn=$("tts-enabled");
+    if(ttsEn) ttsEn.addEventListener("change",()=>{ sendCmd("settings.save",{tts_enabled:ttsEn.checked}); });
+    const ttsTest=$("tts-test");
+    if(ttsTest) ttsTest.addEventListener("click",()=>{
+      const v=ttsSel?ttsSel.value:""; if(v) sendCmd("settings.save",{tts_voice:v});
+      if(window.aegis&&window.aegis.ttsPreview){ try{ window.aegis.ttsPreview(v); }catch(e){} }
+    });
     const ss=$("scan-start"); if(ss) ss.addEventListener("click",scanStart);
     const cc=$("scan-cancel"); if(cc) cc.addEventListener("click",scanCancel);
     ["scan-filter-verdict","scan-filter-kind"].forEach(id=>{const e=$(id); if(e) e.addEventListener("change",()=>sendCmd("scan.items",{limit:500}));});
     const sv=$("save-settings"); if(sv) sv.addEventListener("click",saveSettings);
+    const vtt=$("vt-test"); if(vtt) vtt.addEventListener("click",()=>{
+      const s=$("vt-status"); if(s){ s.textContent="Teste …"; s.style.color="var(--muted,#8a93a6)"; }
+      sendCmd("vt.status",{});
+    });
     const qr=$("quar-reload"); if(qr) qr.addEventListener("click",pollQuar);
-    const vs=$("voice-send"); if(vs) vs.addEventListener("click",voiceSend);
-    const vt=$("voice-text"); if(vt) vt.addEventListener("keydown",e=>{if(e.key==="Enter")voiceSend();});
+    // voice-send + Enter sind bereits oben via voiceSendText (lokaler VoiceController) gebunden.
+    // Frühere Cloud-Dublette entfernt — sonst feuerten zwei Voice-Pfade pro Klick.
+    const aApply=$("autonomy-apply"); if(aApply) aApply.addEventListener("click",autonomyApply);
+    const aSetPin=$("autonomy-setpin"); if(aSetPin) aSetPin.addEventListener("click",autonomySetPin);
+    const aStop=$("autonomy-stop"); if(aStop) aStop.addEventListener("click",autonomyStop);
+    const oin=$("ollama-install");
+    if(oin) oin.addEventListener("click",()=>{
+      const w=$("ollama-progress-wrap"); if(w) w.style.display="block";
+      oin.disabled=true; oin.textContent="Installiere …";
+      if(window.aegis&&window.aegis.ollamaInstall){ try{ window.aegis.ollamaInstall(); }catch(e){} }
+    });
+    if(window.aegis&&window.aegis.ollamaProgress&&window.aegis.ollamaProgress.connect){
+      window.aegis.ollamaProgress.connect((stage,pct)=>{
+        const bar=$("ollama-bar"), stg=$("ollama-stage"), btn=$("ollama-install");
+        if(stg) stg.textContent=stage||"";
+        if(pct>=0&&bar) bar.style.width=Math.min(100,pct)+"%";
+        if(pct===100){ if(btn) btn.textContent="Aktiv ✓"; setTimeout(loadOllama,1500); }
+        else if(pct===-1){ if(btn){ btn.disabled=false; btn.textContent="Erneut versuchen"; } if(bar) bar.style.background="#f87171"; }
+      });
+    }
   }
 
   function attach(){
     if(!window.aegis||!window.aegis.eventReceived||!window.aegis.eventReceived.connect){ setTimeout(attach,150); return; }
     window.aegis.eventReceived.connect(function(json){ let ev; try{ev=JSON.parse(json);}catch(_){return;} try{onEvent(ev);}catch(_){} });
-    loadSettings(); pollQuar(); pollConsent();
-    setInterval(function(){ pollQuar(); pollConsent(); },5000);
+    loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama();
+    setInterval(function(){ pollQuar(); pollConsent(); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
     setInterval(renderNet,1000);
   }
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",wireAll); else wireAll();
   attach();
-  window.AegisPanels={ network:renderNet, quarantine:pollQuar, settings:loadSettings, scan:scanPoll, consent:pollConsent };
+  window.AegisPanels={ network:renderNet, quarantine:pollQuar, settings:function(){loadSettings();loadAutonomy();loadOllama();}, scan:scanPoll, consent:pollConsent, voice:loadOllama, memory:loadMemory };
 })();

@@ -5,6 +5,7 @@ suspicious-Verdict) in den QuarantineManager geschoben.
 """
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -25,11 +26,60 @@ from .base import Module
 from .quarantine import QuarantineManager
 
 
-WATCH_FOLDERS_DEFAULT = [
-    Path.home() / "Downloads",
-    Path.home() / "Desktop",
-    Path.home() / "Documents",
-]
+def _expand_watch_folders() -> list[Path]:
+    """Standard-Watch-Ordner inkl. der haeufigsten Malware-Drop-Zonen
+    (%TEMP%, %LOCALAPPDATA%\\Temp, %APPDATA%\\Roaming, C:\\Windows\\Temp)."""
+    home = Path.home()
+    cands = [home / "Downloads", home / "Desktop", home / "Documents"]
+    for ev in ("TEMP", "TMP"):
+        v = os.environ.get(ev)
+        if v:
+            cands.append(Path(v))
+    la = os.environ.get("LOCALAPPDATA")
+    if la:
+        cands.append(Path(la) / "Temp")
+    # %APPDATA%\\Roaming und C:\\Windows\\Temp werden NICHT live ueberwacht
+    # (zu viele Schreibvorgaenge -> Dauerlast). Der On-Demand-Full-Scan deckt sie ab.
+    out, seen = [], set()
+    for pth in cands:
+        try:
+            r = pth.resolve()
+        except Exception:
+            r = pth
+        if r in seen:
+            continue
+        seen.add(r)
+        out.append(pth)
+    return out
+
+
+WATCH_FOLDERS_DEFAULT = _expand_watch_folders()
+
+# Potenziell ausfuehrbare Endungen — in Temp/AppData wird NUR darauf reagiert.
+_EXEC_EXTS = {".exe", ".dll", ".scr", ".bat", ".cmd", ".com", ".ps1", ".psm1",
+              ".vbs", ".vbe", ".js", ".jse", ".jar", ".msi", ".msp", ".pif",
+              ".hta", ".wsf", ".wsh", ".cpl", ".sys", ".lnk", ".reg", ".scf"}
+
+
+# VT-Key wird EINMAL entschluesselt (DPAPI) und gecacht — nicht pro Datei.
+_VT_KEY_CACHE: dict = {"loaded": False, "key": None}
+
+
+def _vt_callback():
+    """Liefert vt_lookup_cb(sha)->dict wenn ein VT-Key gesetzt ist, sonst None.
+    Key bleibt lokal/DPAPI; Lookup ist ein read-only GET via threat_intel."""
+    if not _VT_KEY_CACHE["loaded"]:
+        try:
+            from ...cognition.secrets_store import get_secret
+            _VT_KEY_CACHE["key"] = get_secret("vt_api_key")
+        except Exception:  # noqa: BLE001
+            _VT_KEY_CACHE["key"] = None
+        _VT_KEY_CACHE["loaded"] = True
+    key = _VT_KEY_CACHE["key"]
+    if not key:
+        return None
+    from ..threat_intel import vt_lookup_hash
+    return lambda h: vt_lookup_hash(h, key)
 
 
 class _FsEventHandler(FileSystemEventHandler):  # type: ignore
@@ -83,9 +133,12 @@ class FileWatcher(Module):
         handler = _FsEventHandler(self._on_event)
         for folder in self.folders:
             if folder.exists():
-                self._observer.schedule(handler, str(folder), recursive=True)
+                # Temp NICHT rekursiv (zu viele Events) — Dropper landen top-level.
+                _fl = str(folder).lower()
+                _rec = not (("\\temp" in _fl) or ("\\tmp" in _fl))
+                self._observer.schedule(handler, str(folder), recursive=_rec)
                 self.emit(Severity.INFO, Category.FILE,
-                          f"Beobachte Ordner: {folder}")
+                          f"Beobachte Ordner: {folder}" + ("" if _rec else " (flach)"))
             else:
                 self.emit(Severity.WARN, Category.SYSTEM,
                           f"Watch-Ordner existiert nicht: {folder}")
@@ -107,14 +160,20 @@ class FileWatcher(Module):
                 pass
             if p.name.lower().startswith("powershell_transcript"):
                 return
-            time.sleep(0.4)         # FS-settle to avoid reading partial writes
+            # Performance: in Temp/AppData-Baeumen nur ausfuehrbare Dateien
+            # durch die teure Scan-/Hash-Pipeline schicken (sonst Browser-Cache-Flut).
+            _pl = str(p).lower()
+            if (("\\temp\\" in _pl) or ("\\tmp\\" in _pl) or ("\\appdata\\" in _pl)) \
+               and p.suffix.lower() not in _EXEC_EXTS:
+                return
+            time.sleep(0.25)        # FS-settle (verkuerzt: Race-Window kleiner)
             if not p.exists() or p.is_dir():
                 return
 
             # ---- L0/L1: Layered Scanner mit sofortigem Pre-Exec-Block ----
             try:
                 from ..scanner import scan_file
-                scan = scan_file(p)
+                scan = scan_file(p, vt_lookup_cb=_vt_callback())
                 if scan.verdict == "block":
                     self.emit(Severity.THREAT, Category.FILE,
                               f"PRE-EXEC-BLOCK ({scan.layer}): {p.name}",

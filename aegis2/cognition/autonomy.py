@@ -63,6 +63,7 @@ NEVER_AUTONOMOUS = {
     "audit_log_delete",         # Audit-Log unantastbar
     "consent_bypass",
     "send_credentials",
+    "launch_app",               # beliebige Programm-Ausfuehrung — nie unbeaufsichtigt auto-approven
 }
 
 
@@ -91,11 +92,16 @@ def has_owner_pin() -> bool:
     return bool(get_secret("autonomy_pin_hash"))
 
 
+def _valid_pin(pin: str) -> bool:
+    """Owner-Pin/-Passwort: 4-64 druckbare Zeichen (Buchstaben, Zahlen, Symbole)."""
+    return bool(pin) and 4 <= len(pin) <= 64 and pin.isprintable()
+
+
 def set_owner_pin(pin: str) -> bool:
-    """Setzt erstmaligen Pin. Fail wenn schon einer da ist (use change_owner_pin)."""
+    """Setzt erstmaliges Pin/Passwort. Fail wenn schon eins da ist (use change_owner_pin)."""
     if has_owner_pin():
         return False
-    if not pin or len(pin) < 4 or len(pin) > 12 or not pin.isdigit():
+    if not _valid_pin(pin):
         return False
     set_secret("autonomy_pin_hash", _pin_hash(pin))
     _audit({"event": "owner_pin_set"})
@@ -113,7 +119,7 @@ def change_owner_pin(old_pin: str, new_pin: str) -> bool:
     if not verify_owner_pin(old_pin):
         _audit({"event": "owner_pin_change_failed", "reason": "wrong_old_pin"})
         return False
-    if not new_pin or len(new_pin) < 4 or len(new_pin) > 12 or not new_pin.isdigit():
+    if not _valid_pin(new_pin):
         return False
     set_secret("autonomy_pin_hash", _pin_hash(new_pin))
     _audit({"event": "owner_pin_changed"})
@@ -157,6 +163,16 @@ class AutonomyManager:
                     self.session.enabled_actions = set(json.loads(enabled))
                 except Exception:  # noqa: BLE001
                     pass
+            # Persistierte NIEDRIGE Stufe (OFF/OBSERVE/SUGGEST) wiederherstellen.
+            # AUTO/FULL werden NIE persistiert (laufen mit TTL, Reset nach Neustart).
+            try:
+                pl = get_secret("autonomy_persisted_level")
+                if pl not in (None, ""):
+                    lv = int(pl)
+                    if LEVEL_OFF <= lv <= LEVEL_SUGGEST:
+                        self.session.level = lv
+            except Exception:  # noqa: BLE001
+                pass
 
     def current_level(self) -> int:
         with self._lock:
@@ -209,6 +225,12 @@ class AutonomyManager:
             self.session.expires_at = now + ttl_minutes * 60 if new_level >= LEVEL_AUTO else 0
             self.session.triggered_actions = 0
             self.session.auto_demoted = False
+        # Niedrige Stufen ueber Neustarts halten (UX). AUTO/FULL nie (Sicherheit/TTL).
+        if new_level <= LEVEL_SUGGEST:
+            try:
+                set_secret("autonomy_persisted_level", str(new_level))
+            except Exception:  # noqa: BLE001
+                pass
         _audit({"event": "level_changed",
                 "old_level": old_level, "new_level": new_level,
                 "ttl_minutes": ttl_minutes})

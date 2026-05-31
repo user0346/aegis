@@ -132,3 +132,12 @@ Icon?
 *.bkp
 backup_*/
 old_*/
+
+# ---- Lokale Laufzeit-Logs & Build-Artefakte (PII-/Pfad-Leak-Schutz) ----
+install_host_log.txt
+*host_log*.txt
+*.ext_id
+.ext_id
+extension/_metadata/
+generated_indexed_rulesets/
+_attic/

@@ -4,55 +4,56 @@ AEGIS - Installation
 REQUIREMENTS
 ------------
 - Windows 10 or 11 (64-bit)
-- Administrator account (for first install only)
-- Python 3.13 (auto-installed by the installer if missing)
+- Administrator account (first install only)
+- Python 3.13  (the setup guides you if it is missing)
 
-INSTALL STEPS
--------------
-1.  Move the entire extracted folder to a permanent location.
-    Recommended:  C:\Program Files\AEGIS\
-    Also valid:   C:\AEGIS\
+INSTALL
+-------
+1.  Move the entire extracted "AEGIS" folder to a permanent location,
+    e.g.  C:\AEGIS\   (avoid Desktop or Downloads).
 
-2.  Double-click the file named Install_AEGIS.bat (inside this folder).
+2.  Double-click  AEGIS_SETUP.bat
+    Accept the Windows prompt if it appears.
 
-3.  Accept the UAC prompt when Windows asks.
+3.  Wait until setup reports that AEGIS is active (1-2 minutes).
 
-4.  Wait for the installer to finish (one to two minutes).
+AEGIS then runs quietly in the background and starts automatically
+with Windows.
 
-When the installer says "done", AEGIS is active.
-It will run silently in the background and restart automatically
-on every Windows boot.
+OPEN THE INTERFACE
+------------------
+Double-click  AEGIS.bat  to open the dashboard at any time.
+The interface is optional - protection runs without it.
 
-OPENING THE INTERFACE
----------------------
-The user interface opens automatically after the next login.
-You can also open it any time by double-clicking AEGIS_Shell.bat.
+AUTOSTART
+---------
+On by default after setup.
+- Disable: double-click  AEGIS_AUTOSTART_AUS.bat
+- Enable:  double-click  AEGIS_AUTOSTART_EIN.bat
 
-NOTE: The interface is optional — the protection runs without it.
+OPTIONAL FEATURES (off by default)
+----------------------------------
+- Local AI (Ollama): enable in the app -> Settings -> "Lokale KI".
+- Voice control:      enable in the app -> Voice tab.
+Both run fully local; no account or key required.
 
-OPTIONAL FEATURES
------------------
-Voice control and AI features are off by default.
-To enable, see the relevant sections inside the application
-(Settings panel).
+SECURITY PIN
+------------
+Set an Owner-PIN in Settings to protect autonomous actions.
+To reset it later, double-click  AEGIS_REPIN.bat
 
-UPDATING
---------
-Updates are downloaded, verified and applied automatically.
-You will be prompted before any update is installed.
+UPDATES
+-------
+Updates are downloaded, signature-verified, and applied only after
+you confirm them in the app.
 
 UNINSTALL
 ---------
-Double-click Uninstall_AEGIS.bat (in the same folder).
-This removes all AEGIS components and scheduled tasks.
+1.  Run  AEGIS_AUTOSTART_AUS.bat   (stops autostart + scheduled task).
+2.  Delete the AEGIS folder.
 
 SUPPORT
 -------
 Documentation:  https://github.com/user0346/aegis
-Security:       see SECURITY.md inside this folder
+Security:       see SECURITY.md in this folder
 Bugs:           https://github.com/user0346/aegis/issues
-
-DO NOT REDISTRIBUTE
--------------------
-Do not redistribute this folder. Always direct users to download
-the latest signed release from the official release page.

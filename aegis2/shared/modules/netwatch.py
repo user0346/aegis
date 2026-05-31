@@ -70,6 +70,7 @@ class NetworkWatcher(Module):
         self._seen: set[str] = set()
         self._out_dedup: dict = {}
         self._portscan = PortScanState()
+        self._listen_ports: set[int] = set()  # lokale LISTEN-Ports (= eingehende Dienste)
 
     def run(self) -> None:
         if not psutil:
@@ -79,6 +80,10 @@ class NetworkWatcher(Module):
         while not self._stop.is_set():
             try:
                 conns = psutil.net_connections(kind="inet")
+                # Zuerst alle LISTEN-Ports einsammeln: ein eingehender Connect
+                # landet immer auf einem unserer Listening-Ports. Daran (statt am
+                # Status) erkennen wir verlaesslich die Richtung "in".
+                self._refresh_listen_ports(conns)
                 pid_cache: dict[int, tuple] = {}
                 for c in conns:
                     self._handle(c, pid_cache)
@@ -93,6 +98,24 @@ class NetworkWatcher(Module):
             if len(self._seen) > 5000:
                 self._seen = set(list(self._seen)[-2000:])
             self._stop.wait(self.interval)
+
+    def _refresh_listen_ports(self, conns) -> None:
+        """Sammelt alle lokalen Ports im LISTEN-Status (TCP) als Menge.
+        Diese Ports nehmen eingehende Verbindungen an -> jede Verbindung, deren
+        local port hier drin liegt, ist eingehend (direction="in"). Wir bauen die
+        Menge pro Scan neu auf, behalten aber bereits bekannte Ports bei
+        (fail-closed: ein kurz fehlender LISTEN-Eintrag darf eine laufende
+        eingehende Verbindung nicht faelschlich auf "out" umflippen).
+        """
+        try:
+            for c in conns:
+                if c.status == "LISTEN" and c.laddr:
+                    self._listen_ports.add(c.laddr.port)
+        except (AttributeError, psutil.Error):
+            pass
+        if len(self._listen_ports) > 4000:
+            # Begrenzen, falls sehr viele ephemere Listener auftauchen.
+            self._listen_ports = set(list(self._listen_ports)[-1000:])
 
     def _handle(self, conn, pid_cache: dict) -> None:
         try:
@@ -121,13 +144,20 @@ class NetworkWatcher(Module):
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pid_cache[conn.pid] = ("", "")
 
+            # Richtungsbestimmung primaer ueber lokale LISTEN-Ports: liegt der
+            # local port in unserer Listener-Menge, ist die Verbindung eingehend
+            # — UNABHAENGIG vom Status (ESTABLISHED inbound zaehlte vorher faelschlich
+            # als "out", wodurch Portscan-/Flood-Detection nie gefuettert wurde).
             direction = "out"
-            if conn.status in ("SYN_RECV", "TIME_WAIT") or (
-                conn.laddr and conn.laddr.port < 10000 and conn.raddr and conn.raddr.port > 30000
-            ):
-                if conn.status != "ESTABLISHED" or (conn.laddr.port < 1024):
-                    direction = "in"
+            local_port = conn.laddr.port if conn.laddr else None
+            if local_port is not None and local_port in self._listen_ports:
+                direction = "in"
+            elif conn.status in ("SYN_RECV", "LISTEN"):
+                # Halb-offene/lauschende Sockets sind ebenfalls eingehend.
+                direction = "in"
 
+            if not pname:
+                pname = "PID %d" % (conn.pid or 0)   # Name nicht aufloesbar (AccessDenied)
             protocol = "tcp" if conn.type == socket.SOCK_STREAM else "udp"
 
             self.db.log_connection(

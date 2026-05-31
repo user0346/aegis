@@ -24,6 +24,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import shutil
+import subprocess
+import sys
 import time
 import urllib.request
 import hashlib
@@ -37,6 +41,10 @@ from .modules.base import Module
 
 
 log = logging.getLogger("aegis2.github_updater")
+
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+_COSIGN_DIR = Path.home() / ".aegis" / "bin"
+_COSIGN_LOCAL = _COSIGN_DIR / "cosign.exe"
 
 
 UPDATE_DIR = Path.home() / ".aegis" / "updates"
@@ -74,6 +82,9 @@ def _download(url: str, dest: Path, timeout: int = 60) -> bool:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": f"AEGIS/{__version__}"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if getattr(resp, "status", 200) != 200:
+                log.warning("Download HTTP %s for %s", getattr(resp, "status", "?"), url)
+                return False
             with open(dest, "wb") as f:
                 while True:
                     chunk = resp.read(65536)
@@ -84,6 +95,66 @@ def _download(url: str, dest: Path, timeout: int = 60) -> bool:
     except Exception as e:  # noqa: BLE001
         log.warning("Download failed (%s): %s", url, e)
         return False
+
+
+def cosign_path() -> Optional[str]:
+    """Pfad zu einem nutzbaren cosign — im PATH oder lokal unter ~/.aegis/bin."""
+    p = shutil.which("cosign")
+    if p:
+        return p
+    if _COSIGN_LOCAL.exists():
+        return str(_COSIGN_LOCAL)
+    return None
+
+
+def ensure_cosign(timeout: int = 180) -> Optional[str]:
+    """Stellt cosign bereit (idempotent, self-bootstrapping). Reihenfolge:
+      1) bereits vorhanden (PATH oder ~/.aegis/bin) -> zurueck
+      2) winget install sigstore.cosign (User-Kontext)
+      3) Direkt-Download der offiziellen Windows-Binary von github.com/sigstore/cosign
+
+    Returns Pfad oder None. Bei None bleibt die Update-Verifikation fail-closed.
+    Hinweis: der Bootstrap-Download laeuft ueber HTTPS von der offiziellen
+    sigstore/cosign-Release-Seite (Verifier-Bootstrap — kann sich nicht selbst pruefen).
+    """
+    p = cosign_path()
+    if p:
+        return p
+    if sys.platform != "win32":
+        return None
+    # (2) winget
+    try:
+        subprocess.run(
+            ["winget", "install", "--id", "sigstore.cosign", "--silent",
+             "--accept-package-agreements", "--accept-source-agreements",
+             "--disable-interactivity"],
+            capture_output=True, text=True, timeout=timeout, creationflags=_NO_WINDOW)
+        w = shutil.which("cosign")
+        if w:
+            log.info("cosign via winget bereitgestellt")
+            return w
+    except Exception as e:  # noqa: BLE001
+        log.info("cosign winget-Install nicht moeglich: %s", e)
+    # (3) Direkt-Download der offiziellen Binary (latest release)
+    try:
+        rel = fetch_latest_release("sigstore/cosign") or {}
+        url = None
+        for a in rel.get("assets", []):
+            if (a.get("name") or "").lower() == "cosign-windows-amd64.exe":
+                url = a.get("browser_download_url")
+                break
+        if url:
+            _COSIGN_DIR.mkdir(parents=True, exist_ok=True)
+            if _download(url, _COSIGN_LOCAL):
+                try:
+                    _COSIGN_LOCAL.chmod(0o700)
+                except Exception:  # noqa: BLE001
+                    pass
+                log.info("cosign nach %s heruntergeladen", _COSIGN_LOCAL)
+                return str(_COSIGN_LOCAL)
+    except Exception as e:  # noqa: BLE001
+        log.warning("cosign Direkt-Download fehlgeschlagen: %s", e)
+    return None
 
 
 def verify_sigstore(zip_path: Path, sig_path: Path, cert_path: Path,
@@ -97,39 +168,31 @@ def verify_sigstore(zip_path: Path, sig_path: Path, cert_path: Path,
 
     Returns (verified, reason).
     """
+    cosign = ensure_cosign()
+    if not cosign:
+        return False, "cosign nicht verfuegbar (Auto-Install via winget/Download fehlgeschlagen)."
+    # Cert-Identity muss exakt mit diesem Repo+Workflow beginnen, gefolgt von '@<tag-ref>'.
+    # Schuetzt vor Repo-Uebernahme: nur Builds aus DEINEM Workflow zaehlen.
+    identity_re = ("^https://github.com/" + re.escape(expected_repo) + "/"
+                   + re.escape(expected_workflow) + "@")
+    cmd = [
+        cosign, "verify-blob",
+        "--certificate", str(cert_path),
+        "--signature", str(sig_path),
+        "--certificate-identity-regexp", identity_re,
+        "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+        str(zip_path),
+    ]
     try:
-        # sigstore-python — optional
-        from sigstore.verify import Verifier, policy
-        from sigstore.verify.models import VerificationMaterials
-    except ImportError:
-        return False, "sigstore library not installed (pip install sigstore)"
-
-    try:
-        sig_bytes = sig_path.read_bytes()
-        cert_pem = cert_path.read_bytes()
-        zip_bytes = zip_path.read_bytes()
-        # Build expected identity policy
-        identity = (f"https://github.com/{expected_repo}/"
-                    f"{expected_workflow}@refs/tags/")
-        v = Verifier.production()
-        # Materials from cert + sig + blob
-        materials = VerificationMaterials(
-            input_=zip_bytes,
-            cert_pem=cert_pem.decode("utf-8"),
-            signature=sig_bytes,
-        )
-        result = v.verify(
-            materials=materials,
-            policy=policy.AllOf([
-                policy.OIDCIssuer("https://token.actions.githubusercontent.com"),
-                policy.OIDCSourceRepository(expected_repo),
-            ]),
-        )
-        if result:
-            return True, "verified"
-        return False, "policy mismatch"
+        proc = subprocess.run(cmd, capture_output=True, timeout=120,
+                              creationflags=_NO_WINDOW)
     except Exception as e:  # noqa: BLE001
         return False, f"verify-error: {type(e).__name__}: {e}"
+    if proc.returncode == 0:
+        return True, "verified"
+    err = (proc.stderr or b"").decode("utf-8", "ignore").strip().splitlines()
+    reason = err[-1][:200] if err else f"rc={proc.returncode}"
+    return False, f"cosign verify-blob failed: {reason}"
 
 
 def sha256_of_file(p: Path) -> str:

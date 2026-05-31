@@ -13,6 +13,7 @@ from typing import Optional
 from ..db import Database
 from ..events import EventBus, Event, Severity, Category
 from .. import threat_intel as ti
+from .. import adaptive
 
 
 QUARANTINE_DIR = Path.home() / ".aegis" / "quarantine"
@@ -29,6 +30,14 @@ class QuarantineManager:
                    sha256_hash: Optional[str] = None) -> Optional[int]:
         try:
             if not original_path.exists():
+                return None
+            # SICHERHEIT: niemals Windows-/Programm-Systemdateien quarantaenieren
+            # (z.B. powershell.exe) — das wuerde das System beschaedigen.
+            _pl = str(original_path).lower().replace(chr(92), "/")
+            if _pl.startswith(("c:/windows/", "c:/program files/", "c:/program files (x86)/")):
+                self.bus.emit(Event(Severity.WARN, Category.QUARANTINE,
+                    f"Quarantaene abgelehnt — geschuetzte Systemdatei: {original_path.name}",
+                    "QuarantineManager", {"path": str(original_path)}))
                 return None
             if not sha256_hash:
                 sha256_hash = ti.file_sha256(original_path)
@@ -83,8 +92,9 @@ class QuarantineManager:
             self.db.record_decision("file_hash", q["sha256"], "allow", notes)
             # Lerne: dieser Quarantäne-Grund war ein False-Positive
             try:
-                self.db.calibration_record_decision(
-                    f"quar:{q['reason']}", "FILE", 50, "approved")
+                adaptive.learn_from_decision(
+                    self.db, "file", q["sha256"], "approved",
+                    pattern_key=f"quar:{q['reason']}", category="FILE", base_score=50)
                 self.db.inc_metric("calibration_updates", 1)
             except Exception:  # noqa: BLE001
                 pass

@@ -148,17 +148,34 @@
   }
 
   // ----- Button handlers -----
-  installBtn.addEventListener("click", () => {
+  let _waitIv = null, _forceNext = false;
+  function doInstall(force) {
     if (!currentMeta) return;
-    // Hard gate: only proceed if signature is verified
+    // Hard gate: nur bei verifizierter Signatur
     if (currentMeta.signature_verified !== true) {
-      progressTxt.textContent = "Signature not verified — refusing install";
+      progressTxt.textContent = "Signatur nicht verifiziert — Installation abgelehnt";
       progressEl.hidden = false;
       return;
     }
+    // Voice laeuft noch? -> warten, aber Sofort-Neustart anbieten
+    if (!force && window._aegisVoiceBusy) {
+      startProgress("Sprachausgabe läuft noch …",
+                    "Update startet automatisch, sobald sie fertig ist — oder jetzt erzwingen.");
+      installBtn.disabled = false;
+      installBtn.textContent = "Jetzt neustarten";
+      _forceNext = true;
+      if (_waitIv) clearInterval(_waitIv);
+      _waitIv = setInterval(() => {
+        if (!window._aegisVoiceBusy) { clearInterval(_waitIv); _waitIv = null; doInstall(false); }
+      }, 1000);
+      return;
+    }
+    if (_waitIv) { clearInterval(_waitIv); _waitIv = null; }
+    _forceNext = false;
     startProgress("Installation läuft…", "Service wird gestoppt");
     sendCmd("update.install", { version: currentMeta.version });
-  });
+  }
+  installBtn.addEventListener("click", () => doInstall(_forceNext));
 
   laterBtn.addEventListener("click", () => {
     if (currentMeta) sendCmd("update.remind", { version: currentMeta.version });

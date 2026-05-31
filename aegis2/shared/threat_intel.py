@@ -369,9 +369,10 @@ def _check_rundll32(cmdline: str) -> tuple[bool, str]:
 
 
 SUSPICIOUS_CMD_PATTERNS = [
-    # PowerShell encoded commands (strict: -enc, -EncodedCommand)
-    (re.compile(r"powershell(?:\.exe)?\s+.*-(?:enc|encodedcommand)\b", re.IGNORECASE),
-     "PowerShell mit EncodedCommand-Argument (Obfuscation-Pattern)"),
+    # HINWEIS: bare -EncodedCommand wird NICHT mehr hier (=score 70/malicious) gefuehrt —
+    # viele LEGITIME Tools (Entwickler-/Admin-Tools, Paketmanager) nutzen es voellig normal,
+    # das fuehrte zu einer Fehlalarm-Flut. Stattdessen dekodiert _check_encoded_powershell()
+    # den Befehl und stuft nur ECHTE Download/Exec-Cradles hoch ein (s. classify_process).
     # Hidden window UND bypass kombiniert = high confidence
     (re.compile(r"powershell.*-w(?:indowstyle)?\s+hidden.*-(?:exec|ep)(?:utionpolicy)?\s+bypass", re.IGNORECASE),
      "PowerShell hidden + ExecutionPolicy Bypass kombiniert"),
@@ -406,6 +407,39 @@ SUSPICIOUS_CMD_PATTERNS = [
 ]
 
 
+_PS_ENC_RE = re.compile(r"-(?:enc\w*|ec)\b\s+([A-Za-z0-9+/=]{16,})", re.IGNORECASE)
+_PS_CRADLE_RE = re.compile(
+    r"(?:iex|invoke-expression|downloadstring|downloadfile|invoke-webrequest|\biwr\b|"
+    r"net\.webclient|frombase64string|start-process|reflection\.assembly|http://|https://)",
+    re.IGNORECASE)
+
+
+def _check_encoded_powershell(cmdline: str):
+    """PowerShell -EncodedCommand bewerten OHNE pauschalen Fehlalarm. Legitime Tools
+    (Entwickler-/Admin-Tools wie z.B. Code-Assistenten, Paketmanager) nutzen -EncodedCommand
+    voellig normal -> nicht blind als Bedrohung werten. Erst DEKODIEREN und schauen, was der
+    Befehl WIRKLICH tut:
+      - dekodiert + Download/Exec-Cradle (iex, DownloadString, WebClient ...) -> echte
+        Verschleierung (score 80 -> THREAT)
+      - encoded, aber harmlos / nicht dekodierbar -> nur mild verdaechtig (score 45 -> WARN)
+    Returns (score, reason) oder (0, '')."""
+    if not cmdline or "powershell" not in cmdline.lower():
+        return 0, ""
+    if not re.search(r"-(?:enc\w*|ec)\b", cmdline, re.IGNORECASE):
+        return 0, ""
+    blob = ""
+    bm = _PS_ENC_RE.search(cmdline)
+    if bm:
+        try:
+            import base64
+            blob = base64.b64decode(bm.group(1) + "===").decode("utf-16-le", errors="ignore")
+        except Exception:  # noqa: BLE001
+            blob = ""
+    if blob and _PS_CRADLE_RE.search(blob):
+        return 80, "PowerShell EncodedCommand mit Download/Exec-Cradle (dekodiert) — echte Verschleierung"
+    return 45, "PowerShell EncodedCommand (verschleiert; oft auch legitime Entwickler-/Admin-Tools)"
+
+
 def classify_process(name: str, cmdline: str, exe: str) -> dict:
     """Heuristische Klassifikation eines Prozesses."""
     reasons = []
@@ -422,6 +456,13 @@ def classify_process(name: str, cmdline: str, exe: str) -> dict:
         if pat.search(cmd_full):
             reasons.append(msg)
             score = max(score, 70)
+
+    # PowerShell EncodedCommand: dekodieren + nur echte Download/Exec-Cradles hoch einstufen
+    # (legitime Tools mit EncodedCommand bleiben mild verdaechtig statt THREAT -> kein Fehlalarm).
+    enc_score, enc_reason = _check_encoded_powershell(cmd_full)
+    if enc_reason:
+        reasons.append(enc_reason)
+        score = max(score, enc_score)
 
     # EXE aus AppData/Temp aber NICHT Windows-Update/Installer-Caches
     exe_lower = (exe or "").lower()
@@ -510,14 +551,22 @@ def vt_lookup_hash(sha256: str, api_key: str, timeout: int = 15) -> dict:
     url = f"{VT_API_BASE}/files/{sha256}"
     req = urllib.request.Request(url, headers={"x-apikey": api_key, "Accept": "application/json"})
     try:
-        _vt_limiter.record()
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            # Erst NACH erhaltener Antwort zaehlen: nur ein tatsaechlich an VT
+            # gesendeter Request verbraucht das Limit. Transiente Netz-/DNS-
+            # Fehler (Connection refused, Timeout, getaddrinfo) duerfen das
+            # 4/min-Budget NICHT aufbrauchen.
+            _vt_limiter.record()
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
+        # Eine HTTP-Antwort (auch 404/4xx/5xx) bedeutet: der Request kam bei VT
+        # an und zaehlt gegen das Limit.
+        _vt_limiter.record()
         if e.code == 404:
             return {"found": False, "error": "not in VT database"}
         return {"found": False, "error": f"HTTP {e.code}"}
     except Exception as e:
+        # Kein Response erhalten (URLError/Timeout/DNS) -> NICHT zaehlen.
         return {"found": False, "error": str(e)[:120]}
 
     try:

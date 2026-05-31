@@ -128,6 +128,14 @@ def scan_file(path: Path, vt_lookup_cb=None, max_header_bytes: int = 8192,
             vt = vt_lookup_cb(sha)
         except Exception:  # noqa: BLE001
             vt = None
+        # Ergebnis persistieren (auch "not found"/Fehler -> vt_checked_at gesetzt,
+        # damit der Lookup-Zaehler stimmt und wir nicht dauernd neu abfragen).
+        if vt is not None:
+            try:
+                from .db import get_db
+                get_db().set_vt_result(sha, vt)
+            except Exception:  # noqa: BLE001
+                pass
         if vt and vt.get("found"):
             mal = vt.get("malicious", 0)
             sus = vt.get("suspicious", 0)
@@ -148,6 +156,50 @@ def scan_file(path: Path, vt_lookup_cb=None, max_header_bytes: int = 8192,
                 result.layer = "L5-vt"
                 result.reasons.append(f"VT: {mal} malicious + {sus} suspicious")
                 result.recommend = "monitor"
+
+    # ---- L6: Adaptiver Lern-Layer (calibration + reputation + Multi-Signal) ----
+    if "L6" not in skip and result.verdict != "block":
+        try:
+            from . import adaptive
+            from .db import get_db
+            _db = get_db()
+            _pl = str(path).lower().replace(chr(92), "/")
+            _nm = path.name.lower(); _ext = path.suffix.lower()
+            _sig = {
+                "drop_zone": any(z in _pl for z in (
+                    "/appdata/local/temp/", "/appdata/roaming/", "/windows/temp/",
+                    "/programdata/", "/users/public/", "/$recycle.bin/", "/temp/", "/tmp/")),
+                "untrusted_path": not adaptive.is_trusted_path(str(path)),
+                "exec_ext": _ext in (".exe", ".scr", ".dll", ".bat", ".cmd", ".com",
+                                     ".ps1", ".vbs", ".js", ".jar", ".msi", ".hta", ".pif"),
+                "double_ext": _nm.count(".") >= 2 and any(
+                    ("." + e + ".") in _nm for e in ("pdf", "doc", "jpg", "png", "txt", "xls", "rtf")),
+            }
+            _base = result.metadata.get("L4_score", 0) or result.confidence or 0
+            _pk = "file:" + (sha[:16] if sha else _nm)
+            _lv = adaptive.learned_verdict(_db, "file", sha or _nm, _base,
+                                           result.verdict, pattern_key=_pk,
+                                           signals=_sig, path=str(path))
+            result.metadata["adaptive"] = _lv
+            _autoblock = True
+            try: _autoblock = bool(_db.get_setting("adaptive_autoblock", True))
+            except Exception: pass
+            if _lv["block"] and _autoblock:
+                result.verdict = "block"
+                result.confidence = max(result.confidence, _lv["score"])
+                result.layer = "L6-adaptive"
+                result.reasons = (result.reasons or []) + [
+                    "Adaptiv gelernt: Score %d (Ruf %s)" % (_lv["score"], _lv["reputation"])]
+                result.recommend = "quarantine"
+                return result
+            if _lv["verdict"] in ("warn", "block") and result.verdict == "clean":
+                result.verdict = "warn"
+                result.confidence = max(result.confidence, _lv["score"])
+                result.layer = "L6-adaptive"
+                result.reasons = (result.reasons or []) + ["Adaptiv: Score %d" % _lv["score"]]
+        except Exception as _e:  # noqa: BLE001
+            import logging as _lg
+            _lg.getLogger("aegis.scanner").debug("adaptive L6 skipped: %s", _e)
 
     # Default if nothing decided
     if result.verdict == "clean":

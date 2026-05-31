@@ -375,7 +375,21 @@ def test_service_status():
     try:
         import psutil
         if psutil.pid_exists(pid):
-            ok(f"PID {pid} alive")
+            # Identitaet pruefen: ist die PID aus der (world-writable)
+            # service.pid wirklich der AEGIS-Core? Rein diagnostisch — hier wird
+            # NICHTS gekillt; eine fremde/gespoofte PID soll nur nicht
+            # faelschlich als laufender Dienst gemeldet werden.
+            try:
+                proc = psutil.Process(pid)
+                nm = (proc.name() or "").lower()
+                cl = " ".join(proc.cmdline() or []).lower()
+                if nm in ("pythonw.exe", "python.exe") and "aegis" in cl:
+                    ok(f"PID {pid} alive (AEGIS-Core verifiziert)")
+                else:
+                    warn_(f"PID {pid} lebt, ist aber KEIN AEGIS-Prozess "
+                          f"(name={nm or '?'}) — service.pid evtl. manipuliert")
+            except Exception:  # noqa: BLE001
+                warn_(f"PID {pid} alive (Identitaet nicht verifizierbar)")
         else:
             warn_(f"PID {pid} dead but file exists (stale)")
     except ImportError:
@@ -407,11 +421,7 @@ def test_known_limits():
         ("Voice", "Optional (pip install -r requirements_v2_voice.txt)."),
         ("Pre-Boot", "Unmöglich ohne UEFI-Driver (kein AEGIS-Scope)."),
         ("Kernel-Malware", "Bleibt unsichtbar für User-Mode AEGIS."),
-        ("Driver-Scan", "TODO Phase 5 — Treiber-SHA-Pin + Signing-Check."),
-        ("Keylogger-Detect", "TODO Phase 5 — GetAsyncKeyState/SetWindowsHookEx."),
-        ("USB-Watch", "TODO Phase 5 — RegisterDeviceNotification."),
-        ("Firefox-Ext", "TODO — Manifest V2 Build separat."),
-        ("Update-Manifest", "Server + Public-Key noch nicht deployed."),
+        ("Firefox-Ext", "Nur Chromium-MV3 aktiv; Firefox-Build separat (optional)."),
     ]
     for name, note in items:
         info(f"{name:18s} → {note}")

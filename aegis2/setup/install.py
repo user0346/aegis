@@ -23,6 +23,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from xml.sax.saxutils import escape as _xml_escape
 
 # Make sibling packages importable when run as script
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -142,6 +143,18 @@ def do_tasks_step() -> bool:
     if not hc_entry.exists():
         hc_entry.write_text(_HEALTHCHECK_PY, encoding="utf-8")
 
+    # SICHERHEIT: Jeder Pfad wird XML-escaped, bevor er in die (elevated)
+    # Task-XML interpoliert wird. Ein '&' (in Windows-Ordnern wie C:\\Users\\R&D
+    # voellig legal) oder '<>"' im Pfad wuerde sonst das XML zerbrechen bzw.
+    # erlaubte eine Injektion in die mit HighestAvailable/SYSTEM laufende Task.
+    # '"' wird mit-escaped (defense-in-depth), damit die manuell gesetzten
+    # Anfuehrungszeichen in <Arguments>"..."</Arguments> nicht aufbrechen koennen.
+    _q = {'"': "&quot;"}
+    pyw_x = _xml_escape(str(pyw), _q)
+    root_x = _xml_escape(str(root), _q)
+    shell_entry_x = _xml_escape(str(shell_entry), _q)
+    hc_entry_x = _xml_escape(str(hc_entry), _q)
+
     # ---- Shell-Task (User, Login, LeastPrivilege) ----
     xml_shell = f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -167,9 +180,9 @@ def do_tasks_step() -> bool:
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>{pyw}</Command>
-      <Arguments>"{shell_entry}"</Arguments>
-      <WorkingDirectory>{root}</WorkingDirectory>
+      <Command>{pyw_x}</Command>
+      <Arguments>"{shell_entry_x}"</Arguments>
+      <WorkingDirectory>{root_x}</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>
@@ -201,8 +214,8 @@ def do_tasks_step() -> bool:
   <Settings><Hidden>true</Hidden><Priority>7</Priority></Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>{pyw}</Command>
-      <Arguments>"{hc_entry}"</Arguments>
+      <Command>{pyw_x}</Command>
+      <Arguments>"{hc_entry_x}"</Arguments>
     </Exec>
   </Actions>
 </Task>

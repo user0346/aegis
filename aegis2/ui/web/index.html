@@ -24,7 +24,7 @@
 ">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta name="referrer" content="no-referrer">
-<link rel="stylesheet" href="style.css?v=217">
+<link rel="stylesheet" href="style.css?v=244">
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body>
@@ -52,7 +52,8 @@
       <button class="tab" data-tab="quarantine">Quarantine</button>
       <button class="tab" data-tab="network">Network</button>
       <button class="tab" data-tab="sentinel">Sentinel</button>
-      <button class="tab" data-tab="voice">Voice</button>
+      <button class="tab" data-tab="voice">Assistent</button>
+      <button class="tab" data-tab="memory">Memory</button>
       <button class="tab" data-tab="settings">Settings</button>
     </nav>
 
@@ -334,21 +335,61 @@
         <div class="voice-state">
           <h2 id="voice-status">Idle</h2>
           <p class="muted">Sage <strong>"AEGIS"</strong>, dann eine Anweisung. Oder tippe unten.</p>
+          <div class="voice-history" id="voice-history"></div>
           <div class="voice-transcript" id="voice-transcript">—</div>
           <div class="voice-input">
             <input id="voice-text" placeholder="Frage AEGIS direkt…">
             <button class="btn" id="voice-send">Senden</button>
+            <button class="btn" id="voice-mic" title="Push-to-Talk — lokal, kein Key">🎤 Sprechen</button>
+            <button class="btn" id="voice-stop" title="Sprachausgabe abbrechen" style="display:none;">⏹</button>
           </div>
         </div>
       </div>
       <div class="card">
         <div class="card-head"><h2>Verfügbare Kommandos</h2></div>
         <ul class="cmd-list">
-          <li><kbd>"AEGIS status"</kbd> — kurze Lagemeldung</li>
-          <li><kbd>"AEGIS pause monitoring 5 minuten"</kbd></li>
-          <li><kbd>"AEGIS öffne quarantine"</kbd></li>
-          <li><kbd>"AEGIS suche <i>thema</i>"</kbd> — Web-Search</li>
+          <li><kbd>"öffne youtube.com"</kbd> · <kbd>"öffne discord"</kbd> — Website/App öffnen oder nach vorne holen</li>
+          <li><kbd>"beende spotify"</kbd> — laufende App schließen</li>
+          <li><kbd>"spiele <i>…</i>"</kbd> — Spotify-Link/Song abspielen · <kbd>"stoppe die musik"</kbd> · <kbd>"nächster song"</kbd></li>
+          <li><kbd>"suche auf spotify <i>musik</i>"</kbd> — direkt in Spotify/YouTube suchen</li>
+          <li><kbd>"lerne: <i>…</i>"</kbd> — mit Wissen füttern · <kbd>"was ist <i>…</i>"</kbd> — schlägt selbst nach</li>
+          <li><kbd>"lerne von <i>https://…</i>"</kbd> — aus einem Link lernen (Quelle wird geprüft)</li>
+          <li><kbd>"speicher das als <i>name</i> <i>https://…</i>"</kbd> — Shortcut, später per <kbd>"spiele <i>name</i>"</kbd></li>
+          <li><kbd>"merk dir, dass <i>…</i>"</kbd> — Fakt merken · <kbd>"vergiss alles"</kbd></li>
+          <li><kbd>"was hast du gelernt"</kbd> — echte Erkenntnisse · <kbd>"was ist neu"</kbd> — Changelog</li>
+          <li><kbd>"wie spät ist es"</kbd> · <kbd>"welches datum"</kbd> — aus der Systemzeit</li>
+          <li><kbd>"wie viele CPU-Kerne"</kbd> · <kbd>"welche grafikkarte"</kbd> — Systeminfo</li>
+          <li><kbd>"hör ab jetzt auf <i>Jarvis</i>"</kbd> — Weckwort · <kbd>"nenn mich SIR"</kbd> — Anrede</li>
+          <li><kbd>"ollama pull qwen2.5:7b"</kbd> — Modell laden + aktivieren</li>
+          <li><kbd>"status"</kbd> · <kbd>"scan"</kbd> · <kbd>"ist der scan fertig?"</kbd> · <kbd>"zeig bedrohungen"</kbd> · <kbd>"quarantäne"</kbd></li>
         </ul>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Lokale KI (Ollama)</h2>
+          <span class="muted" id="ollama-status">—</span>
+        </div>
+        <p class="muted" style="margin:0 0 10px;">
+          Für freie Konversation statt nur Befehle. Läuft <strong>komplett lokal</strong>,
+          gratis, kein Schlüssel — keine Daten verlassen deinen PC. Das aktive Modell steht oben rechts.
+        </p>
+        <button class="btn" id="ollama-install">Lokale KI aktivieren</button>
+        <div id="ollama-progress-wrap" style="display:none;margin-top:12px;">
+          <div style="height:8px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden;">
+            <div id="ollama-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#818cf8);transition:width .3s;"></div>
+          </div>
+          <span class="muted" id="ollama-stage" style="font-size:12px;display:block;margin-top:6px;"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Memory / Gedächtnis -->
+    <section class="view" data-view="memory">
+      <div class="card">
+        <div class="card-head"><h2>Was AEGIS sich gemerkt hat</h2>
+          <span class="muted" id="mem-count">—</span>
+        </div>
+        <p class="muted" style="margin:0 0 12px;">Dauerhaftes, lokales Gedächtnis — bleibt über Neustarts erhalten und verlässt deinen PC nie. Ändern per Sprache: „nenn mich …", „hör ab jetzt auf …", „merk dir, dass …", „vergiss alles".</p>
+        <div id="mem-body" class="mem-body">lädt …</div>
       </div>
     </section>
 
@@ -359,6 +400,10 @@
         <div class="form-row">
           <label>VirusTotal API-Key</label>
           <input type="password" id="vt-key" placeholder="optional">
+          <div style="margin-top:6px;">
+            <button class="btn-ghost" id="vt-test">Key testen</button>
+            <span id="vt-status" class="muted"></span>
+          </div>
         </div>
         <div class="form-row">
           <label>Anthropic (Claude) API-Key</label>
@@ -387,6 +432,30 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>Sprachausgabe</h2></div>
+        <div class="form-row">
+          <label>Sprachausgabe aktiv (AEGIS spricht)</label>
+          <input type="checkbox" id="tts-enabled" checked>
+        </div>
+        <div class="form-row">
+          <label>AEGIS-Stimme (neuronal, lokal &amp; gratis)</label>
+          <select id="tts-voice">
+            <option value="de-DE-ConradNeural">Conrad — männlich, ruhig</option>
+            <option value="de-DE-SeraphinaMultilingualNeural">Seraphina — weiblich, sehr natürlich</option>
+            <option value="de-DE-FlorianMultilingualNeural">Florian — männlich, locker</option>
+            <option value="de-DE-KatjaNeural">Katja — weiblich, klar</option>
+            <option value="de-DE-AmalaNeural">Amala — weiblich, warm</option>
+            <option value="de-DE-KillianNeural">Killian — männlich, jung</option>
+            <option value="sapi">System-Stimme (offline, ohne edge-tts)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Stimme anhören</label>
+          <button class="btn btn-sm" id="tts-test">▶ Test</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>Autonome Aktionen</h2></div>
         <p class="muted" style="margin:0 0 12px;">
           Jede dieser Aktionen verlangt deine explizite Zustimmung in der
@@ -409,6 +478,45 @@
           <input type="text" id="consent-ttl" value="10" style="width:100px;">
         </div>
         <button class="btn" id="save-settings">Speichern</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Autonomie-Stufe</h2>
+          <span class="muted" id="autonomy-status">—</span>
+        </div>
+        <p class="muted" style="margin:0 0 12px;">
+          Wie eigenständig AEGIS handeln darf. Höhere Stufen verlangen den Owner-Pin
+          und laufen mit Zeitlimit. Eine kritische Bedrohung schaltet automatisch auf
+          «Vorschlagen» zurück.
+        </p>
+        <div class="form-row">
+          <label>Owner-Pin / Passwort (4–64 Zeichen)</label>
+          <input type="password" id="autonomy-pin" autocomplete="off" placeholder="Pin oder Passwort" style="width:200px;">
+        </div>
+        <div class="form-row">
+          <label>Altes Passwort (nur zum Ändern)</label>
+          <input type="password" id="autonomy-oldpin" autocomplete="off" placeholder="—" style="width:200px;">
+        </div>
+        <div class="form-row">
+          <label>Stufe</label>
+          <select id="autonomy-level" style="width:230px;">
+            <option value="0">OFF — nichts</option>
+            <option value="1">OBSERVE — nur beobachten</option>
+            <option value="2">SUGGEST — vorschlagen (Consent)</option>
+            <option value="3">AUTO — Whitelist automatisch</option>
+            <option value="4">FULL — alles außer Blacklist</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Zeitlimit (Min., nur AUTO/FULL)</label>
+          <input type="text" id="autonomy-ttl" value="60" style="width:100px;">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn" id="autonomy-apply">Stufe setzen</button>
+          <button class="btn btn-sm" id="autonomy-setpin">Pin setzen / ändern</button>
+          <button class="btn btn-sm" id="autonomy-stop">Session beenden</button>
+        </div>
+        <p class="muted" id="autonomy-hint" style="margin:10px 0 0;font-size:12px;"></p>
       </div>
 
       <div class="card">
@@ -499,11 +607,11 @@
   </div>
 </div>
 
-<script src="brain.js?v=217"></script>
-<script src="app.js?v=217"></script>
-<script src="updater.js?v=217"></script>
-<script src="sentinel.js?v=217"></script>
-    <script src="dashboard.js?v=217"></script>
-    <script src="panels.js?v=217"></script>
+<script src="brain.js?v=246"></script>
+<script src="app.js?v=243"></script>
+<script src="updater.js?v=243"></script>
+<script src="sentinel.js?v=243"></script>
+    <script src="dashboard.js?v=243"></script>
+    <script src="panels.js?v=246"></script>
 </body>
 </html>

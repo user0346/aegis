@@ -143,7 +143,10 @@ def _safe_consume(token: str, action: str) -> bool:
 
 
 def open_url(consent_token: str, url: str) -> dict:
-    if not _safe_consume(consent_token, "web_search"):
+    # Eigenes Action-Scope: open_url darf NICHT mit einem web_search-Token laufen.
+    # web_search ist auto-erlaubt, open_url bewusst nicht — sonst Confused-Deputy-Bypass
+    # (beliebige URL via auto-genehmigtem Such-Token oeffenbar).
+    if not _safe_consume(consent_token, "open_url"):
         return {"ok": False, "error": "consent missing"}
     if not url or len(url) > 1000:
         return {"ok": False, "error": "invalid url"}

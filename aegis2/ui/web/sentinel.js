@@ -75,7 +75,7 @@
         <td>${escape(name)}</td>
         <td>${escape(cls)}</td>
         <td class="mono">${escape(vp)}</td>
-        <td><button class="btn-tiny" data-vid="${vid}" data-pid="${pid}">Block</button></td>
+        <td><button class="btn-tiny" data-vid="${escape(vid)}" data-pid="${escape(pid)}">Block</button></td>
       </tr>`;
     }).join("");
     tbody.querySelectorAll("button[data-vid]").forEach((btn) => {

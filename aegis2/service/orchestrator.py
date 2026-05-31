@@ -65,6 +65,23 @@ class Orchestrator:
             interval_h = float(self.db.get_setting("reflect_interval_h", 6.0))
             self.modules.append(SelfReflector(self.bus, self.db, interval_h=interval_h))
 
+        # CognitionReasoner — bindet lokales Ollama ans Lernen: bewertet unklare
+        # Events und fuettert das Ergebnis gewichtet in die Reputation (schneller schlau).
+        if self.db.get_setting("enable_cognition_reason", True):
+            try:
+                from ..shared.reasoner import CognitionReasoner
+                self.modules.append(CognitionReasoner(self.bus, self.db))
+            except Exception:  # noqa: BLE001
+                log.exception("CognitionReasoner konnte nicht geladen werden")
+
+        # BehaviorAnomaly — statistische Ausreisser-Erkennung (Vorfilter fuer Reasoner)
+        if self.db.get_setting("enable_anomaly", True):
+            try:
+                from ..shared.anomaly import BehaviorAnomaly
+                self.modules.append(BehaviorAnomaly(self.bus))
+            except Exception:  # noqa: BLE001
+                log.exception("BehaviorAnomaly konnte nicht geladen werden")
+
         # SelfProtect — Phase 3: Integrity + Defender-Watchdog + Hosts-Watchdog
         if self.db.get_setting("enable_self_protect", True):
             root = _P(__file__).resolve().parents[2]
@@ -150,6 +167,36 @@ class Orchestrator:
     # ---- command implementations ----
     def _cmd_ping(self, args: dict) -> dict:
         return {"ok": True}
+
+    def _cmd_event_inject(self, args: dict) -> dict:
+        """Externer Client (Browser-Guard Native-Host) injiziert ein Event in den
+        Live-Bus -> erscheint sofort im Stream.
+
+        SICHERHEIT: Ein extern injiziertes Event darf NICHT die hoechsten
+        Alarmstufen (THREAT/CRITICAL) tragen — sonst kann jeder authentifizierte
+        IPC-Client Fehlalarme/Alarm-Fatigue ausloesen (Alert-Spoofing) und so die
+        echten Erkennungen verschleiern. Daher werden THREAT/CRITICAL auf WARN
+        herabgestuft, ausser ein bewusst gesetztes Server-Flag erlaubt es.
+        Der legitime Browser-Guard nutzt INFO/WARN/QUARANTINE — die bleiben
+        unveraendert und funktionieren weiter."""
+        sev = args.get("severity", "INFO")
+        clamped = False
+        if sev in ("THREAT", "CRITICAL"):
+            try:
+                allow_high = bool(self.db.get_setting("allow_external_critical", False))
+            except Exception:  # noqa: BLE001
+                allow_high = False  # fail-closed: im Zweifel herabstufen
+            if not allow_high:
+                sev = Severity.WARN
+                clamped = True
+        self.bus.emit(Event(
+            severity=sev,
+            category=args.get("category", "SYSTEM"),
+            message=args.get("message", ""),
+            source=args.get("source", "AEGIS-Guard"),
+            metadata=args.get("metadata", {}) or {},
+        ))
+        return {"injected": True, "severity": sev, "clamped": clamped}
 
     def _cmd_stats(self, args: dict) -> dict:
         try:
@@ -252,11 +299,14 @@ class Orchestrator:
                 set_secret(sec_key, args[ui_key])
                 saved.append(sec_key)
         for _tk in ("auto_quarantine", "wake_active", "cloud_stt",
-                    "allow_websearch", "allow_shell", "allow_learning"):
+                    "allow_websearch", "allow_shell", "allow_learning",
+                    "enable_active_response", "tts_enabled"):
             if _tk in args:
                 self.db.set_setting(_tk, bool(args[_tk]))
         if "consent_ttl_min" in args:
             self.db.set_setting("consent_ttl_min", int(args["consent_ttl_min"]))
+        if "tts_voice" in args:
+            self.db.set_setting("tts_voice", str(args["tts_voice"])[:80])
         return {"saved_secrets": saved, "ok": True}
 
     def _cmd_settings_get(self, args: dict) -> dict:
@@ -268,6 +318,10 @@ class Orchestrator:
                 return False
         return {
             "auto_quarantine": bool(self.db.get_setting("auto_quarantine", True)),
+            "tts_enabled": bool(self.db.get_setting("tts_enabled", True)),
+            "tts_voice": self.db.get_setting("tts_voice", "de-DE-ConradNeural"),
+            "enable_active_response": bool(self.db.get_setting("enable_active_response", True)),
+            "adaptive_autoblock": bool(self.db.get_setting("adaptive_autoblock", True)),
             "wake_active": bool(self.db.get_setting("wake_active", True)),
             "cloud_stt": bool(self.db.get_setting("cloud_stt", False)),
             "allow_websearch": bool(self.db.get_setting("allow_websearch", False)),
@@ -278,6 +332,41 @@ class Orchestrator:
             "claude_key_set": _has("anthropic_api_key"),
             "pv_key_set": _has("picovoice_access_key"),
         }
+
+    def _cmd_vt_status(self, args: dict) -> dict:
+        """Testet den VirusTotal-Key (read-only Lookup des EICAR-Test-Hash) und
+        meldet, wie viele Dateien bisher per VT geprueft wurden. Key bleibt DPAPI."""
+        from ..cognition.secrets_store import get_secret
+        key = get_secret("vt_api_key")
+        if not key:
+            return {"configured": False}
+        try:
+            lookups_done = self.db.count_vt_checked()
+        except Exception:
+            lookups_done = 0
+        # EICAR-Antivirus-Test-Hash — garantiert in der VT-Datenbank vorhanden.
+        eicar = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
+        try:
+            from ..shared.threat_intel import vt_lookup_hash
+            res = vt_lookup_hash(eicar, key)
+        except Exception as e:  # noqa: BLE001
+            return {"configured": True, "valid": False,
+                    "lookups_done": lookups_done, "detail": f"Fehler: {type(e).__name__}"}
+        err = str(res.get("error") or "")
+        if res.get("found"):
+            valid, detail = True, "Key gueltig (VT erreichbar)"
+        elif err.startswith("HTTP 401") or err.startswith("HTTP 403"):
+            valid, detail = False, "Ungueltig — " + err
+        elif "rate-limited" in err:
+            # Kontakt zu VT klappte ueber das Limit hinaus — Key ist nicht ungueltig.
+            valid, detail = True, "Key gesetzt — Rate-Limit aktiv, kurz warten"
+        elif "not in VT" in err:
+            # HTTP 200/404: Key wurde akzeptiert -> gueltig.
+            valid, detail = True, "Key gueltig (VT erreichbar)"
+        else:
+            valid, detail = False, (err or "unbekannte Antwort")
+        return {"configured": True, "valid": valid,
+                "lookups_done": lookups_done, "detail": detail}
 
     def _cmd_consent_list(self, args: dict) -> dict:
         from ..cognition.consent import get_manager

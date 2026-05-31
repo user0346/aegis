@@ -17,18 +17,53 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_ZIP = REPO_ROOT / "AEGIS.zip"
 
-EXCLUDE_NAMES = {"__pycache__", ".git", ".github", ".pytest_cache",
-                 "tools", ".venv", "AEGIS.zip", "AEGIS.zip.sig",
-                 "AEGIS.zip.crt", "public"}
-EXCLUDE_SUFFIXES = (".pyc", ".pyo")
+# Verzeichnisse/Dateinamen, die NIE ins Release-ZIP gehoeren.
+EXCLUDE_NAMES = {
+    "__pycache__", ".git", ".github", ".pytest_cache", ".mypy_cache",
+    ".ruff_cache", "tools", ".venv", "venv", "env", "ENV", "node_modules",
+    "dist", "build", "public", "updates", "quarantine", ".aegis",
+    "AEGIS.zip", "AEGIS.zip.sig", "AEGIS.zip.crt", "AEGIS.zip.cbundle",
+    # lokale State-/Secret-Dateien (falls versehentlich im Arbeitsverzeichnis):
+    "ipc_token", "secrets.bin", "service.pid", "audit.jsonl",
+    ".env", "staged.zip", "staged.json",
+    ".ext_id", "install_host_log.txt", "generated_indexed_rulesets",
+}
+# Suffixe, die NIE ins Release-ZIP gehoeren (State, Secrets, Build-Muell).
+EXCLUDE_SUFFIXES = (
+    ".pyc", ".pyo", ".pyd",
+    ".db", ".db-journal", ".sqlite", ".sqlite3",
+    ".log", ".env",
+    ".key", ".pem", ".p12", ".pfx", ".cer", ".crt", ".sig",
+    ".bak", ".old", ".tmp", ".temp", ".dump", ".bkp",
+    ".bat", ".cmd", ".ps1",   # Dev-Scripts raus; Endnutzer-Launcher via INCLUDE_BAT
+)
+# Dateinamen, die diese Substrings enthalten, werden ebenfalls ausgeschlossen.
+_EXCLUDE_SUBSTR = ("api_key", "api-key", "apikey",
+                   "access_token", "access-token",
+                   "private_key", "signing_key",
+                   "ipc_token", "host_log", "ext_id")
+
+# Endnutzer-Launcher, die TROTZ .bat-Ausschluss ins ZIP MUESSEN (sonst kein Starter).
+INCLUDE_BAT = {
+    "AEGIS_SETUP.bat", "AEGIS.bat",
+    "AEGIS_AUTOSTART_EIN.bat", "AEGIS_AUTOSTART_AUS.bat",
+    "AEGIS_REPIN.bat",
+}
 
 
 def should_skip(path: Path) -> bool:
-    if path.name in EXCLUDE_NAMES:
+    name = path.name
+    if name in EXCLUDE_NAMES:
         return True
     if any(part in EXCLUDE_NAMES for part in path.parts):
         return True
-    if path.suffix in EXCLUDE_SUFFIXES:
+    # Endnutzer-Launcher trotz .bat-Ausschluss behalten
+    if name in INCLUDE_BAT:
+        return False
+    if path.suffix.lower() in EXCLUDE_SUFFIXES:
+        return True
+    low = name.lower()
+    if any(s in low for s in _EXCLUDE_SUBSTR):
         return True
     return False
 

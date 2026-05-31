@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 from aegis2.shared.events import EventBus, Event, Severity, Category  # noqa: E402
 from aegis2.service.ipc_server import IpcServer  # noqa: E402
 from aegis2.service.orchestrator import Orchestrator  # noqa: E402
+from aegis2.shared.db import get_db  # noqa: E402
 
 
 LOG_PATH = Path.home() / ".aegis" / "service.log"
@@ -51,6 +52,15 @@ def main(foreground: bool = False) -> int:
             "ts": ev.ts, "severity": ev.severity, "category": ev.category,
             "source": ev.source, "message": ev.message, "metadata": ev.metadata,
         }})
+        # Persistenz: jedes Bus-Event in die DB schreiben, damit Sentinel-Ansichten
+        # (Treiber-Karte, Ereignis-Verlauf, Statistik) echte Daten zeigen. Vorher schrieb
+        # NICHTS in die events-Tabelle -> die Karten blieben dauerhaft leer, egal was der
+        # Scanner fand. Fail-safe gekapselt: ein DB-Fehler darf den Bus nie brechen.
+        try:
+            get_db().log_event(ev.severity, ev.category, ev.message,
+                               source=ev.source, metadata=ev.metadata)
+        except Exception:  # noqa: BLE001
+            pass
         # Safety: bei CRITICAL/THREAT auto-demote Autonomy
         if ev.severity in ("CRITICAL", "THREAT"):
             try:
@@ -61,11 +71,27 @@ def main(foreground: bool = False) -> int:
     bus.subscribe(_on_event)
 
     ipc.start()
-    log.info("IPC started, token=%s", ipc.token)
-    # Persist token so UI can find it
+    # SICHERHEIT: Token NIE ins Log schreiben (war Leak-Quelle) — nur den Pfad.
     token_path = Path.home() / ".aegis" / "ipc_token"
     token_path.parent.mkdir(parents=True, exist_ok=True)
     token_path.write_text(ipc.token, encoding="utf-8")
+    # Datei nur fuer den aktuellen User lesbar machen (defense-in-depth).
+    try:
+        import os as _os, sys as _sys
+        _os.chmod(token_path, 0o600)
+        if _sys.platform == "win32":
+            import getpass, subprocess as _sp
+            _usr = getpass.getuser()
+            _sp.run(["icacls", str(token_path), "/inheritance:r"],
+                    capture_output=True, timeout=5)
+            r = _sp.run(["icacls", str(token_path), "/grant:r", f"{_usr}:F"],
+                        capture_output=True, text=True, timeout=5)
+            if r.returncode != 0:       # nicht still scheitern lassen
+                log.warning("IPC-Token-ACL-Haertung fehlgeschlagen (icacls rc=%s) — "
+                            "Token-Datei evtl. fuer andere lokale Konten lesbar.", r.returncode)
+    except Exception:  # noqa: BLE001
+        log.warning("IPC-Token-ACL-Haertung uebersprungen (Ausnahme bei icacls/chmod).")
+    log.info("IPC started (token persisted, %s)", token_path)
 
     orch.start_all()
     log.info("Orchestrator started with %d modules", len(orch.modules))

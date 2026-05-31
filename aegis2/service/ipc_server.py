@@ -10,6 +10,7 @@ Design notes:
 """
 from __future__ import annotations
 
+import hmac
 import json
 import secrets
 import threading
@@ -32,15 +33,32 @@ MAX_CLIENTS = 4
 FRAME_MAX = 64 * 1024
 
 
+def _own_user_sid():
+    """SID aus dem eigenen Prozess-Token — robuster als LookupAccountName(GetUserName),
+    das mehrdeutig ist und im Dienst-/SYSTEM-Kontext die falsche SID liefert."""
+    try:
+        th = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(), ntsecuritycon.TOKEN_QUERY)
+        return win32security.GetTokenInformation(th, ntsecuritycon.TokenUser)[0]
+    except Exception:  # noqa: BLE001
+        try:
+            return win32security.LookupAccountName(None, win32api.GetUserName())[0]
+        except Exception:  # noqa: BLE001
+            return None
+
+
 def _build_pipe_security_attributes():
     """DACL: allow current user + LocalSystem RW only. Deny all others.
 
     This prevents OTHER local user accounts from connecting to our pipe.
+    Schlaegt die SID-Ermittlung fehl, wird KEINE offene Pipe gebaut (return None).
     """
     if not HAS_WIN:
         return None
     try:
-        user_sid = win32security.LookupAccountName(None, win32api.GetUserName())[0]
+        user_sid = _own_user_sid()
+        if user_sid is None:
+            return None
         sys_sid = win32security.CreateWellKnownSid(
             win32security.WinLocalSystemSid, None)
         dacl = win32security.ACL()
@@ -90,24 +108,46 @@ class IpcServer:
                     pass
 
     def broadcast(self, frame: dict) -> None:
-        """Send a frame to all subscribed clients."""
+        """Send a frame to all subscribed clients.
+
+        WICHTIG: Das blockierende WriteFile pro Client laeuft OHNE gehaltenem
+        self._lock. Frueher wurde der Lock ueber die gesamte Schleife gehalten —
+        ein einziger haengender Client (langsame/abgewuergte UI) blockierte dann
+        die komplette Event-Auslieferung, den Accept-Loop (neue Clients) und
+        stop(). Daher: Liste unter dem Lock schnappschiessen, Lock freigeben,
+        Schreibvorgaenge ausserhalb erledigen, danach Lock nur kurz zum
+        Aussortieren toter Clients erneut nehmen.
+        Pro-Handle-Serialisierung uebernimmt weiterhin write_raw()._wlock.
+        """
         data = (json.dumps(frame, ensure_ascii=False) + "\n").encode("utf-8")
         with self._lock:
-            dead: list[ClientHandle] = []
-            for c in self._clients:
-                if not c.alive:
-                    dead.append(c)
-                    continue
-                try:
-                    c.write_raw(data)
-                except Exception:  # noqa: BLE001
-                    dead.append(c)
-            for d in dead:
-                self._clients.remove(d)
+            clients = list(self._clients)
+        dead: list[ClientHandle] = []
+        for c in clients:
+            if not c.alive:
+                dead.append(c)
+                continue
+            try:
+                c.write_raw(data)
+            except Exception:  # noqa: BLE001
+                dead.append(c)
+        if dead:
+            with self._lock:
+                for d in dead:
+                    try:
+                        self._clients.remove(d)
+                    except ValueError:
+                        pass  # bereits anderswo entfernt
 
     # ---- internal ----
     def _accept_loop(self) -> None:
         sa = _build_pipe_security_attributes()
+        if sa is None:          # fail-CLOSED: ohne nutzerbeschraenkte DACL KEINE Pipe oeffnen
+            import logging as _lg
+            _lg.getLogger("aegis.ipc").critical(
+                "IPC: konnte keine nutzerbeschraenkte DACL erzeugen — Pipe wird NICHT "
+                "geoeffnet (fail-closed statt offener Default-ACL).")
+            return
         while not self._stop.is_set():
             try:
                 handle = win32pipe.CreateNamedPipe(
@@ -138,12 +178,17 @@ class ClientHandle:
         self.alive = True
         self.subscribed_topics: set[str] = set()
         self.authed = False
+        self._wlock = threading.Lock()   # serialisiert WriteFile auf diesem Handle
 
     def write_raw(self, data: bytes) -> None:
         if not self.alive:
             return
         try:
-            win32file.WriteFile(self.handle, data)
+            # Ein Handle, mehrere Schreiber (broadcast-Thread + read_loop-Thread):
+            # ohne Lock koennen zwei WriteFile-Aufrufe ihre Bytes verschraenken
+            # und zerrissenes JSON erzeugen.
+            with self._wlock:
+                win32file.WriteFile(self.handle, data)
         except Exception:  # noqa: BLE001
             self.alive = False
             raise
@@ -159,6 +204,9 @@ class ClientHandle:
                 if not chunk:
                     break
                 buf += chunk
+                if len(buf) > FRAME_MAX:     # Frame-Cap: kein unbegrenztes Puffer-Wachstum
+                    self.write({"t": "error", "msg": "frame too large"})
+                    break
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
                     if not line.strip():
@@ -167,6 +215,9 @@ class ClientHandle:
                         frame = json.loads(line.decode("utf-8"))
                     except Exception:  # noqa: BLE001
                         self.write({"t": "error", "msg": "invalid json"})
+                        continue
+                    if not isinstance(frame, dict):
+                        self.write({"t": "error", "msg": "frame must be object"})
                         continue
                     self._handle_frame(frame)
         except Exception:  # noqa: BLE001
@@ -178,7 +229,8 @@ class ClientHandle:
         t = frame.get("t")
         if t == "hello":
             tok = frame.get("token", "")
-            if tok != self.server.emit_token:
+            # konstante-Zeit-Vergleich (kein Timing-Orakel auf das Token)
+            if not isinstance(tok, str) or not hmac.compare_digest(tok, self.server.emit_token):
                 self.write({"t": "error", "msg": "auth"})
                 self.alive = False
                 self.close()
@@ -190,7 +242,9 @@ class ClientHandle:
             self.write({"t": "error", "msg": "not authed"})
             return
         if t == "subscribe":
-            self.subscribed_topics |= set(frame.get("topics", []))
+            topics = frame.get("topics", [])
+            if isinstance(topics, list):
+                self.subscribed_topics |= {str(x) for x in topics}
             self.write({"t": "subscribed", "topics": list(self.subscribed_topics)})
             return
         if t == "ping":

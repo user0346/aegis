@@ -119,7 +119,12 @@ class ConsentManager:
         # ---- Autonomy: auto-approve wenn Owner-Toggle das erlaubt ----
         try:
             from .autonomy import get_autonomy
+            from .gate import action_allowed
             ok, reason = get_autonomy().can_auto_approve(action)
+            # Master-Toggle UND-verknuepfen: ist die Capability vom Owner abgeschaltet,
+            # NIE auto-approven (der Request bleibt manuell entscheidbar).
+            if ok and not action_allowed(action):
+                ok, reason = False, "capability_disabled"
             if ok:
                 token = self.decide(cr.id, "approve")
                 _audit({"event": "auto_approved", "id": cr.id,

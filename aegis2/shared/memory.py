@@ -34,6 +34,25 @@ _WRITABLE_SECTIONS = {
 }
 
 
+def _norm_title(s: str) -> set:
+    """Titel -> Menge normalisierter Woerter (fuer Duplikat-Erkennung)."""
+    import re
+    return set(re.sub(r"[^a-z0-9 ]", " ", (s or "").lower()).split())
+
+
+def _already_present(content: str, title: str) -> bool:
+    """True, wenn eine sehr aehnliche Erkenntnis (>=50% Wort-Ueberlappung) schon vermerkt ist."""
+    import re
+    ntw = _norm_title(title)
+    if not ntw:
+        return False
+    for m in re.finditer(r"^###\s*\[[^\]]*\]\s*(.+?)\s+[—-]", content, re.M):
+        exw = _norm_title(m.group(1))
+        if exw and len(ntw & exw) / max(len(ntw | exw), 1) >= 0.5:
+            return True
+    return False
+
+
 class MemoryWriter:
     """Single-writer thread, append-only into approved sections."""
 
@@ -77,6 +96,9 @@ class MemoryWriter:
         content = self.path.read_text(encoding="utf-8")
         if marker not in content:
             return  # section missing; refuse to silently create
+        # Duplikat-Schutz: aehnliche Erkenntnis schon vermerkt -> nicht doppelt schreiben.
+        if _already_present(content, title):
+            return
 
         # Find the NEXT section header to know where to insert before
         idx_start = content.index(marker)

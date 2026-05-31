@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sys
 import threading
 import time
@@ -33,6 +34,7 @@ from ..cognition.secrets_store import _dpapi_encrypt, _dpapi_decrypt  # type: ig
 
 MEMORY_DIR = Path.home() / ".aegis" / "memory"
 _LOCK = threading.Lock()
+_log = logging.getLogger("aegis2.encrypted_memory")
 
 
 def _ns_path(namespace: str) -> Path:
@@ -72,7 +74,11 @@ def save(namespace: str, data: dict, schema_v: int = 1) -> bool:
         if sys.platform == "win32":
             try:
                 blob = _dpapi_encrypt(raw)
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                # Sichtbar machen: DPAPI fehlgeschlagen -> Blob liegt UNVERSCHLUESSELT.
+                # Kein stilles Degradieren mehr (Entropie/HMAC-Haertung ist separat dokumentiert).
+                _log.critical("DPAPI-Verschluesselung fehlgeschlagen fuer %s — Daten werden "
+                              "UNVERSCHLUESSELT gespeichert: %s", path.name, e)
                 blob = b"PLAIN1\n" + raw    # marker für fallback
         else:
             blob = b"PLAIN1\n" + raw

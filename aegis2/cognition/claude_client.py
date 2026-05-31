@@ -43,12 +43,33 @@ def _sanitize(text: str) -> str:
 
 def ask(prompt: str, *, system: Optional[str] = None, heavy: bool = False,
         max_tokens: int = 600, timeout: int = 25) -> dict:
-    """Send a single prompt. Returns {"ok": bool, "text": str, "error": str}."""
+    """Send a single prompt. Returns {"ok", "text"/"error", "via"}.
+
+    Privacy-first: lokales Ollama wird BEVORZUGT (gratis, offline, kein Key).
+    Anthropic-Cloud nur als Fallback, wenn kein Ollama laeuft UND ein Key
+    gesetzt ist (opt-in). So verlassen ohne Key keine Daten den PC.
+    """
+    if not prompt:
+        return {"ok": False, "error": "empty prompt"}
+
+    # 1) Lokales Ollama bevorzugt
+    try:
+        from ..voice import llm
+        if llm.available():
+            txt = llm.ask(prompt, system=system, timeout=timeout,
+                          num_predict=min(max_tokens, 800))
+            if txt:
+                return {"ok": True, "text": _sanitize(txt), "via": "ollama"}
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 2) Anthropic-Cloud — nur wenn Key gesetzt (opt-in)
     if requests is None:
-        return {"ok": False, "error": "requests not available"}
+        return {"ok": False, "error": "kein lokales Ollama aktiv und requests fehlt"}
     key = get_secret("anthropic_api_key")
     if not key:
-        return {"ok": False, "error": "no anthropic key set"}
+        return {"ok": False,
+                "error": "kein lokales Ollama aktiv und kein Anthropic-Key gesetzt"}
 
     body: dict = {
         "model": HEAVY_MODEL if heavy else DEFAULT_MODEL,
@@ -74,7 +95,8 @@ def ask(prompt: str, *, system: Optional[str] = None, heavy: bool = False,
         data = r.json()
         for blk in data.get("content", []):
             if blk.get("type") == "text":
-                return {"ok": True, "text": _sanitize(blk.get("text", "").strip())}
+                return {"ok": True, "text": _sanitize(blk.get("text", "").strip()),
+                        "via": "anthropic"}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"parse: {e}"}
     return {"ok": False, "error": "no text in response"}
@@ -137,10 +159,11 @@ def propose_learning(events: list[dict]) -> dict:
     m_title = re.search(r"TITLE:\s*(.+)", text)
     m_sec = re.search(r"SECTION:\s*(performance|bugs)", text, re.I)
     m_body = re.search(r"BODY:\s*(.+)", text, re.S)
-    if not (m_title and m_sec and m_body):
-        return {"ok": False, "error": "malformed proposal"}
+    # Unklare/unvollstaendige Modell-Antwort -> einfach KEIN Vorschlag (kein Fehler-Spam).
+    if not (m_title and m_body):
+        return {"ok": True, "proposal": None}
     return {"ok": True, "proposal": {
         "title": m_title.group(1).strip()[:120],
-        "section": m_sec.group(1).lower(),
+        "section": (m_sec.group(1).lower() if m_sec else "performance"),
         "body": m_body.group(1).strip(),
     }}

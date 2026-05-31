@@ -78,7 +78,7 @@ class SelfProtect(Module):
 
     def __init__(self, bus: EventBus, db: Database, project_root: Path,
                  hosts_check_interval_s: int = 120,
-                 defender_check_interval_s: int = 300):
+                 defender_check_interval_s: int = 45):
         super().__init__(bus)
         self.db = db
         self.root = project_root
@@ -147,10 +147,19 @@ class SelfProtect(Module):
                        "missing": missing[:10],
                        "added": added[:10]})
         elif added:
-            # Nur neue Files → mildere Warnung, ist normal nach Update
+            # Nur neue Files. collect_integrity_targets() sammelt AUSSCHLIESSLICH
+            # .py unter aegis2/ und bin/ — ein hier neu auftauchendes File ist also
+            # ein fremdes .py mitten im Code-Baum. Das ist ein klassischer
+            # Dropper-/Backdoor-Vektor und darf NICHT als "normal nach Update"
+            # durchgewunken werden. Prominent zur Pruefung melden (kein Auto-
+            # Safe-Mode, da auch ein legitimes Update Files hinzufuegt, aber der
+            # Mensch muss draufschauen). REVIEW-Flag fuer das UI.
             self.emit(Severity.WARN, Category.TAMPER,
-                      f"Integrity: {len(added)} neue Files seit Pin",
-                      {"added": added[:10]})
+                      f"INTEGRITY-REVIEW: {len(added)} unerwartete neue .py-Datei(en) "
+                      f"im Code-Baum (aegis2/, bin/) — fremder Code? Bitte prüfen",
+                      {"added": added[:10],
+                       "needs_review": True,
+                       "reason": "unexpected_added_code_files"})
         else:
             self.emit(Severity.INFO, Category.TAMPER,
                       f"Integrity: {len(current)} Files unverändert")
@@ -207,35 +216,121 @@ class SelfProtect(Module):
             self.emit(Severity.WARN, Category.TAMPER,
                       f"Hosts-Restore fehlgeschlagen (Admin nötig?): {e}")
 
-    # ---- Defender-Exclusion ----
+    # ---- Defender-Exclusion (Self-Protect + Malware-Tarn-Erkennung) ----
     def _defender_watchdog(self) -> None:
         if sys.platform != "win32":
             return
-        # Get aktuelle Exclusion-Pfade
+        # Alle 3 Exclusion-Typen holen: Pfade, Prozesse, Dateiendungen
         try:
             r = run_hidden(
                 ["powershell", "-NoProfile", "-Command",
-                 "(Get-MpPreference).ExclusionPath -join ';'"],
-                capture_output=True, text=True, timeout=10
-            )
-            current = (r.stdout or "").strip().lower()
+                 "$p=Get-MpPreference; "
+                 "Write-Output ('PATH=' + ($p.ExclusionPath -join '|')); "
+                 "Write-Output ('PROC=' + ($p.ExclusionProcess -join '|')); "
+                 "Write-Output ('EXT='  + ($p.ExclusionExtension -join '|'))"],
+                capture_output=True, text=True, timeout=10)
+            out = r.stdout or ""
         except Exception:  # noqa: BLE001
             return
-        root_lc = str(self.root).lower()
-        was_excluded = bool(self.db.get_setting("defender_was_excluded"))
-        is_excluded = root_lc in current
-        if was_excluded and not is_excluded:
-            self.emit(Severity.CRITICAL, Category.TAMPER,
-                      "Defender-Exclusion für AEGIS wurde entfernt - Re-Apply Versuch")
-            try:
-                run_hidden(
-                    ["powershell", "-NoProfile", "-Command",
-                     f"Add-MpPreference -ExclusionPath '{self.root}'"],
-                    capture_output=True, text=True, timeout=10
-                )
-                self.emit(Severity.INFO, Category.TAMPER,
-                          "Defender-Exclusion re-applied (sofern Admin)")
-            except Exception as e:  # noqa: BLE001
+
+        # Windows gibt die Defender-Ausschluss-Liste NUR an Admin/SYSTEM frei
+        # (Anti-Spaeh-Haertung). Als normaler User kommt "Must be an administrator
+        # to view exclusions" -> dann NICHT als Baseline lernen (sonst Muell) und
+        # einmalig informieren. Voll funktionsfaehig erst im System-Dienst-Modus.
+        if "must be an administrator" in out.lower() or "n/a" in out.lower():
+            if self.db.get_setting("defender_excl_baseline") is not None:
+                self.db.set_setting("defender_excl_baseline", None)  # kaputte Baseline verwerfen
+            if not self.db.get_setting("defender_admin_warned"):
                 self.emit(Severity.WARN, Category.TAMPER,
-                          f"Re-Apply fehlgeschlagen: {e}")
-        self.db.set_setting("defender_was_excluded", is_excluded)
+                          "Defender-Ausschluss-Ueberwachung braucht Admin-/Dienst-Rechte "
+                          "(Windows gibt die Liste sonst nicht frei). Wird aktiv, sobald "
+                          "AEGIS als System-Dienst laeuft.")
+                self.db.set_setting("defender_admin_warned", True)
+            return
+
+        def _parse(prefix):
+            for line in out.splitlines():
+                if line.startswith(prefix):
+                    rest = line[len(prefix):].strip()
+                    return [x.strip().lower() for x in rest.split("|") if x.strip()]
+            return []
+
+        cur = ({("path", p) for p in _parse("PATH=")}
+               | {("proc", p) for p in _parse("PROC=")}
+               | {("ext", e) for e in _parse("EXT=")})
+
+        root_lc = str(self.root).lower()
+        own = {("path", root_lc),
+               ("proc", "aegis-core.exe"), ("proc", "aegis-shell.exe"),
+               ("proc", "pythonw.exe"), ("proc", "python.exe")}
+
+        base_raw = self.db.get_setting("defender_excl_baseline")
+        if not isinstance(base_raw, list):
+            # Erst-Lauf: bestehende Ausschluesse als legitime Baseline lernen
+            self.db.set_setting("defender_excl_baseline", [list(x) for x in cur])
+            self.db.set_setting("defender_was_excluded", ("path", root_lc) in cur)
+            self.emit(Severity.INFO, Category.TAMPER,
+                      f"Defender-Ausschluss-Baseline gelernt: {len(cur)} Eintraege")
+            return
+        baseline = {tuple(x) for x in base_raw}
+
+        # NEUE fremde Ausschluesse = klassisches Malware-Tarnverhalten
+        suspicious = cur - baseline - own
+        reported = {tuple(x) for x in (self.db.get_setting("defender_excl_reported") or [])}
+        kind_de = {"path": "Pfad", "proc": "Prozess", "ext": "Dateiendung"}
+        for kind, val in sorted(suspicious - reported):
+            self.emit(Severity.CRITICAL, Category.TAMPER,
+                      f"Neuer Defender-Ausschluss ({kind_de.get(kind, kind)}): {val} "
+                      f"— Malware tarnt sich oft so vor dem Virenschutz",
+                      {"exclusion_kind": kind, "exclusion_value": val,
+                       "status": "ERKANNT"})
+        # gemeldete = aktuelle Verdaechtige (entfernte fallen raus -> Re-Add meldet erneut)
+        self.db.set_setting("defender_excl_reported", [list(x) for x in suspicious])
+
+        # Self-Protection: AEGIS-eigener Ausschluss entfernt?
+        is_excluded = ("path", root_lc) in cur
+        if bool(self.db.get_setting("defender_was_excluded")) and not is_excluded:
+            # Re-Apply versuchen. Den Pfad NICHT in den Befehl interpolieren,
+            # sondern als Argument uebergeben ($args[0]) — verhindert PowerShell-
+            # Injection ueber einen praeparierten Pfad.
+            reapplied = False
+            try:
+                r = run_hidden(
+                    ["powershell", "-NoProfile", "-Command",
+                     "Add-MpPreference -ExclusionPath $args[0]",
+                     str(self.root)],
+                    capture_output=True, text=True, timeout=10)
+                reapplied = (getattr(r, "returncode", 1) == 0)
+            except Exception:  # noqa: BLE001
+                reapplied = False
+
+            if reapplied:
+                # Re-Apply erfolgreich -> Ausschluss wieder da. Baseline darf jetzt
+                # auf "exkludiert" zuruecksetzen.
+                self.emit(Severity.CRITICAL, Category.TAMPER,
+                          "Defender-Ausschluss fuer AEGIS wurde entfernt - "
+                          "automatisch wiederhergestellt")
+                self.db.set_setting("defender_was_excluded", True)
+            else:
+                # Re-Apply FEHLGESCHLAGEN (i.d.R. fehlende Adminrechte). NICHT die
+                # Baseline auf is_excluded (=False) setzen — sonst wuerde der
+                # naechste Lauf den fehlenden Ausschluss als Normalzustand sehen
+                # und nie wieder warnen (fail-closed: lieber weiter melden).
+                # Rate-Limit, damit es nicht alle 45s spammt.
+                now = time.time()
+                last = self.db.get_setting("defender_reapply_failed_at") or 0
+                try:
+                    last = float(last)
+                except (TypeError, ValueError):
+                    last = 0.0
+                if now - last >= 1800:  # max. alle 30 min
+                    self.emit(Severity.CRITICAL, Category.TAMPER,
+                              "Defender-Ausschluss fuer AEGIS wurde entfernt - "
+                              "Re-Apply fehlgeschlagen (Adminrechte noetig). "
+                              "Schutz vor Selbst-Quarantaene derzeit NICHT aktiv.")
+                    self.db.set_setting("defender_reapply_failed_at", now)
+                # defender_was_excluded bleibt True -> weiter ueberwachen/melden.
+        else:
+            # Normalfall (Ausschluss vorhanden oder noch nie gesetzt): Baseline
+            # auf den aktuellen Stand bringen.
+            self.db.set_setting("defender_was_excluded", is_excluded)
