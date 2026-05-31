@@ -520,6 +520,23 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>System</h2>
+          <span class="muted" id="system-status">Steuerung in der App — keine Skripte</span>
+        </div>
+        <p class="muted" style="margin:0 0 12px;">
+          Alles direkt hier: Neustart, Autostart, Integritäts-Baseline und Einrichtung.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" id="sys-restart">AEGIS neu starten</button>
+          <button class="btn btn-sm" id="sys-autostart-on">Autostart EIN</button>
+          <button class="btn btn-sm" id="sys-autostart-off">Autostart AUS</button>
+          <button class="btn btn-sm" id="sys-repin">Integrität neu pinnen</button>
+          <button class="btn btn-sm" id="sys-setup">Einrichtung / Reparatur</button>
+        </div>
+        <p class="muted" id="system-hint" style="margin:10px 0 0;font-size:12px;"></p>
+      </div>
+
+      <div class="card">
         <div class="card-head">
           <h2>Pending Consents</h2>
           <span class="muted" id="consent-count">0</span>
@@ -612,6 +629,6 @@
 <script src="updater.js?v=243"></script>
 <script src="sentinel.js?v=243"></script>
     <script src="dashboard.js?v=243"></script>
-    <script src="panels.js?v=248"></script>
+    <script src="panels.js?v=249"></script>
 </body>
 </html>

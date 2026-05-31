@@ -49,6 +49,11 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
     "settings.get": {},
     "vt.status": {"vt_api_key": (_is_str, False)},
 
+    "system.autostart": {"enable": (_is_bool, False)},
+    "system.repin":     {},
+    "system.setup":     {},
+    "system.restart":   {},
+
     "consent.list":   {},
     "consent.decide": {
         "id":       (_is_str_short, True),

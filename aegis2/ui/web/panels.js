@@ -426,6 +426,13 @@
     const aApply=$("autonomy-apply"); if(aApply) aApply.addEventListener("click",autonomyApply);
     const aSetPin=$("autonomy-setpin"); if(aSetPin) aSetPin.addEventListener("click",autonomySetPin);
     const aStop=$("autonomy-stop"); if(aStop) aStop.addEventListener("click",autonomyStop);
+    // System-Steuerung (ersetzt die .bat) — alles direkt in der App
+    const _sysHint=function(t){ const e=$("system-hint"); if(e){ e.textContent=t||""; e.style.color="var(--acc,#5cc8ff)"; } };
+    const sRe=$("sys-restart"); if(sRe) sRe.addEventListener("click",function(){ _sysHint("Neustart läuft … das Fenster öffnet sich gleich neu."); sendCmd("system.restart",{}); });
+    const sAOn=$("sys-autostart-on"); if(sAOn) sAOn.addEventListener("click",function(){ sendCmd("system.autostart",{enable:true}); _sysHint("Autostart EIN — AEGIS startet künftig mit Windows."); });
+    const sAOff=$("sys-autostart-off"); if(sAOff) sAOff.addEventListener("click",function(){ sendCmd("system.autostart",{enable:false}); _sysHint("Autostart AUS."); });
+    const sRep=$("sys-repin"); if(sRep) sRep.addEventListener("click",function(){ sendCmd("system.repin",{}); _sysHint("Integritäts-Baseline wird neu gesetzt."); });
+    const sSet=$("sys-setup"); if(sSet) sSet.addEventListener("click",function(){ sendCmd("system.setup",{}); _sysHint("Einrichtung/Reparatur ausgeführt (Browser-Host + Autostart + Baseline)."); });
     const oin=$("ollama-install");
     if(oin) oin.addEventListener("click",()=>{
       const w=$("ollama-progress-wrap"); if(w) w.style.display="block";

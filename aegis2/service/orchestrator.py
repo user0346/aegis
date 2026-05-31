@@ -168,6 +168,40 @@ class Orchestrator:
     def _cmd_ping(self, args: dict) -> dict:
         return {"ok": True}
 
+    # ---- System-Steuerung aus der App (ersetzt die .bat; alles ohne Admin: HKCU/DB) ----
+    def _cmd_system_autostart(self, args: dict) -> dict:
+        on = bool(args.get("enable", False))
+        from ..setup import install_autostart
+        (install_autostart.install if on else install_autostart.uninstall)()
+        return {"enabled": on}
+
+    def _cmd_system_repin(self, args: dict) -> dict:
+        import subprocess, sys as _s
+        from pathlib import Path as _P
+        rp = _P(__file__).resolve().parents[1] / "setup" / "repin_integrity.py"
+        subprocess.Popen([_s.executable, str(rp)], creationflags=0x08000000)
+        return {"started": True}
+
+    def _cmd_system_setup(self, args: dict) -> dict:
+        import subprocess, sys as _s
+        from pathlib import Path as _P
+        base = _P(__file__).resolve().parents[1] / "setup"
+        for scr in ("install_native_host.py", "install_autostart.py", "repin_integrity.py"):
+            try:
+                subprocess.run([_s.executable, str(base / scr)], capture_output=True,
+                               timeout=60, creationflags=0x08000000)
+            except Exception:  # noqa: BLE001
+                pass
+        return {"done": True}
+
+    def _cmd_system_restart(self, args: dict) -> dict:
+        import subprocess, sys as _s
+        from pathlib import Path as _P
+        rs = _P(__file__).resolve().parents[2] / "bin" / "aegis_restart.py"
+        subprocess.Popen([_s.executable, str(rs)],
+                         creationflags=0x00000008 | 0x08000000, close_fds=True)
+        return {"restarting": True}
+
     def _cmd_event_inject(self, args: dict) -> dict:
         """Externer Client (Browser-Guard Native-Host) injiziert ein Event in den
         Live-Bus -> erscheint sofort im Stream.
