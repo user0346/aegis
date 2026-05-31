@@ -78,7 +78,7 @@
           "float nz(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);",
           " return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),",
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
-          "void main(){vec3 p=position;vP=position;float amp=0.022+uActive*0.16;float sp=0.15+uActive*0.6;",
+          "void main(){vec3 p=position;vP=position;float amp=0.02+uActive*0.09;float sp=0.11+uActive*0.28;",
           " float d=nz(normalize(p)*2.2+uTime*sp)*amp + nz(normalize(p)*4.5-uTime*sp*0.7)*amp*0.5*uActive;p+=normal*d;",
           " vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(p,1.0);vV=normalize(-mv.xyz);",
           " gl_Position=projectionMatrix*mv;}"
@@ -95,12 +95,12 @@
           " float d=max(dot(vN,vV),0.0);",
           " float fr=pow(1.0-d,uFres);",                          // Rand-Glow
           " float body=smoothstep(0.04,0.40,d);",                 // fuellt die ganze Vorderseite
-          " float sp=0.022+uActive*0.20;",                       // idle: sehr langsam, aktiv: nur maessig
+          " float sp=0.018+uActive*0.10;",                       // idle: sehr langsam, aktiv: nur leicht
           " vec3 q=vP*1.85+vec3(0.0,0.0,uTime*sp);",
           " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
           " float n=clamp(fbm(q+w*1.45),0.0,1.0);",
           " n=pow(n,1.0+uActive*0.45);",                          // weich, beim Denken nur leicht schaerfer
-          " float plasma=n*body*(0.28+uActive*0.85);",           // idle ruhig, aktiv gedaempft (kein BAMM)
+          " float plasma=n*body*(0.26+uActive*0.50);",           // idle ruhig, aktiv nur leicht heller
           " vec3 hot=mix(uColor,vec3(1.0),0.5);",
           " vec3 col=uColor*(0.45+fr*1.45)+hot*plasma;",
           " float a=(fr*1.1+plasma*1.0)*uIntensity;",
@@ -124,8 +124,8 @@
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
           "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<3;i++){v+=a*nz(p);p*=2.05;a*=0.5;}return v;}",
           "void main(){float c=pow(max(dot(vN,vV),0.0),2.0);",
-          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.07+uActive*0.45),0.0));",  // idle: langsam
-          " float flick=0.90+(0.10+uActive*0.42)*n;",                       // idle: kaum, aktiv: pulsierend
+          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.05+uActive*0.16),0.0));",  // idle: sehr langsam
+          " float flick=0.92+(0.07+uActive*0.18)*n;",                       // idle: kaum, aktiv: nur sanft
           " vec3 col=mix(uColor,vec3(1.0),0.72);",
           " gl_FragColor=vec4(col*c*1.5*flick*uIntensity,c*uIntensity);}"
         ].join("\n"),
@@ -189,10 +189,10 @@
       // Tab unsichtbar -> nicht rendern (Strom sparen)
       if (document.hidden || !this.stage || this.stage.clientWidth === 0) return;
 
-      this.state = lerp(this.state, this.stateTarget, 1 - Math.pow(0.3, dt));   // SANFTER Anstieg, kein Sprung
+      this.state = lerp(this.state, this.stateTarget, 1 - Math.pow(0.5, dt));   // weicher Anstieg, kein Sprung
       this.threat = lerp(this.threat, this.threatTarget, 1 - Math.pow(0.002, dt));
       this.pulse *= Math.pow(0.12, dt);
-      this.stateTarget *= Math.pow(0.6, dt);
+      this.stateTarget *= Math.pow(0.32, dt);                                   // zerfaellt schneller -> nie "zu lange" aktiv
       this.threatTarget *= Math.pow(0.7, dt);
 
       let target = this.threat > 0.5 ? C_THREAT
@@ -201,23 +201,24 @@
                  : ((this.thinkingOn || this.state > 0.4) ? C_THINK : C_IDLE)));
       this.col.lerp(target, 1 - Math.pow(0.01, dt));
 
-      const energy = Math.min(1.0, this.state * 0.55 + this.pulse * 0.4 + this.threat * 0.45);
-      const speed = 0.6 + energy * 1.1 + this.threat * 0.8;
-      // "Aktivitaet" beim Denken/Arbeiten -> treibt Oberflaeche/Tempo/Puls — bewusst GEDAEMPFT.
-      const active = Math.min(1, this.state * 0.8 + this.pulse * 0.25 + this.threat * 0.3);
+      const energy = Math.min(1.0, this.state * 0.4 + this.pulse * 0.28 + this.threat * 0.45);
+      // "Aktivitaet" -> treibt Oberflaeche/Puls — bewusst STARK GEDAEMPFT, damit auch der
+      // Denk-Zustand ruhig bleibt (nur die FARBE wechselt deutlich, nicht das Tempo).
+      const active = Math.min(1, this.state * 0.5 + this.pulse * 0.16 + this.threat * 0.3);
 
       this.cu.uTime.value = t; this.cu.uColor.value.copy(this.col);
       this.cu.uActive.value = active;
-      this.cu.uIntensity.value = 0.85 + energy * 0.6; this.cu.uFres.value = 2.6 - this.state * 0.8;
+      this.cu.uIntensity.value = 0.85 + energy * 0.55; this.cu.uFres.value = 2.6 - this.state * 0.7;
       this.pu.uTime.value = t; this.pu.uColor.value.copy(this.col);
-      this.pu.uSpeed.value = speed; this.pu.uIntensity.value = 0.7 + energy * 0.7;
+      this.pu.uSpeed.value = 0.5 + energy * 0.5; this.pu.uIntensity.value = 0.7 + energy * 0.6;
 
-      // Drehung + Puls im Idle FAST STILL, ziehen erst beim Denken/Arbeiten an (active).
-      const k = dt * (0.05 + energy * 0.55);                 // ruhiger: Drehung zieht nur sanft an
-      this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.1;
-      this.inner.rotation.y -= k * 0.4;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * (1.0 + active * 2.2)) * (0.003 + active * 0.03) + this.pulse * 0.03);
-      this.points.rotation.y += dt * (0.02 + energy * 0.15);
+      // Drehung: eine RUHIGE, nahezu konstante Drift — ENTKOPPELT vom Denk-Zustand.
+      // Nur ein ECHTER Alarm (threat) zieht sie minimal an; Denken/Idle gleich langsam.
+      const k = dt * (0.04 + this.threat * 0.16);
+      this.core.rotation.y += k * 0.25; this.core.rotation.x += k * 0.035;
+      this.inner.rotation.y -= k * 0.28;
+      this.inner.scale.setScalar(1.0 + Math.sin(t * (0.55 + active * 0.5)) * (0.004 + active * 0.018) + this.pulse * 0.02);
+      this.points.rotation.y += dt * 0.025;
       // Gedanken-Ringe: zentrierte Halo-Kreise — im Idle ruhig sichtbar, beim Denken SANFT
       // heller (kein Aufblitzen). Kein Drehen (frontal) -> bleiben exakt zentriert.
       for (let ri = 0; ri < this.rings.length; ri++) {
@@ -248,8 +249,8 @@
       const sev = (ev.severity || "INFO").toString().toUpperCase();
       const power = sev === "CRITICAL" ? 1.0 : sev === "THREAT" ? 0.95
                   : sev === "QUARANTINE" ? 0.8 : sev === "WARN" ? 0.65 : 0.45;
-      this.stateTarget = Math.max(this.stateTarget, Math.min(0.8, power * 0.75));
-      this.pulse = Math.min(0.5, this.pulse + power * 0.25);     // kleiner Anstoss statt BAMM
+      this.stateTarget = Math.max(this.stateTarget, Math.min(0.45, power * 0.4));
+      this.pulse = Math.min(0.28, this.pulse + power * 0.12);    // nur ein winziger Anstoss
       const danger = (sev === "CRITICAL" || sev === "THREAT" || cat === "TAMPER");
       if (danger) this.threatTarget = 1.0;
       else if (sev === "WARN") this.threatTarget = Math.max(this.threatTarget, 0.45);
@@ -260,7 +261,7 @@
         }
       }
     },
-    thinking(on) { this.thinkingOn = !!on; if (on) this.stateTarget = Math.max(this.stateTarget, 0.85); },
+    thinking(on) { this.thinkingOn = !!on; if (on) this.stateTarget = Math.max(this.stateTarget, 0.5); },
     setMood() {},
     sizeFor() { try { this._resize(); } catch (e) {} },
   };

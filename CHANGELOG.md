@@ -3,6 +3,9 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.4
+- Der Denk-Kern ist jetzt durchgehend ruhig: Er dreht sich nur noch sehr langsam und gleichmäßig und wird auch beim Nachdenken nicht mehr hektisch. Den Denkzustand zeigt er über die hellere Farbe (und das Label „DENKE"), nicht über Tempo. Hintergrund-Ereignisse lassen ihn nicht mehr ständig aufflackern und klingen schnell wieder ab — dadurch hebt sich ein echter Alarm klar ab
+
 ## v2.4.3
 - Ich kann jetzt viele Windows- und PowerShell-Befehle direkt für dich ausführen, sobald du den Schalter „Shell-Befehle" anschaltest: Diagnose und Reparatur wie «ipconfig», «ping», «sc query», «net view», «Get-Process» oder sfc/chkdsk/dism. Reine Lesebefehle laufen sofort, die langen Reparatur-Tools öffne ich mit Admin-Nachfrage. Alles, was etwas ändert, löscht oder heimlich Dateien, Passwörter oder Umgebungsvariablen ausliest, lehne ich grundsätzlich ab — egal wie es verpackt ist
 - Ich lerne jetzt sichtbar von selbst dazu: in ruhigen Momenten halte ich gesicherte Fakten über diesen PC fest (wie gut ich den Normalzustand kenne, wie viele Gefahren-Domains ich blocke, was ich als bösartig gelernt habe) und sage kurz im Verlauf Bescheid, wenn etwas Neues dazukam — das füttert auch die Karte „Meine Entwicklung"
