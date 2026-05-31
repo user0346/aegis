@@ -3,6 +3,14 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.2
+- Neu im Dashboard: die Karte „Meine Entwicklung" zeigt dir schwarz auf weiß, dass ich dazulerne — wie viele Programme ich als normal kenne, wie viele Wissens-Themen durchsuchbar sind, wie viele Gefahren-Domains ich blocke und wie viele Erkennungs-Muster ich verfeinert habe. Ab jetzt halte ich täglich einen Stand fest, sodass du den Zuwachs pro Woche (▲ +N) siehst. Du kannst auch „zeig deine Entwicklung" fragen
+- „starte dich neu" startet mich jetzt wirklich neu (vorher habe ich „dich neu" fälschlich als App gesucht)
+- „verifiziere mein Update" / „prüfe die Signatur": ich starte die eingebaute Signaturprüfung selbst (cosign, fest auf meinen Release-Workflow verdrahtet) und zeige dir das Ergebnis — du musst keinen Terminal-Befehl tippen
+- „welche Domains blockst du?" und „ist beispiel.com geblockt?" beantworte ich jetzt konkret aus meiner echten Blockliste (87.000+ Domains, nach Kategorien gegliedert)
+- „cmd und dann?" / „öffne cmd" erklärt jetzt richtig, wie du die Eingabeaufforderung öffnest, statt unsinnig eine Webseite „cmd.com" aufzurufen
+- Schöneres Denk-Zentrum: der Kern lebt jetzt mit ruhigem Plasma, das im Ruhezustand sanft atmet und beim Arbeiten sichtbar hochfährt
+
 ## v2.4.1
 - AEGIS ist jetzt EINE App: eine einzige AEGIS.exe zum Doppelklicken — kein Python und keine Startdateien (.bat) mehr nötig. Schutz und Oberfläche starten zusammen, und alles Weitere (Ersteinrichtung, Autostart ein/aus, Neustart) erledigst du mit sauberen Knöpfen direkt in der App
 - Updates laufen jetzt direkt in der App: eine neue Version wird signaturgeprüft (Sigstore/cosign) geladen und auf Knopfdruck installiert — AEGIS ersetzt sich selbst sauber und startet neu, ganz ohne Handarbeit
