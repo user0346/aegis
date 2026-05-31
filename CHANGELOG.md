@@ -3,6 +3,11 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.1
+- AEGIS ist jetzt EINE App: eine einzige AEGIS.exe zum Doppelklicken — kein Python und keine Startdateien (.bat) mehr nötig. Schutz und Oberfläche starten zusammen, und alles Weitere (Ersteinrichtung, Autostart ein/aus, Neustart) erledigst du mit sauberen Knöpfen direkt in der App
+- Updates laufen jetzt direkt in der App: eine neue Version wird signaturgeprüft (Sigstore/cosign) geladen und auf Knopfdruck installiert — AEGIS ersetzt sich selbst sauber und startet neu, ganz ohne Handarbeit
+- Musik fortsetzen klappt jetzt genauso zuverlässig wie pausieren: „setze die Musik fort" startet die Wiedergabe wieder (vorher reagierte nur das Pausieren)
+
 ## v2.4.0
 - Ich höre auf die BEDEUTUNG, nicht auf einzelne Wörter: „mache bitte sfc /scannow" führe ich jetzt als Windows-Befehl aus, statt fälschlich meinen eigenen Sicherheits-Scan zu starten (nur weil „scan" in „scannow" steckt). Eindeutige Direktbefehle laufen sofort, alles andere verstehe ich übers Modell — ein „suche" mitten im Satz löst keine Websuche mehr aus
 - Weniger PowerShell-Fehlalarme: ein „EncodedCommand" allein ist kein roter Alarm mehr (das nutzen auch legitime Entwickler-Tools wie Code-Assistenten ständig). Ich dekodiere den Befehl jetzt und schlage nur an, wenn er wirklich etwas nachlädt/ausführt
