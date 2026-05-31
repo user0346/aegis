@@ -105,7 +105,7 @@
 
       // ---- Arc-Reactor-Ringe ----
       this.rings = [];
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 0; i++) {   // Ringe entfernt (Nutzerwunsch) — nur der Kern
         const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
           blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.26 - i * 0.08 });
         const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35 + i * 0.5, 0.010 + i * 0.003, 8, 170), m);
@@ -115,8 +115,8 @@
         scene.add(ring); this.rings.push(ring);
       }
 
-      // ---- Partikel-Swirl-Feld (additiv) ----
-      const N = 1500;
+      // ---- Partikel-Swirl-Feld (additiv) — auf Wunsch deaktiviert (0 = aus) ----
+      const N = 0;
       const pos = new Float32Array(N * 3), seed = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         const u = Math.random(), v = Math.random();
