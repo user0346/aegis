@@ -8,7 +8,10 @@ Install-Ordners, der:
   1. wartet, bis alle AEGIS.exe-Prozesse beendet sind (Watchdog respawnt nicht —
      .stop ist gesetzt) und Reste hart beendet,
   2. den Install-Ordner per robocopy /MIR durch das Staging ersetzt,
-  3. die Stop-Sperre loest und die aktualisierte AEGIS.exe neu startet,
+  3. das Mark-of-the-Web entfernt, die Stop-Sperre loest und die aktualisierte
+     AEGIS.exe neu startet — und falls SmartScreen die UNSIGNIERTE exe blockiert,
+     eine Desktop-Verknuepfung + erklaerenden Hinweis hinterlaesst (nie eine
+     still tote App),
   4. sich selbst loescht.
 
 SICHERHEIT: Vor dem Anwenden wird die Integritaet ERNEUT geprueft (SHA-256 +
@@ -131,16 +134,37 @@ for ($t = 0; $t -lt 3 -and $rc -ge 8; $t++) {
   robocopy "$Staging" "$Install" /MIR /NFL /NDL /NJH /NJS /NP /R:3 /W:1 | Out-Null
   $rc = $LASTEXITCODE
 }
-# 5) nur bei Erfolg aufraeumen (sonst staged behalten fuer Retry)
+# 5) Mark-of-the-Web von den getauschten Dateien entfernen -> ein SmartScreen/
+#    Defender-Ausloeser weniger fuer die (heruntergeladenen) Bundle-Dateien.
+Get-ChildItem -LiteralPath $Install -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+# 6) nur bei Erfolg aufraeumen (sonst staged behalten fuer Retry)
 if ($rc -lt 8) {
   Remove-Item "$Staging" -Recurse -Force
   Remove-Item (Join-Path $updir 'staged.json') -Force
   Remove-Item (Join-Path $updir 'staged.zip*') -Force
 }
-# 6) Stop-Sperre loesen, damit der frische Core laeuft, dann neu starten
+# 7) Stop-Sperre loesen, frische AEGIS.exe starten
 Remove-Item $stop -Force
-Start-Process -FilePath (Join-Path $Install 'AEGIS.exe') -WorkingDirectory $Install
-# 7) Selbstzerstoerung
+$exe = Join-Path $Install 'AEGIS.exe'
+Start-Process -FilePath $exe -WorkingDirectory $Install
+# 8) Pruefen, ob die App WIRKLICH hochkam. Eine UNSIGNIERTE exe kann von SmartScreen
+#    blockiert werden -> dann die App NICHT still tot lassen: Desktop-Verknuepfung
+#    anlegen + klar erklaeren, wie man sie manuell durchlaesst.
+$up = $false
+for ($i = 0; $i -lt 22; $i++) {
+  Start-Sleep -Milliseconds 800
+  if (Get-Process -Name 'AEGIS' -ErrorAction SilentlyContinue) { $up = $true; break }
+}
+if (-not $up) {
+  try {
+    $desk = [Environment]::GetFolderPath('Desktop')
+    $ws = New-Object -ComObject WScript.Shell
+    $sc = $ws.CreateShortcut((Join-Path $desk 'AEGIS starten.lnk'))
+    $sc.TargetPath = $exe; $sc.WorkingDirectory = $Install; $sc.Save()
+    $ws.Popup("AEGIS wurde auf die neue Version aktualisiert.`n`nWindows (SmartScreen) hat den automatischen Start blockiert, weil die App nicht signiert ist. Bitte starte AEGIS ueber die neue Verknuepfung 'AEGIS starten' auf dem Desktop und waehle bei der Windows-Frage: 'Weitere Informationen' -> 'Trotzdem ausfuehren'.", 0, "AEGIS Update", 48) | Out-Null
+  } catch {}
+}
+# 9) Selbstzerstoerung
 Start-Sleep -Seconds 1
 Remove-Item $PSCommandPath -Force
 """
