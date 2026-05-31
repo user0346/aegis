@@ -94,16 +94,16 @@
           "void main(){",
           " float d=max(dot(vN,vV),0.0);",
           " float fr=pow(1.0-d,uFres);",                          // Rand-Glow
-          " float body=smoothstep(0.04,0.40,d);",                 // fuellt die GANZE Vorderseite (auch die Luecke)
-          " float sp=0.10+uActive*0.34;",                         // Fliess-Tempo (schneller beim Arbeiten)
+          " float body=smoothstep(0.04,0.40,d);",                 // fuellt die ganze Vorderseite
+          " float sp=0.05+uActive*0.40;",                         // idle: langsam, aktiv: schnell
           " vec3 q=vP*1.85+vec3(0.0,0.0,uTime*sp);",
           " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
           " float n=clamp(fbm(q+w*1.45),0.0,1.0);",
-          " n=pow(n,1.5);",                                       // Kontrast -> sichtbare Wolken/Adern
-          " float plasma=n*body*(0.95+uActive*1.15);",
+          " n=pow(n,1.0+uActive*0.9);",                           // idle: weich, aktiv: scharfe Adern
+          " float plasma=n*body*(0.34+uActive*1.5);",             // idle: ruhig, aktiv: volle Energie
           " vec3 hot=mix(uColor,vec3(1.0),0.5);",
-          " vec3 col=uColor*(0.45+fr*1.5)+hot*plasma;",
-          " float a=(fr*1.15+plasma*1.05)*uIntensity;",
+          " vec3 col=uColor*(0.45+fr*1.45)+hot*plasma;",
+          " float a=(fr*1.1+plasma*1.0)*uIntensity;",
           " gl_FragColor=vec4(col*uIntensity,a);}"
         ].join("\n"),
       });
@@ -124,8 +124,8 @@
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
           "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<3;i++){v+=a*nz(p);p*=2.05;a*=0.5;}return v;}",
           "void main(){float c=pow(max(dot(vN,vV),0.0),2.0);",
-          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.14+uActive*0.4),0.0));",   // langsames inneres Wabern
-          " float flick=0.82+0.36*n;",
+          " float n=fbm(vP*2.4+vec3(0.0,uTime*(0.07+uActive*0.45),0.0));",  // idle: langsam
+          " float flick=0.90+(0.10+uActive*0.42)*n;",                       // idle: kaum, aktiv: pulsierend
           " vec3 col=mix(uColor,vec3(1.0),0.72);",
           " gl_FragColor=vec4(col*c*1.5*flick*uIntensity,c*uIntensity);}"
         ].join("\n"),
