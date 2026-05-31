@@ -95,12 +95,12 @@
           " float d=max(dot(vN,vV),0.0);",
           " float fr=pow(1.0-d,uFres);",                          // Rand-Glow
           " float body=smoothstep(0.04,0.40,d);",                 // fuellt die ganze Vorderseite
-          " float sp=0.05+uActive*0.40;",                         // idle: langsam, aktiv: schnell
+          " float sp=0.022+uActive*0.42;",                       // idle: sehr langsam, aktiv: schnell
           " vec3 q=vP*1.85+vec3(0.0,0.0,uTime*sp);",
           " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
           " float n=clamp(fbm(q+w*1.45),0.0,1.0);",
           " n=pow(n,1.0+uActive*0.9);",                           // idle: weich, aktiv: scharfe Adern
-          " float plasma=n*body*(0.34+uActive*1.5);",             // idle: ruhig, aktiv: volle Energie
+          " float plasma=n*body*(0.28+uActive*1.55);",           // idle: ruhig, aktiv: volle Energie
           " vec3 hot=mix(uColor,vec3(1.0),0.5);",
           " vec3 col=uColor*(0.45+fr*1.45)+hot*plasma;",
           " float a=(fr*1.1+plasma*1.0)*uIntensity;",
@@ -133,15 +133,18 @@
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
-      // ---- Arc-Reactor-Ringe ----
+      // ---- Gedanken-Ringe (Gedankengaenge) ----
+      // Im Idle praktisch unsichtbar + fast still; beim Denken/Arbeiten ziehen sie an
+      // und kreisen sichtbar (ueber 'active' im Loop gesteuert) -> spiegeln die Kognition.
       this.rings = [];
-      for (let i = 0; i < 0; i++) {   // Ringe entfernt (Nutzerwunsch) — nur der Kern
+      for (let i = 0; i < 3; i++) {
         const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
-          blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.26 - i * 0.08 });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35 + i * 0.5, 0.010 + i * 0.003, 8, 170), m);
-        // bewusst GEKIPPT (nicht Math.PI/2 = flach) -> kein harter edge-on-Strich
-        ring.rotation.x = 1.02 + i * 0.5; ring.rotation.y = 0.4 + i * 0.7;
-        ring._spin = (i % 2 === 0 ? 1 : -1) * (0.10 + i * 0.05);
+          blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.0 });
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.95 + i * 0.42, 0.012 + i * 0.004, 10, 220), m);
+        // auf verschiedenen Achsen GEKIPPT -> "Denk-Sphaere", kein harter edge-on-Strich
+        ring.rotation.x = 1.0 + i * 0.55; ring.rotation.y = 0.35 + i * 0.8;
+        ring._spin = (i % 2 === 0 ? 1 : -1) * (0.6 + i * 0.35);
+        ring._tilt = 0.10 + i * 0.05;
         scene.add(ring); this.rings.push(ring);
       }
 
@@ -221,15 +224,21 @@
       this.pu.uTime.value = t; this.pu.uColor.value.copy(this.col);
       this.pu.uSpeed.value = speed; this.pu.uIntensity.value = 0.7 + energy * 0.7;
 
-      const k = dt * (0.4 + energy * 1.2);
-      this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.12;
-      this.inner.rotation.y -= k * 0.5;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * (2.0 + active * 5.0)) * (0.018 + active * 0.06) + this.pulse * 0.08);
-      this.points.rotation.y += dt * (0.05 + energy * 0.15);
-      for (const ring of this.rings) {
-        ring.rotation.z += ring._spin * dt * (0.6 + energy);
+      // Drehung + Puls im Idle FAST STILL, ziehen erst beim Denken/Arbeiten an (active).
+      const k = dt * (0.05 + energy * 1.5);
+      this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.1;
+      this.inner.rotation.y -= k * 0.4;
+      this.inner.scale.setScalar(1.0 + Math.sin(t * (1.3 + active * 5.0)) * (0.003 + active * 0.07) + this.pulse * 0.05);
+      this.points.rotation.y += dt * (0.02 + energy * 0.15);
+      // Gedanken-Ringe: Opazitaet + Tempo spiegeln die Denk-Aktivitaet — Idle ~unsichtbar
+      // und ruhig, beim Denken sichtbar kreisend; ein Ereignis-Puls laesst sie aufblitzen.
+      for (let ri = 0; ri < this.rings.length; ri++) {
+        const ring = this.rings[ri];
+        ring.rotation.z += ring._spin * dt * (0.12 + active * 1.7);
+        ring.rotation.x += ring._tilt * dt * active * 0.6;
         ring.material.color.copy(this.col);
-        ring.material.opacity = 0.16 + energy * 0.20;
+        const fade = Math.max(0.0, active * (0.5 - ri * 0.12) - 0.012);
+        ring.material.opacity = fade + this.pulse * (0.18 - ri * 0.045);
       }
 
       try { this.renderer.render(this.scene, this.camera); } catch (e) {}
