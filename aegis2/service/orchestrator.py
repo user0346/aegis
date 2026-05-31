@@ -66,6 +66,13 @@ class Orchestrator:
             interval_h = float(self.db.get_setting("reflect_interval_h", 6.0))
             self.modules.append(SelfReflector(self.bus, self.db, interval_h=interval_h))
 
+        # BaselineLearner — autonomes, deterministisches Selbstlernen aus EIGENER
+        # Telemetrie: schreibt FAKTEN ueber diesen PC ohne Consent (keine LLM-Meinung),
+        # speist «was hast du gelernt», den LLM-Kontext und die Entwicklungs-Anzeige.
+        if self.db.get_setting("enable_autonomous_learning", True):
+            from ..shared.baseline_learner import BaselineLearner
+            self.modules.append(BaselineLearner(self.bus, self.db))
+
         # CognitionReasoner — bindet lokales Ollama ans Lernen: bewertet unklare
         # Events und fuettert das Ergebnis gewichtet in die Reputation (schneller schlau).
         if self.db.get_setting("enable_cognition_reason", True):
@@ -124,6 +131,11 @@ class Orchestrator:
                 m.start()
             except Exception:  # noqa: BLE001
                 log.exception("Module start failed: %s", getattr(m, "name", "?"))
+        try:                                   # LEARNINGS-Datei sicherstellen, sonst landen
+            from aegis2.shared.memory import ensure_learnings_file   # Lern-Eintraege im Nichts
+            ensure_learnings_file()
+        except Exception:  # noqa: BLE001
+            pass
         try:                                   # taeglicher Lern-Schnappschuss (Trend-Basis)
             from aegis2.shared.development import record_snapshot
             record_snapshot(self.db)

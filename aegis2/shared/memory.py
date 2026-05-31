@@ -31,7 +31,51 @@ def find_learnings_file(start: Optional[Path] = None) -> Path:
 _WRITABLE_SECTIONS = {
     "performance": "## 4. Performance-Erkenntnisse",
     "bugs": "## 5. Bekannte-aktiv-vermiedene Bugs",
+    "selflearn": "## 6. Selbstlernen — Maschinen-Profil",
 }
+
+# Minimalgeruest, falls die LEARNINGS-Datei fehlt (sonst schreibt die Laufzeit ins
+# Leere -> "insights: 0"). Abschnitte 1-3 sind fuer Mensch/Architektur reserviert,
+# 4-6 darf die Laufzeit anhaengen.
+_SKELETON = """# AEGIS_LEARNINGS
+
+Erkenntnisse von AEGIS. Die LAUFZEIT haengt NUR an die Abschnitte 4-6 an;
+1-3 sind fuer Mensch/Architektur reserviert (read-only fuer die Laufzeit).
+
+## 1. Architektur-Notizen
+(reserviert)
+
+## 2. Sicherheits-Entscheidungen
+(reserviert)
+
+## 3. Nutzer-Praeferenzen
+(reserviert)
+
+## 4. Performance-Erkenntnisse
+
+## 5. Bekannte-aktiv-vermiedene Bugs
+
+## 6. Selbstlernen — Maschinen-Profil
+"""
+
+
+def ensure_learnings_file() -> Path:
+    """Stellt sicher, dass die LEARNINGS-Datei existiert UND alle schreibbaren
+    Sektionen hat — sonst landen Lern-Eintraege im Nichts. Idempotent."""
+    p = find_learnings_file()
+    try:
+        if not p.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(_SKELETON, encoding="utf-8")
+            return p
+        content = p.read_text(encoding="utf-8")
+        missing = [m for m in _WRITABLE_SECTIONS.values() if m not in content]
+        if missing:
+            p.write_text(content.rstrip() + "\n\n" + "\n\n".join(missing) + "\n",
+                         encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+    return p
 
 
 def _norm_title(s: str) -> set:
