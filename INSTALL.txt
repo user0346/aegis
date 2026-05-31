@@ -5,55 +5,51 @@ REQUIREMENTS
 ------------
 - Windows 10 or 11 (64-bit)
 - Administrator account (first install only)
-- Python 3.13  (the setup guides you if it is missing)
+- Python 3.11+  (the launcher uses the "py" launcher; install Python if missing)
 
 INSTALL
 -------
 1.  Move the entire extracted "AEGIS" folder to a permanent location,
     e.g.  C:\AEGIS\   (avoid Desktop or Downloads).
 
-2.  Double-click  AEGIS_SETUP.bat
+2.  Double-click  AEGIS.bat  and choose  [5] First-time setup.
     Accept the Windows prompt if it appears.
 
-3.  Wait until setup reports that AEGIS is active (1-2 minutes).
+3.  Wait until setup completes (1-2 minutes), then choose  [1] Start.
 
 AEGIS then runs quietly in the background and starts automatically
 with Windows.
 
-OPEN THE INTERFACE
-------------------
-Double-click  AEGIS.bat  to open the dashboard at any time.
-The interface is optional - protection runs without it.
+USE - everything is in one launcher: AEGIS.bat
+----------------------------------------------
+  [1] Start      [2] Open UI      [3] Stop      [4] Status
+  [5] First-time setup            [6]/[7] Autostart ON / OFF
+  [8] Re-pin integrity (after an update)
 
-AUTOSTART
----------
-On by default after setup.
-- Disable: double-click  AEGIS_AUTOSTART_AUS.bat
-- Enable:  double-click  AEGIS_AUTOSTART_EIN.bat
+The interface is optional - protection runs without it.
 
 OPTIONAL FEATURES (off by default)
 ----------------------------------
-- Local AI (Ollama): enable in the app -> Settings -> "Lokale KI".
+- Local AI (Ollama): enable in the app -> Settings.
 - Voice control:      enable in the app -> Voice tab.
 Both run fully local; no account or key required.
 
 SECURITY PIN
 ------------
 Set an Owner-PIN in Settings to protect autonomous actions.
-To reset it later, double-click  AEGIS_REPIN.bat
 
 UPDATES
 -------
-Updates are downloaded, signature-verified, and applied only after
-you confirm them in the app.
+Updates are downloaded, signature-verified (cosign / Sigstore), and applied
+only after you confirm them in the app.
 
 UNINSTALL
 ---------
-1.  Run  AEGIS_AUTOSTART_AUS.bat   (stops autostart + scheduled task).
+1.  Run  AEGIS.bat -> [7] Autostart OFF   (stops autostart + scheduled task).
 2.  Delete the AEGIS folder.
 
 SUPPORT
 -------
 Documentation:  https://github.com/user0346/aegis
-Security:       see SECURITY.md in this folder
+Security:       see SECURITY.md
 Bugs:           https://github.com/user0346/aegis/issues

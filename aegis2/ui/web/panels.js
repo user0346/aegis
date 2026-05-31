@@ -447,7 +447,7 @@
     if(!window.aegis||!window.aegis.eventReceived||!window.aegis.eventReceived.connect){ setTimeout(attach,150); return; }
     window.aegis.eventReceived.connect(function(json){ let ev; try{ev=JSON.parse(json);}catch(_){return;} try{onEvent(ev);}catch(_){} });
     loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama();
-    setInterval(function(){ pollQuar(); pollConsent(); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
+    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
     setInterval(renderNet,1000);
   }
 

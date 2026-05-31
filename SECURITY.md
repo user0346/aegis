@@ -2,97 +2,36 @@
 
 ## Supported Versions
 
-Aktuell wird nur die jeweils letzte v2.x.y Release-Linie aktiv mit
-Sicherheits-Patches versorgt. Aeltere Versionen sollten nicht produktiv
-eingesetzt werden.
+Only the latest v2.x release line receives active security patches. Older
+versions should not be used in production.
 
 | Version | Supported |
 |---------|-----------|
-| 2.x     | ja        |
-| < 2.0   | nein      |
-
----
+| 2.x     | yes       |
+| < 2.0   | no        |
 
 ## Reporting a Vulnerability
 
-**Bitte oeffne KEIN public GitHub Issue** fuer Sicherheitsluecken.
+**Please do NOT open a public GitHub issue for security vulnerabilities.**
 
-Schicke stattdessen einen Bericht an den Maintainer:
+Report privately instead:
 
-- GitHub Private Vulnerability Report:
-  https://github.com/user0346/aegis/security/advisories/new
-- Alternativ: GitHub `@user0346` direkt via private channel kontaktieren
+- GitHub Private Vulnerability Report: https://github.com/user0346/aegis/security/advisories/new
+- Or contact **@user0346** directly via a private channel
 
-**Bitte enthalte:**
-1. Betroffene Version(en)
-2. Reproduktions-Schritte (PoC wenn moeglich)
-3. Erwartetes vs. tatsaechliches Verhalten
-4. Impact-Einschaetzung (lokale Eskalation, RCE, Datenleak, etc.)
-5. Vorgeschlagener Fix wenn vorhanden
+Please include:
 
-**Erwartete Reaktionszeiten:**
-
-| Phase | Ziel-SLA |
-|---|---|
-| Erstantwort | 72h |
-| Triage (Severity + Plan) | 7 Tage |
-| Fix-Release | 30 Tage bei High/Critical, 90 Tage bei Medium/Low |
-
----
+1. Affected version(s)
+2. Reproduction steps (PoC if possible)
+3. Expected vs. actual behavior
+4. Impact assessment (local escalation, RCE, data leak, etc.)
 
 ## Coordinated Disclosure
 
-Wir folgen Standard Coordinated Disclosure. Reporter werden im Release-
-Note und Security-Advisory genannt (oder anonym wenn gewuenscht).
+We follow standard coordinated disclosure. Please allow at least **30 days**
+before public disclosure so a fix can be released and users can update.
+Reporters are credited in the release notes / security advisory (or kept
+anonymous on request).
 
-Bitte gib uns **mindestens 30 Tage** vor Public-Disclosure, damit ein
-Fix released und User Zeit zum Update haben.
-
----
-
-## Threat-Model
-
-AEGIS ist Endpoint-Security-Software, die auf Windows-Maschinen lokal
-laeuft. Relevante Threat-Surfaces:
-
-| Surface | Mitigations |
-|---|---|
-| **Update-Pipeline** | Sigstore keyless OIDC signing + Rekor Transparency-Log. Verifikation prueft Cert-Identity gegen Repo-URL. Modifizierte ZIP wird abgelehnt. |
-| **IPC zwischen UI und Service** | Named-Pipe mit DACL-Restriction + DPAPI-encrypted Token + JSON-Schema-Validation. Nur User-Session und SYSTEM koennen verbinden. |
-| **Lokale Secrets** | API-Keys, Consent-Install-Secret, IPC-Token via Windows DPAPI verschluesselt (Key gebunden an User-Account). |
-| **Brute-Force auf Pin** | Exponential-Backoff nach 3 Versuchen, 24h Hard-Lock nach 12. |
-| **Code-Integrity** | TrustedInstaller-ACL + WDAC-Policy. System-Files koennen nur von Updater (signed) modifiziert werden. |
-| **Cognition-Prompt-Injection** | Output-Sanitizer mit Allowlist, Consent-Layer fuer alle elevated Actions. Claude darf nichts ohne signed Token ausfuehren. |
-| **Router/ARP-Spoofing** | Gateway-MAC-Pin + DNS-Server-Pin + Anomaly-Watcher emitten Sir-Mode-Alert. |
-
----
-
-## Out of Scope
-
-| Topic | Warum |
-|---|---|
-| DDoS auf User-Endpoint | Upstream-Problem (Router/ISP), nicht Endpoint-loesbar |
-| Pre-Boot-Persistence (BIOS/UEFI Implants) | Wir lesen TPM-PCRs zur Detection, koennen Bootkit aber nicht entfernen |
-| Zero-Days in Drittsoftware | Wir koennen melden, nicht patchen |
-| Bugs in Windows Defender/Service | Direkt bei Microsoft melden |
-
----
-
-## Disclosure-Hall-of-Fame
-
-(Liste mit credited Reportern wird hier ergaenzt sobald erste Reports
-verifiziert wurden.)
-
----
-
-## Cryptographic Guarantees
-
-- **Update-Integritaet:** Sigstore keyless OIDC, Cert-Lifetime 10min,
-  Eintrag permanent in Rekor-Transparency-Log
-- **Update-Authentication:** Cert-Identity muss
-  `https://github.com/user0346/aegis/.github/workflows/release.yml.*`
-  matchen
-- **Lokale Secrets:** DPAPI mit `CRYPTPROTECT_LOCAL_MACHINE = 0`
-  (User-bound, nicht Maschine-bound)
-- **Consent-Token:** HMAC-SHA256 mit Install-Secret (urlsafe-48 generiert)
-- **TLS:** TLS 1.2+ enforced fuer alle Out-Going-Calls (Anthropic, GitHub, VT)
+Target response times: first reply within 72h, triage within 7 days, fix
+within 30 days for High/Critical and 90 days for Medium/Low.
