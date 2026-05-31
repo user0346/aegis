@@ -172,6 +172,14 @@ class AegisWindow(QMainWindow):
         if ok and self.view is not None:
             self.setCentralWidget(self.view)
             log.info("Swapped fallback -> WebView")
+            # Proaktive Begruessung: AEGIS meldet sich beim Start SELBST (kein Knopf noetig).
+            # Kurzer Versatz, damit die UI ihren voiceState-Listener gebunden hat.
+            try:
+                if not getattr(self, "_greet_scheduled", False):
+                    self._greet_scheduled = True
+                    QTimer.singleShot(1800, self.bridge.greet)
+            except Exception:  # noqa: BLE001
+                log.exception("greet scheduling failed (non-fatal)")
         else:
             self._fallback.setText(
                 "<div style='color:#f97373'>"

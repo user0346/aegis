@@ -131,10 +131,17 @@ def _speak_via_edge(text: str, voice: str, rate: str = NEURAL_RATE) -> bool:
         return False
     tmp = os.path.join(tempfile.gettempdir(), "aegis_tts_%d.mp3" % (int(time.time() * 1000) % 1000000))
     try:
-        async def _gen():
-            await edge_tts.Communicate(text[:800], voice, rate=rate).save(tmp)
-        asyncio.run(_gen())
+        # Eigene Event-Loop statt asyncio.run: asyncio.run wirft RuntimeError, wenn der
+        # aufrufende Thread/Kontext bereits eine Loop hat -> sonst fiele JEDE Neural-Stimme
+        # still auf SAPI zurueck. new_event_loop ist thread-robust.
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(
+                edge_tts.Communicate(text[:800], voice, rate=rate).save(tmp))
+        finally:
+            loop.close()
         if not os.path.exists(tmp) or os.path.getsize(tmp) == 0:
+            log.warning("edge-tts: leere Ausgabe (Stimme=%s) -> SAPI-Fallback", voice)
             return False
         alias = "aegistts%d" % (int(time.time() * 1000) % 100000)
         global _tts_alias
@@ -187,6 +194,7 @@ def speak_text(text: str, voice: Optional[str] = None) -> bool:
     try:
         from ..shared.db import get_db
         if not get_db().get_setting("tts_enabled", True):
+            log.info("TTS uebersprungen: Sprachausgabe ist in den Einstellungen AUS.")
             return False
     except Exception:  # noqa: BLE001
         pass
@@ -203,12 +211,19 @@ def speak_text(text: str, voice: Optional[str] = None) -> bool:
             except Exception:  # noqa: BLE001
                 v = NEURAL_VOICE_DE
         if v in ("sapi", "system", ""):
-            return _speak_via_powershell(text, None)
+            ok = _speak_via_powershell(text, None)
+            log.info("TTS: System-Stimme (SAPI) -> %s", ok)
+            return ok
         if v and "Neural" in v:
             if _speak_via_edge(text, v):
+                log.info("TTS: edge-neural '%s' -> OK", v)
                 return True
-            return _speak_via_powershell(text, None)
-        return _speak_via_powershell(text, v)
+            ok = _speak_via_powershell(text, None)
+            log.warning("TTS: edge '%s' fehlgeschlagen -> SAPI-Fallback -> %s", v, ok)
+            return ok
+        ok = _speak_via_powershell(text, v)
+        log.info("TTS: SAPI '%s' -> %s", v, ok)
+        return ok
 
 
 class SirSpeaker:

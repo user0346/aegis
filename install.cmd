@@ -1,17 +1,34 @@
 @echo off
 setlocal enableextensions
-title AEGIS - Installation (Quellcode-Modus)
+title AEGIS - Installation
 cd /d "%~dp0"
 
 echo.
 echo   ===============================================
-echo      AEGIS - Installation ^(Quellcode-Modus^)
+echo      AEGIS - Installation
 echo   ===============================================
 echo.
 echo   Installiert AEGIS direkt aus dem Quellcode. Funktioniert auch dort,
 echo   wo Windows Smart App Control die unsignierte .exe blockiert.
 echo.
 
+REM ---------- 0) Selbstplatzierung: egal wohin entpackt -> fester Install-Ort ----------
+REM   AEGIS legt sich selbst nach %LOCALAPPDATA%\Programs\AEGIS, damit der Nutzer den
+REM   Download-Ordner danach loeschen kann. Opt-out: eine Datei ".portable" im Ordner.
+REM   /XD current schuetzt eine evtl. vorhandene Frozen-Installation (...\AEGIS\current).
+set "TARGET=%LOCALAPPDATA%\Programs\AEGIS"
+if exist "%~dp0.portable" goto :findpy
+if /I "%~dp0"=="%TARGET%\" goto :findpy
+echo   [0/3] Platziere AEGIS nach %TARGET% ...
+robocopy "%~dp0." "%TARGET%" /MIR /XD .git __pycache__ .venv venv env node_modules current /XF .portable .setup_done /NFL /NDL /NJH /NJS /NP /R:1 /W:1 >nul
+if errorlevel 8 (
+  echo   [!] Verschieben fehlgeschlagen — fahre an diesem Ort fort.
+) else (
+  cd /d "%TARGET%"
+  echo   [*] AEGIS liegt jetzt unter %TARGET% ^(dieser Download-Ordner kann danach weg^).
+)
+
+:findpy
 REM ---------- 1) Python finden (py-Launcher bevorzugt, kein Store-Stub) ----------
 set "PY="
 set "PYW="

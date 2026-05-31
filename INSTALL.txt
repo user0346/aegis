@@ -1,60 +1,75 @@
-AEGIS - Installation
+AEGIS — Installation
 =====================
 
-REQUIREMENTS
-------------
-- Windows 10 or 11 (64-bit)
-- No Python, no admin rights required. Everything is in the app.
+EMPFOHLEN: install.cmd (funktioniert auf jedem Windows 10/11)
+------------------------------------------------------------
+Voraussetzung: Python 3.11 oder neuer von https://www.python.org/downloads/
+  -> beim Setup unbedingt "Add python.exe to PATH" anhaken.
 
-INSTALL
+1.  Diesen Ordner ist egal wo entpackt — einfach in diesem Ordner die Datei
+       install.cmd
+    doppelklicken.
+
+2.  install.cmd erledigt automatisch ALLES:
+      - installiert die benoetigten Pakete,
+      - legt AEGIS am richtigen Ort ab (%LOCALAPPDATA%\Programs\AEGIS),
+      - richtet Autostart, Verknuepfung und die Integritaets-Basis ein,
+      - startet AEGIS.
+
+    Den heruntergeladenen Ordner darfst du danach loeschen — AEGIS laeuft aus
+    seinem eigenen Installationsordner und startet ab jetzt mit Windows.
+
+Das war's. AEGIS schuetzt im Hintergrund; das Fenster kannst du jederzeit
+schliessen. Ueber das Tray-Icon kannst du es wieder oeffnen oder den Schutz
+ganz stoppen.
+
+
+Hinweis zur AEGIS.exe (.exe-Version)
+------------------------------------
+Es gibt zusaetzlich ein Bundle "AEGIS-windows-x64.zip" mit AEGIS.exe. Diese .exe
+ist NOCH NICHT von Microsoft signiert und wird daher auf aktuellen Systemen von
+Windows Smart App Control / SmartScreen BLOCKIERT (ohne "Trotzdem ausfuehren").
+Nutze bis dahin den Weg oben mit install.cmd. Die signierte .exe kommt, sobald
+die Code-Signierung steht.
+
+
+Bedienung — alles ist ein Knopf in der App
+------------------------------------------
+Einstellungen -> System:
+  - Ersteinrichtung        (Autostart + Verknuepfung + Baseline)
+  - Autostart EIN / AUS
+  - Integritaet neu pinnen (nach einem bewussten Update)
+  - Neustart               (sauberer Neustart von Schutz + Oberflaeche)
+
+
+Optionale Funktionen (standardmaessig aus)
+------------------------------------------
+- Lokale KI (Ollama): in der App -> Einstellungen aktivieren. Laeuft lokal.
+- Sprachsteuerung:    in der App -> Assistent aktivieren.
+  (Sprach-EINGABE braucht zusaetzlich: pip install -r requirements_v2_voice.txt)
+Kein Konto, kein API-Key noetig.
+
+
+Sicherheits-PIN
+---------------
+Setze in den Einstellungen einen Owner-PIN, um autonome Aktionen zu schuetzen und
+den Stopp des Schutzes mit PIN abzusichern.
+
+
+Updates
 -------
-1.  Move the entire "AEGIS" folder to a permanent location,
-    e.g.  C:\Program Files\AEGIS\  or  C:\AEGIS\
-    (avoid Desktop or Downloads — keep the whole folder together).
+Neue Versionen zeigt dir die App selbst an und installiert sie nach deiner
+Bestaetigung (signaturgeprueft via cosign / Sigstore).
 
-2.  Double-click  AEGIS.exe.
-    The interface opens and background protection starts automatically.
 
-3.  Open  Settings -> System  and click  "First-time setup".
-    This adds autostart at login, a desktop/start-menu shortcut, and the
-    integrity baseline. (One click — no console, no scripts.)
+Deinstallation
+--------------
+1.  Einstellungen -> System -> Autostart AUS, dann Tray -> "Schutz stoppen".
+2.  Loesche den Ordner %LOCALAPPDATA%\Programs\AEGIS und die Verknuepfung.
 
-That's it. AEGIS protects in the background and starts with Windows.
 
-USE - everything is a button in the app
----------------------------------------
-Settings -> System card:
-  - First-time setup        (autostart + shortcut + baseline)
-  - Autostart ON / OFF
-  - Re-pin integrity        (after a deliberate update)
-  - Restart                 (clean restart of service + interface)
-
-Close the window any time — protection keeps running in the tray.
-Right-click the tray icon to reopen, hide, or fully stop protection.
-
-OPTIONAL FEATURES (off by default)
-----------------------------------
-- Local AI (Ollama): enable in the app -> Settings. Runs fully local.
-- Voice control:      enable in the app -> Voice tab.
-No account or API key required for either.
-
-SECURITY PIN
-------------
-Set an Owner-PIN in Settings to protect autonomous actions and to require
-the PIN before protection can be stopped.
-
-UPDATES
+Support
 -------
-New versions are shown in the app and applied after you confirm them
-(downloaded and signature-verified via cosign / Sigstore).
-
-UNINSTALL
----------
-1.  Settings -> System -> Autostart OFF, then tray -> "Stop protection".
-2.  Delete the AEGIS folder. Remove the desktop/start-menu shortcut.
-
-SUPPORT
--------
-Documentation:  https://github.com/user0346/aegis
-Security:       see SECURITY.md
-Issues:         https://github.com/user0346/aegis/issues
+Doku:       https://github.com/user0346/aegis
+Sicherheit: siehe SECURITY.md
+Probleme:   https://github.com/user0346/aegis/issues

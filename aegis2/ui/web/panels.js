@@ -487,15 +487,21 @@
         }
       }
     }
-    if(window.aegis&&window.aegis.voiceState&&window.aegis.voiceState.connect){
-      window.aegis.voiceState.connect((kind,payload)=>{
-        if(kind==="transcript"){ if(payload){ setTxt("voice-transcript","\u201E"+payload+"\u201C"); pushBubble("user",payload); } }
-        else if(kind==="reply"){ if(payload){ setTxt("voice-transcript",payload); pushBubble("aegis",payload); } }
-        else if(kind==="state"){ setVoiceState(payload); }
-        else if(kind==="status"){ setTxt("voice-status",payload||"Bereit"); }
-        else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
-      });
-    }
+    // voiceState binden \u2014 MIT Retry: der QWebChannel (window.aegis) wird asynchron
+    // injiziert; ohne Nachfassen ginge sonst die proaktive Begruessung/Status verloren.
+    (function bindVoiceState(tries){
+      if(window.aegis&&window.aegis.voiceState&&window.aegis.voiceState.connect){
+        window.aegis.voiceState.connect((kind,payload)=>{
+          if(kind==="transcript"){ if(payload){ setTxt("voice-transcript","\u201E"+payload+"\u201C"); pushBubble("user",payload); } }
+          else if(kind==="reply"){ if(payload){ setTxt("voice-transcript",payload); pushBubble("aegis",payload); } }
+          else if(kind==="state"){ setVoiceState(payload); }
+          else if(kind==="status"){ setTxt("voice-status",payload||"Bereit"); }
+          else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
+        });
+        return;
+      }
+      if((tries||0) < 40){ setTimeout(function(){ bindVoiceState((tries||0)+1); }, 150); }
+    })(0);
     const ttsSel=$("tts-voice");
     if(ttsSel) ttsSel.addEventListener("change",()=>{ sendCmd("settings.save",{tts_voice:ttsSel.value}); });
     const ttsEn=$("tts-enabled");

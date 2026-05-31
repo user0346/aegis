@@ -66,9 +66,45 @@ jobs:
           body: |
             ## AEGIS ${{ github.ref_name }}
 
-            Autonomer Endpoint-Schutz für Windows — überwacht Dateien, Prozesse, Netzwerk, USB & Treiber, komplementär zu Windows Defender. Security-Ops-Dashboard, lernende Baseline, Full-System-Scan mit Quarantäne.
+            Autonomer Endpoint-Schutz für Windows — überwacht Dateien, Prozesse,
+            Netzwerk, USB & Treiber, komplementär zu Windows Defender. Security-Ops-
+            Dashboard, lernende Baseline, Full-System-Scan mit Quarantäne.
 
-            ### Verification
+            ---
+
+            ## ⬇️ Installation (empfohlen)
+
+            **Voraussetzung:** [Python 3.11 oder neuer](https://www.python.org/downloads/) —
+            beim Setup unbedingt **„Add python.exe to PATH"** anhaken.
+
+            1. Unten unter **Assets** die Datei **`AEGIS.zip`** herunterladen
+               *(nicht die große `AEGIS-windows-x64.zip` und nicht „Source code (zip)").*
+            2. Rechtsklick auf die ZIP → **Eigenschaften** → unten **„Zulassen"/„Entsperren"**
+               anhaken → **OK**. Dann den Ordner **entpacken**.
+            3. Im entpackten Ordner **`install.cmd`** doppelklicken. Das installiert die
+               Pakete, legt AEGIS am richtigen Ort ab, richtet Autostart + Verknüpfung ein
+               und startet das Programm. **Fertig.** ✅
+
+            > Zuverlässiger Weg, funktioniert auf jedem Windows 10/11 (die Python-Laufzeit
+            > ist signiert). Den Installationsordner darfst du danach löschen.
+
+            ---
+
+            ### ⚠️ Hinweis zur `AEGIS-windows-x64.zip` (.exe-Version)
+
+            Es gibt zusätzlich ein fertiges Bundle mit `AEGIS.exe`. Diese `.exe` ist
+            **noch nicht von Microsoft signiert** und wird daher auf aktuellen Systemen
+            von **Windows Smart App Control / SmartScreen blockiert** (ohne „Trotzdem
+            ausführen"). **Bis dahin bitte den Weg oben mit `AEGIS.zip` + `install.cmd`
+            nutzen.** Die signierte `.exe` kommt, sobald die Code-Signierung steht.
+
+            ---
+
+            ### 🔒 Optional: Download verifizieren
+
+            Jede Datei ist mit [Sigstore](https://sigstore.dev) (keyless) signiert. Wer
+            möchte, prüft `AEGIS.zip` vor dem Entpacken (`winget install sigstore.cosign`):
+
             ```
             cosign verify-blob \
               --certificate AEGIS.zip.crt \
@@ -78,11 +114,11 @@ jobs:
               AEGIS.zip
             ```
 
-            ### SHA-256
-            `${{ steps.hash.outputs.sha256 }}`
+            Erwartet: `Verified OK`. SHA-256: `${{ steps.hash.outputs.sha256 }}`
 
             ### Auto-Update
-            AEGIS-Clients with `update_github_repo=${{ github.repository }}` pull this within 24h.
+            Laufende AEGIS-Installationen mit `update_github_repo=${{ github.repository }}`
+            ziehen dieses Release automatisch innerhalb von 24 h.
 
       - name: Update manifest on gh-pages
         run: |

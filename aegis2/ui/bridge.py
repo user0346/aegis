@@ -146,6 +146,40 @@ class AegisBridge(QObject):
                 self.voiceState.emit("state", "idle")
         threading.Thread(target=_work, daemon=True).start()
 
+    @pyqtSlot()
+    def greet(self):
+        """Proaktive Begruessung beim Start — AEGIS meldet sich SELBST (Chat-Bubble +
+        Sprache, sofern Sprachausgabe AN), ohne dass man erst einen Knopf druecken muss.
+        Genau EINMAL pro App-Start (idempotent)."""
+        if getattr(self, "_greeted", False):
+            return
+        self._greeted = True
+
+        def _work():
+            try:
+                try:
+                    from aegis2.shared import user_memory
+                    name = user_memory.get_address()
+                except Exception:  # noqa: BLE001
+                    name = ""
+                import datetime
+                h = datetime.datetime.now().hour
+                tg = ("Guten Morgen" if 5 <= h < 11 else "Guten Tag" if 11 <= h < 18
+                      else "Guten Abend" if 18 <= h < 23 else "Hallo")
+                who = (" " + name) if name else ""
+                greeting = (f"{tg}{who}. AEGIS ist bereit und schützt dich im Hintergrund. "
+                            "Wie kann ich helfen?")
+                self.voiceState.emit("reply", greeting)
+                self.voiceState.emit("state", "speaking")
+                try:
+                    from aegis2.voice.sir_speaker import speak_text
+                    speak_text(greeting)        # respektiert den Sprachausgabe-Toggle
+                except Exception:  # noqa: BLE001
+                    pass
+            finally:
+                self.voiceState.emit("state", "idle")
+        threading.Thread(target=_work, daemon=True).start()
+
     # ---- Ollama-Auto-Install (lokale KI, kein manueller Download) ----
     @pyqtSlot(result=str)
     def ollamaStatus(self):

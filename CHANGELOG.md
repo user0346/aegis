@@ -3,6 +3,13 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.8
+- AEGIS begrüßt dich jetzt von selbst beim Start — mit Text UND Sprache, ohne dass du erst einen Knopf drücken musst
+- Sprachausgabe robuster: thread-sichere Tonerzeugung und ein Protokoll-Eintrag pro Ausgabe (so lässt sich „kein Ton" eindeutig auf Lautstärke/Audio-Gerät statt auf die App zurückführen)
+- Installation aus dem Quellcode legt sich jetzt selbst am richtigen Ort ab (%LOCALAPPDATA%\Programs\AEGIS) — egal wohin du die ZIP entpackst; den Download-Ordner kannst du danach löschen
+- GitHub-Seite und Anleitungen sind jetzt eindeutig: klar, was man lädt (AEGIS.zip) und dass man install.cmd doppelklickt — die noch unsignierte .exe ist ehrlich als „derzeit von Windows blockiert" gekennzeichnet
+- Roadmap für die nächsten Schritte (offline-Stimme, mehrere KI-Backends, Reden ohne Knopf-Halten) in docs/ROADMAP.md
+
 ## v2.4.7
 - „Update", „gibt es ein Update?" und Ähnliches lösen jetzt auch im getippten Chat wirklich die echte Versionsprüfung aus (vorher lief getippter Text am Befehl vorbei direkt ins Sprachmodell, das nur allgemeine Hinweise gab) — inklusive Toleranz für Tippfehler wie „Updatre"
 - Der Denk-Kern lebt wieder sichtbar: er war zuletzt zu still (fast eingefroren). Jetzt dreht er sich sanft sichtbar, bleibt beim Nachdenken wach und atmet ruhig — lebendig, aber ohne Hektik

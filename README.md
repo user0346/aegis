@@ -8,20 +8,53 @@ Windows endpoint security companion. Complements Windows Defender.
 
 ---
 
-## Download
+## Installation
 
-The only supported way to get AEGIS is via signed releases.
+**Voraussetzung:** [Python 3.11+](https://www.python.org/downloads/) — beim Setup
+**„Add python.exe to PATH"** anhaken.
 
-**[→ Latest Release](https://github.com/user0346/aegis/releases/latest)**
+1. **[→ Neuestes Release öffnen](https://github.com/user0346/aegis/releases/latest)**
+   und unter **Assets** die Datei **`AEGIS.zip`** herunterladen.
+   *(Nicht die große `AEGIS-windows-x64.zip` und nicht „Source code (zip)" — siehe
+   Hinweis unten.)*
+2. Rechtsklick auf die ZIP → **Eigenschaften** → **„Zulassen"/„Entsperren"** anhaken
+   → **OK**, dann **entpacken**.
+3. Im entpackten Ordner **`install.cmd`** doppelklicken. Das installiert die
+   Abhängigkeiten, legt AEGIS am richtigen Ort ab (`%LOCALAPPDATA%\Programs\AEGIS`),
+   richtet Autostart + Verknüpfung + Integritäts-Basis ein und startet es. **Fertig.**
 
-Do not run unsigned builds. Do not download from third-party mirrors.
+Das ist der empfohlene, zuverlässige Weg auf jedem Windows 10/11. Den heruntergeladenen
+Ordner darfst du danach löschen.
+
+<details>
+<summary>Manuelle Schritte (statt <code>install.cmd</code>)</summary>
+
+```cmd
+py -3 -m pip install -r requirements_v2.txt
+py -3 bin\aegis_app.py --setup
+pyw -3 bin\aegis_app.py
+```
+
+Optionale Sprachsteuerung: `py -3 -m pip install -r requirements_v2_voice.txt`
+</details>
 
 ---
 
-## Verify (recommended)
+## ⚠️ Zur `.exe`-Version (Smart App Control)
 
-Every release is cryptographically signed with
-[Sigstore](https://sigstore.dev) keyless OIDC. Verify before install:
+Das Release enthält auch ein fertiges `AEGIS-windows-x64.zip` mit `AEGIS.exe`. Diese
+`.exe` ist **noch nicht Authenticode-signiert** und wird deshalb von **Windows Smart
+App Control** auf aktuellen Systemen **komplett blockiert** — ohne „Trotzdem
+ausführen". Bitte bis zur Signierung den Weg oben (`AEGIS.zip` + `install.cmd`)
+verwenden; die Python-Laufzeit selbst ist signiert, daher läuft der Quellcode-Weg
+überall.
+
+---
+
+## Optional: Download verifizieren
+
+Jedes Release ist mit [Sigstore](https://sigstore.dev) (keyless OIDC) signiert. Wer
+möchte, prüft `AEGIS.zip` vor dem Entpacken:
 
 ```cmd
 winget install --id sigstore.cosign
@@ -34,42 +67,7 @@ cosign verify-blob ^
   AEGIS.zip
 ```
 
-Expected: `Verified OK`
-
-Anything else means the file has been tampered with — discard it.
-
----
-
-## Install
-
-Extract the verified ZIP and follow the instructions in the included
-`INSTALL.txt`.
-
----
-
-## Run from source (works even with Smart App Control)
-
-Windows **Smart App Control** blocks unsigned executables outright — there is no
-"run anyway". Until the `.exe` is Authenticode-signed, the reliable path on such
-machines is to run AEGIS from source: the Python runtime itself is signed, so the
-OS allows it.
-
-**One click:**
-
-1. Install [Python 3.11+](https://www.python.org/downloads/) and tick
-   *"Add python.exe to PATH"* in the installer.
-2. Get the code — `git clone https://github.com/user0346/aegis` (or download the
-   source ZIP and extract it).
-3. Double-click **`install.cmd`**. It installs the dependencies, runs first-time
-   setup (autostart + shortcut + integrity baseline) and launches AEGIS.
-
-**Manual equivalent:**
-
-    py -3 -m pip install -r requirements_v2.txt
-    py -3 bin\aegis_app.py --setup
-    pyw -3 bin\aegis_app.py
-
-Optional voice control: `py -3 -m pip install -r requirements_v2_voice.txt`
+Erwartet: `Verified OK`. Alles andere → Datei verwerfen.
 
 ---
 
