@@ -198,10 +198,43 @@ class Orchestrator:
         return {"enabled": on}
 
     def _cmd_system_repin(self, args: dict) -> dict:
-        # Frozen-aware ueber den zentralen Launcher (AEGIS.exe --repin bzw. pyw).
-        from aegis2.shared import launcher
-        launcher.spawn("repin")
-        return {"started": True}
+        """Integritaets-Baseline SOFORT + synchron neu setzen: aktuellen Stand pinnen,
+        Safe-Mode aufheben, SelfProtect live entsperren -> klare Fertig-Rueckmeldung
+        (kein 'started ohne Ende'). Frozen: exe-Hash; Quellcode: .py-Hash-Satz."""
+        import sys as _sys
+        import time as _t
+        from pathlib import Path as _P
+        detail = ""
+        try:
+            if getattr(_sys, "frozen", False):
+                from aegis2.shared.modules.self_protect import _hash_file
+                h = _hash_file(_P(_sys.executable))
+                if h:
+                    self.db.set_setting("integrity_pinned_exe_hash", h)
+                    self.db.set_setting("integrity_pinned_exe_at", _t.time())
+                detail = "AEGIS.exe"
+            else:
+                from aegis2.shared.modules.self_protect import collect_integrity_targets
+                root = _P(__file__).resolve().parents[2]
+                cur = collect_integrity_targets(root)
+                self.db.set_setting("integrity_pinned_hashes", cur)
+                self.db.set_setting("integrity_pinned_at", _t.time())
+                detail = f"{len(cur)} Dateien"
+            try:                                  # Safe-Mode-Flag aufheben
+                sf = _P.home() / ".aegis" / ".safe_mode"
+                if sf.exists():
+                    sf.unlink()
+            except OSError:
+                pass
+            for m in self.modules:                # laufendes SelfProtect-Modul live entsperren
+                if type(m).__name__ == "SelfProtect":
+                    try:
+                        m._safe_mode = False
+                    except Exception:  # noqa: BLE001
+                        pass
+            return {"ok": True, "done": True, "detail": detail}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
     def _cmd_system_setup(self, args: dict) -> dict:
         from aegis2.shared import launcher

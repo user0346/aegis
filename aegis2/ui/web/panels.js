@@ -384,6 +384,8 @@
       else if(ev.name==="vt.status") renderVtStatus(ev.data);
       else if(ev.name==="integrity.status") updateIntegrityPill(ev.data);
       else if(ev.name==="learning.stats") updateDevelopment(ev.data);
+      else if(ev.name==="system.repin"){ const _e=$("system-hint"); if(_e){ _e.textContent="✓ Integrität neu gepinnt — fertig"+((ev.data&&ev.data.detail)?(" ("+ev.data.detail+")"):"")+". Autonome Aktionen sind wieder frei."; _e.style.color="var(--ok,#37d39a)"; } updateIntegrityPill({frozen:true,verified:true}); }
+      else if(ev.name==="system.setup"){ const _e=$("system-hint"); if(_e){ _e.textContent="✓ Einrichtung/Reparatur fertig."; _e.style.color="var(--ok,#37d39a)"; } }
       return;
     }
     if(ev.severity&&ev.source==="NetworkWatcher") onNetEvent(ev);
