@@ -92,18 +92,18 @@
           " mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}",
           "float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<4;i++){v+=a*nz(p);p*=2.03;a*=0.5;}return v;}",
           "void main(){",
-          " float fr=pow(1.0-max(dot(vN,vV),0.0),uFres);",        // Rand-Glow
-          " float rim=pow(max(dot(vN,vV),0.0),1.5)*0.45;",
-          " float face=pow(max(dot(vN,vV),0.0),1.15);",           // 1 zur Mitte, 0 am Rand
-          " float sp=0.10+uActive*0.32;",                         // Fliess-Tempo (schneller beim Arbeiten)
-          " vec3 q=vP*1.9+vec3(0.0,0.0,uTime*sp);",
+          " float d=max(dot(vN,vV),0.0);",
+          " float fr=pow(1.0-d,uFres);",                          // Rand-Glow
+          " float body=smoothstep(0.04,0.40,d);",                 // fuellt die GANZE Vorderseite (auch die Luecke)
+          " float sp=0.10+uActive*0.34;",                         // Fliess-Tempo (schneller beim Arbeiten)
+          " vec3 q=vP*1.85+vec3(0.0,0.0,uTime*sp);",
           " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
-          " float n=clamp(fbm(q+w*1.3),0.0,1.0);",
-          " float veins=smoothstep(0.55,0.92,n);",                // weiche heisse Adern
-          " float plasma=((0.32+0.68*n)*face + veins*0.45*face)*(0.7+uActive*0.95);",
-          " vec3 hot=mix(uColor,vec3(1.0),0.55);",
-          " vec3 col=uColor*(0.5+fr*1.6)+hot*plasma;",
-          " float a=(fr*1.2+rim+plasma*0.8)*uIntensity;",
+          " float n=clamp(fbm(q+w*1.45),0.0,1.0);",
+          " n=pow(n,1.5);",                                       // Kontrast -> sichtbare Wolken/Adern
+          " float plasma=n*body*(0.95+uActive*1.15);",
+          " vec3 hot=mix(uColor,vec3(1.0),0.5);",
+          " vec3 col=uColor*(0.45+fr*1.5)+hot*plasma;",
+          " float a=(fr*1.15+plasma*1.05)*uIntensity;",
           " gl_FragColor=vec4(col*uIntensity,a);}"
         ].join("\n"),
       });
@@ -130,7 +130,7 @@
           " gl_FragColor=vec4(col*c*1.5*flick*uIntensity,c*uIntensity);}"
         ].join("\n"),
       });
-      this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 3), innerMat);
+      this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
       // ---- Arc-Reactor-Ringe ----

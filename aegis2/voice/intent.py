@@ -31,6 +31,14 @@ _PATTERNS = [
         r"(?:\bf[üu]hr\w*|\bstarte?\b|\brun\b|\bausf[üu]hr\w*)\b[^?]*"
         r"\b(?:del|erase|format|diskpart|rmdir|reg\s+delete|regedit|bcdedit|shutdown|"
         r"net\s+user|netsh|powershell|\bcmd\b|\.exe|\.bat|\.ps1|\.vbs)\b", re.I)),
+    # Selbst-Neustart ("starte dich neu", "neustart", "starte neu") -> system.restart.
+    # MUSS vor 'open' stehen, sonst landet "starte ..." faelschlich im Oeffnen-Intent.
+    ("restart", re.compile(
+        r"\b(?:neu\s*start\w*|neustart\w*)\b"
+        r"|\bstarte?\s+(?:dich|aegis|[äa]gis|sich|das\s+programm|die\s+app)\s+neu\b"
+        r"|\bstarte?\s+neu\b"
+        r"|\b(?:starte?|mach\w*|fahr\w*)\s+(?:dich|aegis)\s+(?:bitte\s+)?neu\b"
+        r"|\brestart\s+(?:dich|aegis|yourself)\b|\breboot\s+(?:dich|aegis)\b", re.I)),
     # Datum/Uhrzeit-Frage (auch nacktes "uhrzeit"/"datum") -> deterministisch aus Systemzeit.
     # Steht FRUEH, damit "uhrzeit" nicht als Website (uhrzeit.com) geoeffnet wird.
     ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
@@ -101,7 +109,7 @@ _PATTERNS = [
 # status, threats, knowledge, learnings, usb, ...) sind hier BEWUSST NICHT drin -> sie
 # laufen ueber das Modell, das nach BEDEUTUNG entscheidet. So loest "scannow" oder ein
 # "suche" mitten im Satz keinen Fehl-Befehl mehr aus.
-_COMMAND_NAMES = {"run_command", "shell_denied", "datetime", "set_wake", "forget",
+_COMMAND_NAMES = {"run_command", "shell_denied", "restart", "datetime", "set_wake", "forget",
                   "set_alias", "remember", "learn_url", "learn", "play", "media",
                   "find_file", "close_app"}
 _COMMAND_PATTERNS = [(n, p) for (n, p) in _PATTERNS if n in _COMMAND_NAMES]

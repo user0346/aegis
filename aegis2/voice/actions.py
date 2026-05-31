@@ -141,6 +141,17 @@ class ActionRouter:
         self.service_cmd({"name": "monitor.pause", "args": {"minutes": minutes}})
         return {"ok": True, "msg": f"Pause für {minutes} Minuten"}
 
+    def _do_restart(self, args) -> dict:
+        """«starte dich neu» / «neustart» -> AEGIS sauber neu starten (system.restart);
+        Core + Watchdog + Fenster kommen von selbst wieder hoch."""
+        try:
+            self.service_cmd({"name": "system.restart"})
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "msg": "Den Neustart konnte ich gerade nicht auslösen — "
+                                        "nutz sonst den Knopf «AEGIS neu starten» unten."}
+        return {"ok": True, "msg": "Ich starte mich neu — das Fenster kommt gleich von selbst wieder. "
+                                   "Einen Moment."}
+
     def _do_open(self, args) -> dict:
         target = (args.get("target") or "").strip()
         low = target.lower()
