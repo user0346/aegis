@@ -95,12 +95,12 @@
           " float d=max(dot(vN,vV),0.0);",
           " float fr=pow(1.0-d,uFres);",                          // Rand-Glow
           " float body=smoothstep(0.04,0.40,d);",                 // fuellt die ganze Vorderseite
-          " float sp=0.022+uActive*0.42;",                       // idle: sehr langsam, aktiv: schnell
+          " float sp=0.022+uActive*0.20;",                       // idle: sehr langsam, aktiv: nur maessig
           " vec3 q=vP*1.85+vec3(0.0,0.0,uTime*sp);",
           " vec3 w=vec3(fbm(q+1.7),fbm(q+5.2),fbm(q+9.3));",      // domain warp -> organisch
           " float n=clamp(fbm(q+w*1.45),0.0,1.0);",
-          " n=pow(n,1.0+uActive*0.9);",                           // idle: weich, aktiv: scharfe Adern
-          " float plasma=n*body*(0.28+uActive*1.55);",           // idle: ruhig, aktiv: volle Energie
+          " n=pow(n,1.0+uActive*0.45);",                          // weich, beim Denken nur leicht schaerfer
+          " float plasma=n*body*(0.28+uActive*0.85);",           // idle ruhig, aktiv gedaempft (kein BAMM)
           " vec3 hot=mix(uColor,vec3(1.0),0.5);",
           " vec3 col=uColor*(0.45+fr*1.45)+hot*plasma;",
           " float a=(fr*1.1+plasma*1.0)*uIntensity;",
@@ -133,21 +133,22 @@
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
-      // ---- Gedanken-Ringe: FLACHE, konzentrische Bahnen UM den Kern (kreuzen ihn NICHT) ----
-      // Beide gleich + nur leicht geneigt -> konzentrisch genestet, liegen klar AUSSERHALB
-      // des Kerns/Glows. Dicke Tube = klare Bahnen; sichtbar im Idle, heller beim Denken.
+      // ---- Gedanken-Ringe: konzentrische, EXAKT ZENTRIERTE Halo-Kreise um den Kern ----
+      // FRONTAL zur Kamera (rotation 0) -> perfekte konzentrische Kreise ohne Perspektiv-
+      // Versatz (keine Neigung = kein Verschieben), klar AUSSERHALB des Kerns/Glows.
       this.rings = [];
       const _rs = [
-        { r: 2.05, tube: 0.045, spin:  0.5, base: 0.22 },
-        { r: 2.42, tube: 0.038, spin: -0.4, base: 0.16 },
+        { r: 1.98, tube: 0.040, base: 0.20 },
+        { r: 2.28, tube: 0.035, base: 0.15 },
+        { r: 2.58, tube: 0.030, base: 0.11 },
       ];
       for (let i = 0; i < _rs.length; i++) {
         const o = _rs[i];
         const m = new THREE.MeshBasicMaterial({ color: this.col.clone(), transparent: true,
           blending: THREE.AdditiveBlending, depthWrite: false, opacity: o.base });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(o.r, o.tube, 16, 260), m);
-        ring.rotation.x = 0.40; ring.rotation.y = 0.0;   // flache, GLEICHE Neigung -> konzentrisch, kein Kreuzen
-        ring._spin = o.spin; ring._base = o.base;
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(o.r, o.tube, 14, 220), m);
+        ring.rotation.set(0, 0, 0);          // frontal -> zentriert, kein Versatz
+        ring._base = o.base;
         scene.add(ring); this.rings.push(ring);
       }
 
@@ -204,7 +205,7 @@
       // Tab unsichtbar -> nicht rendern (Strom sparen)
       if (document.hidden || !this.stage || this.stage.clientWidth === 0) return;
 
-      this.state = lerp(this.state, this.stateTarget, 1 - Math.pow(0.0001, dt));
+      this.state = lerp(this.state, this.stateTarget, 1 - Math.pow(0.3, dt));   // SANFTER Anstieg, kein Sprung
       this.threat = lerp(this.threat, this.threatTarget, 1 - Math.pow(0.002, dt));
       this.pulse *= Math.pow(0.12, dt);
       this.stateTarget *= Math.pow(0.6, dt);
@@ -216,10 +217,10 @@
                  : ((this.thinkingOn || this.state > 0.4) ? C_THINK : C_IDLE)));
       this.col.lerp(target, 1 - Math.pow(0.01, dt));
 
-      const energy = Math.min(1.4, this.state * 0.7 + this.pulse * 0.8 + this.threat * 0.5);
-      const speed = 0.6 + energy * 1.6 + this.threat * 1.0;
-      // "Aktivitaet" beim Denken/Arbeiten -> treibt Oberflaechen-Verformung, Tempo, Puls.
-      const active = Math.min(1, this.state * 0.95 + this.pulse * 0.5 + this.threat * 0.35);
+      const energy = Math.min(1.0, this.state * 0.55 + this.pulse * 0.4 + this.threat * 0.45);
+      const speed = 0.6 + energy * 1.1 + this.threat * 0.8;
+      // "Aktivitaet" beim Denken/Arbeiten -> treibt Oberflaeche/Tempo/Puls — bewusst GEDAEMPFT.
+      const active = Math.min(1, this.state * 0.8 + this.pulse * 0.25 + this.threat * 0.3);
 
       this.cu.uTime.value = t; this.cu.uColor.value.copy(this.col);
       this.cu.uActive.value = active;
@@ -228,18 +229,17 @@
       this.pu.uSpeed.value = speed; this.pu.uIntensity.value = 0.7 + energy * 0.7;
 
       // Drehung + Puls im Idle FAST STILL, ziehen erst beim Denken/Arbeiten an (active).
-      const k = dt * (0.05 + energy * 1.5);
+      const k = dt * (0.05 + energy * 0.55);                 // ruhiger: Drehung zieht nur sanft an
       this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.1;
       this.inner.rotation.y -= k * 0.4;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * (1.3 + active * 5.0)) * (0.003 + active * 0.07) + this.pulse * 0.05);
+      this.inner.scale.setScalar(1.0 + Math.sin(t * (1.0 + active * 2.2)) * (0.003 + active * 0.03) + this.pulse * 0.03);
       this.points.rotation.y += dt * (0.02 + energy * 0.15);
-      // Gedanken-Ringe: flach um den Kern — im Idle sichtbar + ruhig, beim Denken heller.
-      // Nur langsame Praezession um z (Neigung bleibt fix -> kreuzt den Kern NIE).
+      // Gedanken-Ringe: zentrierte Halo-Kreise — im Idle ruhig sichtbar, beim Denken SANFT
+      // heller (kein Aufblitzen). Kein Drehen (frontal) -> bleiben exakt zentriert.
       for (let ri = 0; ri < this.rings.length; ri++) {
         const ring = this.rings[ri];
-        ring.rotation.z += ring._spin * dt * (0.1 + active * 0.7);
         ring.material.color.copy(this.col);
-        ring.material.opacity = Math.min(0.8, ring._base + active * 0.4 + this.pulse * 0.22);
+        ring.material.opacity = Math.min(0.55, ring._base + active * 0.20 + this.pulse * 0.08);
       }
 
       try { this.renderer.render(this.scene, this.camera); } catch (e) {}
@@ -264,8 +264,8 @@
       const sev = (ev.severity || "INFO").toString().toUpperCase();
       const power = sev === "CRITICAL" ? 1.0 : sev === "THREAT" ? 0.95
                   : sev === "QUARANTINE" ? 0.8 : sev === "WARN" ? 0.65 : 0.45;
-      this.stateTarget = Math.max(this.stateTarget, Math.min(1, power));
-      this.pulse = Math.min(1.4, this.pulse + power * 0.9);
+      this.stateTarget = Math.max(this.stateTarget, Math.min(0.8, power * 0.75));
+      this.pulse = Math.min(0.5, this.pulse + power * 0.25);     // kleiner Anstoss statt BAMM
       const danger = (sev === "CRITICAL" || sev === "THREAT" || cat === "TAMPER");
       if (danger) this.threatTarget = 1.0;
       else if (sev === "WARN") this.threatTarget = Math.max(this.threatTarget, 0.45);
