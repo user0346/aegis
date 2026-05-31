@@ -47,6 +47,32 @@ Extract the verified ZIP and follow the instructions in the included
 
 ---
 
+## Run from source (works even with Smart App Control)
+
+Windows **Smart App Control** blocks unsigned executables outright — there is no
+"run anyway". Until the `.exe` is Authenticode-signed, the reliable path on such
+machines is to run AEGIS from source: the Python runtime itself is signed, so the
+OS allows it.
+
+**One click:**
+
+1. Install [Python 3.11+](https://www.python.org/downloads/) and tick
+   *"Add python.exe to PATH"* in the installer.
+2. Get the code — `git clone https://github.com/user0346/aegis` (or download the
+   source ZIP and extract it).
+3. Double-click **`install.cmd`**. It installs the dependencies, runs first-time
+   setup (autostart + shortcut + integrity baseline) and launches AEGIS.
+
+**Manual equivalent:**
+
+    py -3 -m pip install -r requirements_v2.txt
+    py -3 bin\aegis_app.py --setup
+    pyw -3 bin\aegis_app.py
+
+Optional voice control: `py -3 -m pip install -r requirements_v2_voice.txt`
+
+---
+
 ## Updates
 
 AEGIS updates itself in the background. New releases are signed with the
