@@ -45,9 +45,7 @@ _EXCLUDE_SUBSTR = ("api_key", "api-key", "apikey",
 
 # Endnutzer-Launcher, die TROTZ .bat-Ausschluss ins ZIP MUESSEN (sonst kein Starter).
 INCLUDE_BAT = {
-    "AEGIS_SETUP.bat", "AEGIS.bat",
-    "AEGIS_AUTOSTART_EIN.bat", "AEGIS_AUTOSTART_AUS.bat",
-    "AEGIS_REPIN.bat",
+    "AEGIS.bat",   # einziger Endnutzer-Launcher (alles ueber das Menue)
 }
 
 

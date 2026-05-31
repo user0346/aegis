@@ -603,8 +603,17 @@ class ActionRouter:
         if not saved:
             return {"ok": False, "msg": ("Das war mir zu bruchstückhaft zum Merken — sag mir den "
                                          "vollständigen Satz, z.B. «merk dir, dass mein Hund Rex heißt».")}
+        # Nicht nur als Notiz ablegen, sondern auch in die WISSENSBASIS lernen -> retrievable
+        # und beeinflusst AEGIS' Antworten/Reasoning aktiv (nicht bloss LLM-Kontext).
+        learned = False
+        try:
+            from ..shared import knowledge_base
+            learned = bool(knowledge_base.learn(text))
+        except Exception:  # noqa: BLE001
+            pass
+        extra = " — als Notiz UND in die Wissensbasis gelernt" if learned else ""
         return {"ok": True,
-                "msg": f"Gemerkt: {text}. Daran denke ich auch in kommenden Gesprächen."}
+                "msg": f"Gemerkt: {text}{extra}. Daran denke ich auch in kommenden Gesprächen."}
 
     def _do_forget(self, args) -> dict:
         """Gezielt vergessen. 'vergiss alles' leert alles; 'vergiss X' / 'lösche X aus
