@@ -25,7 +25,7 @@ OSS-Signierung von [SignPath.io Foundation](https://about.signpath.io/product/op
 1. Account auf signpath.io anlegen, **Foundation-Programm** für `github.com/user0346/aegis` beantragen (Review dauert i.d.R. ein paar Tage).
 2. Nach Freigabe in SignPath anlegen: *Project* `aegis` → *Signing Policy* `release-signing` → GitHub-Repo verknüpfen (Trusted Build System = GitHub Actions).
 3. In GitHub → Settings → Secrets diese hinterlegen: `SIGNPATH_API_TOKEN`, `SIGNPATH_ORGANIZATION_ID`.
-4. Mir Bescheid geben — dann hänge ich den `signpath/github-action-submit-signing-request` Schritt in `.github/workflows/release.yml` (Job `build-exe-windows`) **zwischen Build und Cosign-Signierung**: die `AEGIS.exe` wird signiert, neu gezippt, dann wie gehabt cosign-signiert + ans Release gehängt.
+4. Der Signier-Schritt ist in `.github/workflows/release.yml` (Job `build-exe-windows`, zwischen *Build* und *Zip*) **schon eingebaut**, aber **inaktiv**, solange die Secrets aus Schritt 3 fehlen. Sobald sie gesetzt sind, signiert SignPath die `AEGIS.exe` automatisch beim nächsten Release-Tag. **Vorher noch im Workflow anpassen:** `project-slug` und `signing-policy-slug` von den Platzhaltern (`aegis` / `release-signing`) auf die Werte aus deinem SignPath-Projekt setzen, und die Parameter der Action `signpath/github-action-submit-signing-request` gegen die aktuelle SignPath-Doku abgleichen (das Interface kann sich ändern). Sag mir die Slugs, dann mache ich das.
 
 Danach: signierte exe → SmartScreen baut Reputation auf → der Block verschwindet,
 Updates laufen ohne Klick durch.

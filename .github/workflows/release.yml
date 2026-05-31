@@ -132,6 +132,62 @@ jobs:
       - name: Build AEGIS.exe (onedir)
         run: python tools/build_exe.py
 
+      # ============================================================
+      #  Authenticode-Signierung der AEGIS.exe via SignPath Foundation
+      #  (gratis fuer Open-Source) -> behebt den Windows-SmartScreen-Block
+      #  bei Install + Auto-Update. Siehe docs/CODE_SIGNING.md.
+      #
+      #  INAKTIV, bis in GitHub die Secrets gesetzt sind:
+      #     SIGNPATH_API_TOKEN, SIGNPATH_ORGANIZATION_ID
+      #  Ohne diese werden ALLE folgenden SignPath-Schritte uebersprungen
+      #  -> die heutige (unsignierte) CI bleibt voellig unveraendert.
+      #
+      #  NACH der SignPath-Freigabe NOCH ANPASSEN:
+      #   - project-slug / signing-policy-slug unten auf die Werte aus deinem
+      #     SignPath-Projekt setzen,
+      #   - die Action-Parameter gegen die AKTUELLE SignPath-Doku pruefen
+      #     (das Action-Interface kann sich aendern).
+      # ============================================================
+      - name: SignPath konfiguriert?
+        id: signpath
+        shell: bash
+        env:
+          SP_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          if [ -n "$SP_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "SignPath aktiv -> AEGIS.exe wird Authenticode-signiert."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SignPath-Secrets fehlen -> exe bleibt unsigniert (kein Fehler)."
+          fi
+
+      - name: Unsignierte AEGIS.exe als Artifact hochladen
+        if: steps.signpath.outputs.enabled == 'true'
+        id: unsigned_exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-exe-unsigned
+          path: dist/AEGIS/AEGIS.exe
+          if-no-files-found: error
+
+      - name: AEGIS.exe via SignPath signieren
+        if: steps.signpath.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: aegis                    # TODO: an SignPath-Projekt anpassen
+          signing-policy-slug: release-signing   # TODO: an SignPath-Policy anpassen
+          github-artifact-id: ${{ steps.unsigned_exe.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-exe
+
+      - name: Signierte AEGIS.exe ins Bundle zuruecklegen
+        if: steps.signpath.outputs.enabled == 'true'
+        shell: pwsh
+        run: Copy-Item -Force signed-exe/AEGIS.exe dist/AEGIS/AEGIS.exe
+
       - name: Zip exe bundle (top-level AEGIS/)
         shell: pwsh
         run: Compress-Archive -Path dist/AEGIS -DestinationPath AEGIS-windows-x64.zip -Force
