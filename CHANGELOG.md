@@ -3,6 +3,12 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.3
+- Ich kann jetzt viele Windows- und PowerShell-Befehle direkt für dich ausführen, sobald du den Schalter „Shell-Befehle" anschaltest: Diagnose und Reparatur wie «ipconfig», «ping», «sc query», «net view», «Get-Process» oder sfc/chkdsk/dism. Reine Lesebefehle laufen sofort, die langen Reparatur-Tools öffne ich mit Admin-Nachfrage. Alles, was etwas ändert, löscht oder heimlich Dateien, Passwörter oder Umgebungsvariablen ausliest, lehne ich grundsätzlich ab — egal wie es verpackt ist
+- Ich lerne jetzt sichtbar von selbst dazu: in ruhigen Momenten halte ich gesicherte Fakten über diesen PC fest (wie gut ich den Normalzustand kenne, wie viele Gefahren-Domains ich blocke, was ich als bösartig gelernt habe) und sage kurz im Verlauf Bescheid, wenn etwas Neues dazukam — das füttert auch die Karte „Meine Entwicklung"
+- Stärkerer Selbst-Schutz: meine Integritäts-Selbstprüfung deckt jetzt die GESAMTE Installation ab (nicht nur die Startdatei), sodass auch heimlich ausgetauschte Programmteile auffallen. Erkenne ich einen Eingriff, bleibe ich im Sicherheitsmodus und nehme autonome Aktionen erst wieder auf, wenn du sie selbst mit deiner PIN freigibst
+- Zuverlässigere Updates: schlägt ein Update fehl, weil Dateien gerade gesperrt sind, stelle ich automatisch die vorige Version wieder her und starte sie — statt halb getauscht hängenzubleiben. Und ich prüfe gezielt, dass wirklich die neue Oberfläche hochkommt
+
 ## v2.4.2
 - Neu im Dashboard: die Karte „Meine Entwicklung" zeigt dir schwarz auf weiß, dass ich dazulerne — wie viele Programme ich als normal kenne, wie viele Wissens-Themen durchsuchbar sind, wie viele Gefahren-Domains ich blocke und wie viele Erkennungs-Muster ich verfeinert habe. Ab jetzt halte ich täglich einen Stand fest, sodass du den Zuwachs pro Woche (▲ +N) siehst. Du kannst auch „zeig deine Entwicklung" fragen
 - „starte dich neu" startet mich jetzt wirklich neu (vorher habe ich „dich neu" fälschlich als App gesucht)

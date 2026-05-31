@@ -207,12 +207,12 @@ class Orchestrator:
         detail = ""
         try:
             if getattr(_sys, "frozen", False):
-                from aegis2.shared.modules.self_protect import _hash_file
-                h = _hash_file(_P(_sys.executable))
+                from aegis2.shared.modules.self_protect import frozen_install_digest
+                h = frozen_install_digest()       # exe + _internal (gleicher Digest wie Boot-Check)
                 if h:
                     self.db.set_setting("integrity_pinned_exe_hash", h)
                     self.db.set_setting("integrity_pinned_exe_at", _t.time())
-                detail = "AEGIS.exe"
+                detail = "AEGIS.exe + _internal"
             else:
                 from aegis2.shared.modules.self_protect import collect_integrity_targets
                 root = _P(__file__).resolve().parents[2]

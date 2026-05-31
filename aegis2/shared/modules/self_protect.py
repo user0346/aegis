@@ -69,6 +69,38 @@ def collect_integrity_targets(root: Path) -> dict[str, str]:
     return out
 
 
+def frozen_install_digest() -> Optional[str]:
+    """EIN kombinierter SHA-256 ueber die GANZE gefrorene Installation:
+    AEGIS.exe + ALLE Dateien unter _internal/ (Bytecode-PYZ, DLLs, gebuendelte Daten).
+
+    Wichtig (onedir): AEGIS.exe ist nur der PyInstaller-Bootloader-Stub — der echte
+    Code und alle DLLs liegen in _internal/. Nur die .exe zu hashen wuerde DLL-Planting
+    und PYC-/PYZ-Tausch uebersehen. Marker-/Zustandsdateien (.setup_done/.portable)
+    liegen im Install-ROOT, nicht in _internal -> bleiben bewusst aussen vor (sonst
+    Dauer-Mismatch). Kann eine Zieldatei nicht gelesen werden -> None (Check wird
+    diesen Boot uebersprungen, statt faelschlich Alarm zu schlagen)."""
+    import sys as _sys
+    exe = Path(_sys.executable)
+    he = _hash_file(exe)
+    if not he:
+        return None
+    root = exe.parent
+    agg = hashlib.sha256()
+    agg.update(b"AEGIS.exe\0" + he.encode())
+    internal = root / "_internal"
+    if internal.is_dir():
+        files = sorted(
+            (p for p in internal.rglob("*") if p.is_file()),
+            key=lambda p: str(p.relative_to(root)).replace("\\", "/").lower())
+        for p in files:
+            hf = _hash_file(p)
+            if hf is None:                       # gesperrt/unlesbar -> kein zuverlaessiger Digest
+                return None
+            rel = str(p.relative_to(root)).replace("\\", "/").lower()
+            agg.update(rel.encode() + b"\0" + hf.encode() + b"\n")
+    return agg.hexdigest()
+
+
 # ============================================================
 #  Self-Protect Module
 # ============================================================
@@ -208,16 +240,13 @@ class SelfProtect(Module):
                       f"Integrity: {len(current)} Files unverändert")
 
     def _frozen_exe_integrity_check(self) -> None:
-        """Selbstpruefung der gefrorenen AEGIS.exe: SHA-256 beim ersten Start pinnen,
-        danach bei jedem Start vergleichen. Abweichung = moeglicherweise ersetzt/
-        manipuliert -> Safe-Mode + CRITICAL. Nach einem legitimen Update wird der Pin
-        geloescht (Updater/Repin), damit die neue .exe sauber neu pinnt.
-
-        Hinweis: Der eingebettete Python-Bytecode (PYZ) ist an die .exe angehaengt,
-        also vom Hash MIT abgedeckt; nur die _internal-DLLs (Standardbibliotheken)
-        bleiben aussen vor — die Hauptangriffsflaeche 'AEGIS.exe ersetzt' ist erfasst."""
-        import sys as _sys
-        h = _hash_file(Path(_sys.executable))
+        """Selbstpruefung der GANZEN gefrorenen Installation (AEGIS.exe + _internal/):
+        ein kombinierter SHA-256 (siehe frozen_install_digest) wird beim ersten Start
+        gepinnt und danach bei jedem Start verglichen. Abweichung = exe ODER eine DLL/
+        eine .pyc moeglicherweise ersetzt/manipuliert -> Safe-Mode + CRITICAL. Nach einem
+        legitimen Update wird der Pin geloescht (Updater/Repin), damit sauber neu gepinnt
+        wird. Deckt damit auch DLL-Planting in _internal ab — nicht nur den exe-Stub."""
+        h = frozen_install_digest()
         if not h:
             return
         pinned = self.db.get_setting("integrity_pinned_exe_hash")
@@ -225,18 +254,20 @@ class SelfProtect(Module):
             self.db.set_setting("integrity_pinned_exe_hash", h)
             self.db.set_setting("integrity_pinned_exe_at", time.time())
             self.emit(Severity.INFO, Category.TAMPER,
-                      "Integrity: AEGIS.exe erstmals gepinnt — Selbstpruefung aktiv",
+                      "Integrity: Installation (AEGIS.exe + _internal) erstmals gepinnt "
+                      "— Selbstpruefung aktiv",
                       {"sha256": h, "verified": True})
             return
         if h == pinned:
             self.emit(Severity.INFO, Category.TAMPER,
-                      "Integrity: AEGIS.exe unveraendert (Selbstpruefung OK)",
+                      "Integrity: Installation unveraendert (Selbstpruefung OK)",
                       {"sha256": h, "verified": True})
         else:
-            self._enter_safe_mode("exe-mismatch")
+            self._enter_safe_mode("install-mismatch")
             self.emit(Severity.CRITICAL, Category.TAMPER,
-                      "INTEGRITY-BREACH: AEGIS.exe weicht vom gepinnten Stand ab — "
-                      "moeglicherweise ersetzt/manipuliert! Autonome Aktionen gesperrt.",
+                      "INTEGRITY-BREACH: AEGIS-Installation (exe oder _internal) weicht "
+                      "vom gepinnten Stand ab — moeglicherweise ersetzt/manipuliert! "
+                      "Autonome Aktionen gesperrt.",
                       {"verified": False, "expected": pinned[:16], "got": h[:16]})
 
     def _enter_safe_mode(self, reason: str) -> None:

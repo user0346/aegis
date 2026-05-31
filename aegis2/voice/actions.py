@@ -997,8 +997,9 @@ class ActionRouter:
         "systeminfo": {"*flags*"}, "tasklist": {"*flags*"}, "driverquery": {"*flags*"},
         "getmac": {"*flags*"}, "whoami": {"*flags*"}, "hostname": {"*flags*"},
         "ver": {"*flags*"}, "vol": {"*flags*"}, "netstat": {"*flags*"}, "nbtstat": {"*flags*"},
-        "gpresult": {"*flags*"}, "where": {"*flags*"}, "tree": {"*flags*"},
-        "set": {"*flags*"}, "assoc": {"*flags*"}, "ftype": {"*flags*"}, "fc": {"*flags*"},
+        "gpresult": {"*flags*"}, "assoc": {"*flags*"}, "ftype": {"*flags*"},
+        # ENTFERNT (Audit): set (leakt Env/API-Keys), tree/where (Filesystem-Recon),
+        # fc (Datei-Inhalte) — alle ermoeglichen Vertraulichkeits-/Exfiltrations-Lecks.
     }
     # Tools mit LESENDEM Unterbefehl + freiem Wert (z.B. «sc query <dienst>», «net view»,
     # «arp -a <ip>», «query session»). parts[1] muss ein erlaubter Lese-Unterbefehl sein,
@@ -1031,11 +1032,17 @@ class ActionRouter:
                          "invoke-webrequest", "invoke-restmethod", "iwr", "curl", "wget",
                          "new-object", "add-type", "start-process", "read-host",
                          "out-file", "out-gridview", "get-credential", "tee-object",
-                         "format-volume", "start-bitstransfer", "set-content", "add-content"}
+                         "format-volume", "start-bitstransfer", "set-content", "add-content",
+                         # Datei-Lese-Cmdlets = Daten-Exfiltration (Audit-Fund HIGH):
+                         "get-content", "gc", "cat", "get-childitem", "gci", "dir", "ls",
+                         "select-string", "sls", "get-item", "gi", "get-itemproperty", "gp",
+                         "import-csv", "import-clixml", "get-clipboard",
+                         # Outbound-Netz = DNS-/Beacon-Exfil (Audit-Fund):
+                         "resolve-dnsname", "test-netconnection", "test-connection"}
 
     # cmd.exe-INTERNE Befehle (haben keine eigene .exe) -> via «cmd /c» ausfuehren.
     # Sicher, weil parts bereits allowlisted + metachar-gefiltert sind.
-    _CMD_BUILTINS = {"ver", "vol", "set", "assoc", "ftype"}
+    _CMD_BUILTINS = {"ver", "vol", "assoc", "ftype"}
 
     def _do_shell_denied(self, args) -> dict:
         """Verlangter System-/Shell-Befehl, der bewusst NICHT freigegeben ist -> ehrlich

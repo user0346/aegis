@@ -4,13 +4,19 @@ Reads/appends to AEGIS_LEARNINGS.md following the section-discipline:
   - Runtime may only append to sections 4 (Performance) and 5 (Bug-Catalog).
   - User/Architecture sections are READ-ONLY for the runtime.
 
-Concurrency: file lock via portalocker. All writes go through a single
-queue thread to avoid races between modules.
+Concurrency: jeder Prozess serialisiert seine Schreibvorgaenge ueber EINEN
+Queue-Thread (kein prozessuebergreifender Lock — portalocker ist NICHT im Spiel).
+Der eigentliche Dateitausch laeuft ueber eine pro-Schreibvorgang EINDEUTIGE
+Temp-Datei + atomares os.replace -> nie eine halb geschriebene Datei. Schreiben
+zwei Prozesse exakt gleichzeitig, gewinnt der letzte replace (lost update moeglich,
+aber keine Korruption) — fuer ein Best-Effort-Lernprotokoll akzeptabel.
 """
 from __future__ import annotations
 
 import datetime as _dt
+import os
 import re
+import tempfile
 import threading
 import queue
 from pathlib import Path
@@ -90,7 +96,9 @@ def _already_present(content: str, title: str) -> bool:
     ntw = _norm_title(title)
     if not ntw:
         return False
-    for m in re.finditer(r"^###\s*\[[^\]]*\]\s*(.+?)\s+[—-]", content, re.M):
+    # Titel = alles zwischen "] " und dem AUTOR-Trenner " — " (Em-Dash). Greedy bis
+    # zum LETZTEN " — ", damit Bindestriche IM Titel den Titel nicht vorzeitig abschneiden.
+    for m in re.finditer(r"^###\s*\[[^\]]*\]\s*(.+)\s+—\s", content, re.M):
         exw = _norm_title(m.group(1))
         if exw and len(ntw & exw) / max(len(ntw | exw), 1) >= 0.5:
             return True
@@ -156,10 +164,21 @@ class MemoryWriter:
         today = _dt.date.today().isoformat()
         entry = f"\n### [{today}] {title} — {self.author}\n{body.rstrip()}\n"
         new_content = content[:insert_at].rstrip() + entry + content[insert_at:]
-        # Atomic write
-        tmp = self.path.with_suffix(".md.tmp")
-        tmp.write_text(new_content, encoding="utf-8")
-        tmp.replace(self.path)
+        # Atomarer Tausch ueber eine EINDEUTIGE Temp-Datei (pid + Zufallsname) im selben
+        # Ordner -> zwei parallel schreibende Prozesse kollidieren nicht auf demselben
+        # Temp-Namen; os.replace ist atomar auf NTFS/POSIX.
+        fd, tmpname = tempfile.mkstemp(
+            dir=str(self.path.parent), prefix=self.path.name + ".", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(new_content)
+            os.replace(tmpname, self.path)
+        except Exception:
+            try:
+                os.unlink(tmpname)
+            except OSError:
+                pass
+            raise
 
 
 # Convenience singleton accessor

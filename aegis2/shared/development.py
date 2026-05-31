@@ -12,12 +12,18 @@ Komplett defensiv: faellt eine Quelle aus, bleibt das Feld 0 statt zu crashen.
 """
 from __future__ import annotations
 
+import threading
 import time
 
 from .knowledge import learned_summary
 
 _SNAP_KEY = "dev_snapshots_v1"
 _MAX_SNAPS = 120
+
+# Serialisiert das read-modify-write der Snapshots INNERHALB des Prozesses (mehrere
+# Threads: periodischer Recorder + UI-Abfrage). Prozessuebergreifend ist es best-effort
+# (Snapshots sind tagesweise + idempotent -> verlierbar ist hoechstens ein Intra-Tag-Delta).
+_snap_lock = threading.Lock()
 
 
 def _kb_count() -> int:
@@ -89,14 +95,15 @@ def record_snapshot(db) -> None:
     """Hoechstens 1 Schnappschuss pro Tag (idempotent). Basis fuer den Trend.
     Heutiger Eintrag wird ueberschrieben (Hoechststand des Tages)."""
     try:
-        today = time.strftime("%Y-%m-%d")
-        snaps = _load_snaps(db)
-        cur = _current(db)
-        if snaps and snaps[-1].get("date") == today:
-            snaps[-1] = {"date": today, **cur}
-        else:
-            snaps.append({"date": today, **cur})
-        _save_snaps(db, snaps)
+        with _snap_lock:                          # read-modify-write nicht verschachteln
+            today = time.strftime("%Y-%m-%d")
+            snaps = _load_snaps(db)
+            cur = _current(db)
+            if snaps and snaps[-1].get("date") == today:
+                snaps[-1] = {"date": today, **cur}
+            else:
+                snaps.append({"date": today, **cur})
+            _save_snaps(db, snaps)
     except Exception:  # noqa: BLE001
         pass
 
@@ -124,11 +131,18 @@ def development_stats(db) -> dict:
             except Exception:  # noqa: BLE001
                 delta[k] = 0
     since = snaps[0]["date"] if snaps else time.strftime("%Y-%m-%d")
-    days_tracked = (int((time.time() - _ts(since)) / 86400) + 1) if snaps else 1
+    # _ts kann 0.0 liefern (unparsebares Datum) -> sonst (now-0)/86400 ~ 20605 Tage.
+    # Dann auf die Zahl der Snapshots zurueckfallen und hart auf 10 Jahre deckeln.
+    t_since = _ts(since)
+    if snaps and t_since > 0:
+        days_tracked = int((time.time() - t_since) / 86400) + 1
+    else:
+        days_tracked = len(snaps) or 1
+    days_tracked = max(1, min(days_tracked, 3650))
     return {
         "current": cur,
         "delta7": delta,
         "since": since,
-        "days_tracked": max(1, days_tracked),
+        "days_tracked": days_tracked,
         "points": len(snaps),
     }

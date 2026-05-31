@@ -71,6 +71,17 @@ AUDIT_PATH = Path.home() / ".aegis" / "audit.jsonl"
 MAX_SESSION_HOURS = 8
 
 
+def _safe_mode_active() -> bool:
+    """Safe-Mode-Marker (von der Integritaets-/Breach-Logik gesetzt). Solange er
+    existiert, darf NICHTS autonom laufen und die Stufe NICHT ueber SUGGEST steigen —
+    fail-closed, damit ein evtl. kompromittiertes System sich nicht selbst wieder
+    auf AUTO/FULL hochschaltet."""
+    try:
+        return (Path.home() / ".aegis" / ".safe_mode").exists()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _audit(record: dict) -> None:
     try:
         AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -219,6 +230,12 @@ class AutonomyManager:
                     "wanted_level": new_level, "bf": r})
             return False, r.get("msg", "wrong pin")
         bruteforce.record_attempt("autonomy_pin", success=True)
+        # Fail-closed: bei aktivem Safe-Mode keine Anhebung ueber SUGGEST — auch nicht
+        # mit korrektem Pin. Runterstufen (OFF/OBSERVE/SUGGEST) bleibt erlaubt.
+        if new_level >= LEVEL_AUTO and _safe_mode_active():
+            _audit({"event": "set_level_denied", "reason": "safe_mode",
+                    "wanted_level": new_level})
+            return False, "Safe-Mode aktiv — Autonomie bleibt auf SUGGEST gedeckelt"
         if new_level >= LEVEL_AUTO:
             ttl_minutes = min(max(1, ttl_minutes), MAX_SESSION_HOURS * 60)
         with self._lock:
@@ -293,6 +310,9 @@ class AutonomyManager:
 
         Returns (auto_approve, reason).
         """
+        # Fail-closed: Safe-Mode haelt JEDE autonome Aktion an, egal welche Stufe.
+        if _safe_mode_active():
+            return False, "safe_mode"
         if action in NEVER_AUTONOMOUS:
             return False, "blacklisted"
         with self._lock:
