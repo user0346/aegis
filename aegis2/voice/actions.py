@@ -803,7 +803,7 @@ class ActionRouter:
             r = subprocess.run(
                 [_ps, "-NoProfile", "-Command",
                  "(Get-CimInstance Win32_VideoController).Name -join ', '"],
-                capture_output=True, text=True, timeout=10, shell=False, creationflags=_NO_WINDOW)
+                capture_output=True, text=True, errors="replace", timeout=10, shell=False, creationflags=_NO_WINDOW)
             return (r.stdout or "").strip()
         except Exception:  # noqa: BLE001
             return ""
@@ -956,7 +956,7 @@ class ActionRouter:
         if sys.platform == "win32":       # Fallback ohne psutil
             try:
                 proc = subprocess.run(["taskkill", "/IM", base + ".exe", "/F"],
-                                      capture_output=True, text=True, timeout=10,
+                                      capture_output=True, text=True, errors="replace", timeout=10,
                                       shell=False, creationflags=_NO_WINDOW)
                 return 1 if proc.returncode == 0 else 0
             except Exception:  # noqa: BLE001
@@ -981,15 +981,39 @@ class ActionRouter:
     # Bewusste Designentscheidung: kuratierte Allowlist statt "Internet/LLM entscheidet,
     # was legitim ist" — Letzteres waere ein Prompt-Injection-Einfallstor.
     _SAFE_TOOLS = {
+        # --- Reparatur (Admin, laufen im Hintergrund mit UAC) ---
         "sfc": {"/scannow", "/verifyonly"},
         "chkdsk": {"/scan"},
         "dism": {"/online", "/cleanup-image", "/scanhealth", "/checkhealth", "/restorehealth"},
+        # --- Netzwerk-Refresh (benigne, jederzeit umkehrbare State-Changes) ---
         "ipconfig": {"/all", "/flushdns", "/displaydns", "/release", "/renew"},
-        "systeminfo": set(), "tasklist": set(), "ver": set(), "hostname": set(),
-        "whoami": set(), "getmac": set(), "driverquery": set(),
-        "ping": {"*"}, "tracert": {"*"}, "nslookup": {"*"},
+        # --- Genau EIN Hostname/IP ---
+        "ping": {"*"}, "tracert": {"*"}, "tracepath": {"*"}, "nslookup": {"*"}, "pathping": {"*"},
+        # --- REIN LESENDE Tools -> beliebige Flags ok ("*flags*"): koennen nichts zerstoeren;
+        #     Metachar-Block + shell=False schliessen Injection/Verkettung aus. ---
+        "systeminfo": {"*flags*"}, "tasklist": {"*flags*"}, "driverquery": {"*flags*"},
+        "getmac": {"*flags*"}, "whoami": {"*flags*"}, "hostname": {"*flags*"},
+        "ver": {"*flags*"}, "vol": {"*flags*"}, "netstat": {"*flags*"}, "nbtstat": {"*flags*"},
+        "gpresult": {"*flags*"}, "where": {"*flags*"}, "tree": {"*flags*"},
+        "set": {"*flags*"}, "assoc": {"*flags*"}, "ftype": {"*flags*"}, "fc": {"*flags*"},
+        # --- Tools MIT zerstoererischen Subbefehlen -> nur die LESENDEN zugelassen ---
+        "arp": {"-a", "-g"},
+        "route": {"print"},
+        "sc": {"query", "queryex", "qc", "getdisplayname", "getkeyname", "enumdepend", "showsid"},
+        "net": {"view", "statistics", "config", "time", "accounts", "helpmsg"},
     }
     _SAFE_BG = {"sfc", "dism", "chkdsk"}      # laufen lange -> im Hintergrund
+
+    # Rein lesende/anzeigende PowerShell-Verben. Alles, was AENDERT/LOESCHT/STARTET
+    # (Remove/Set/New/Stop/Start/Clear/Invoke/Add/Disable/Enable/Uninstall/Export/…)
+    # ist bewusst NICHT dabei. Pipes/Verkettung sind durch den Metachar-Block ohnehin aus.
+    _PS_SAFE_VERBS = {"get", "test", "measure", "select", "sort", "where", "format",
+                      "compare", "group", "resolve", "show", "convertfrom", "convertto",
+                      "out", "find", "trace", "read", "split", "join"}
+
+    # cmd.exe-INTERNE Befehle (haben keine eigene .exe) -> via «cmd /c» ausfuehren.
+    # Sicher, weil parts bereits allowlisted + metachar-gefiltert sind.
+    _CMD_BUILTINS = {"ver", "vol", "set", "assoc", "ftype"}
 
     def _do_shell_denied(self, args) -> dict:
         """Verlangter System-/Shell-Befehl, der bewusst NICHT freigegeben ist -> ehrlich
@@ -1027,7 +1051,7 @@ class ActionRouter:
             ok = False
         if not ok:
             try:                                          # Fallback: CLI-Pull ohne %-Anzeige
-                proc = subprocess.run(parts, capture_output=True, text=True,
+                proc = subprocess.run(parts, capture_output=True, text=True, errors="replace",
                                       timeout=3600, shell=False, creationflags=_NO_WINDOW)
                 ok = (proc.returncode == 0)
             except Exception:  # noqa: BLE001
@@ -1059,12 +1083,17 @@ class ActionRouter:
         tool = parts[0].lower()
         if tool in self._SAFE_TOOLS:           # sichere Windows-Diagnose-/Reparatur-Tools
             return self._run_safe_diag(tool, parts, command)
+        if tool in ("powershell", "pwsh", "ps"):   # nur EIN rein lesendes PowerShell-Cmdlet
+            return self._run_safe_powershell(parts, command)
         allowed = self._CMD_WHITELIST.get(tool)
         if allowed is None:
             return {"ok": False,
-                    "msg": (f"«{tool}» ist nicht freigegeben. Erlaubt sind: ollama sowie sichere "
-                            "Diagnose-/Reparatur-Tools wie sfc, chkdsk, dism, ipconfig, ping, systeminfo. "
-                            "Zerstörerische Befehle (löschen/formatieren) führe ich bewusst nicht aus.")}
+                    "msg": (f"«{tool}» führe ich nicht aus. Ich kann aber viele LESENDE Befehle: "
+                            "ipconfig, ping, tracert, netstat, «arp -a», «route print», tasklist, systeminfo, "
+                            "driverquery, whoami, getmac, «sc query», «net view», gpresult — dazu "
+                            "PowerShell-Lesebefehle (z.B. «powershell Get-Process») und die Reparatur-Tools "
+                            "sfc/chkdsk/dism. Alles, was ÄNDERT oder LÖSCHT (del, format, reg delete, "
+                            "Remove-Item, shutdown …), führe ich aus Sicherheitsgründen NICHT aus.")}
         sub = parts[1].lower() if len(parts) > 1 else ""
         if sub and sub not in allowed:
             return {"ok": False,
@@ -1090,7 +1119,7 @@ class ActionRouter:
                             "und du kannst es mit «ja» als bestes Modell aktivieren.")}
         # Schnelle Lese-Befehle -> ausführen, Ergebnis zeigen
         try:
-            proc = subprocess.run(parts, capture_output=True, text=True,
+            proc = subprocess.run(parts, capture_output=True, text=True, errors="replace",
                                   timeout=30, shell=False, creationflags=_NO_WINDOW)
         except FileNotFoundError:
             return {"ok": False, "msg": f"«{tool}» ist nicht installiert."}
@@ -1112,7 +1141,10 @@ class ActionRouter:
         allowed = self._SAFE_TOOLS.get(tool, set())
         for a in parts[1:]:
             al = a.lower()
-            if "*" in allowed:                 # ein Hostname/IP (ping/tracert/nslookup)
+            if "*flags*" in allowed:           # rein lesendes Tool -> Flags/Werte ok (kein Schaden)
+                if not re.match(r"^[/-]?[a-z0-9][a-z0-9/:._\-]{0,48}$", al):
+                    return {"ok": False, "msg": f"«{a}» ist kein zulässiges Argument — abgelehnt."}
+            elif "*" in allowed:               # ein Hostname/IP (ping/tracert/nslookup)
                 if not re.match(r"^[a-z0-9][a-z0-9.\-]{0,60}$", al):
                     return {"ok": False, "msg": f"«{a}» ist kein gültiger Hostname/keine IP — abgelehnt."}
             elif al not in allowed:
@@ -1132,8 +1164,9 @@ class ActionRouter:
             return {"ok": True, "msg": (f"«{command}» braucht Administrator-Rechte — ich öffne ein "
                                         "Admin-Fenster. Bestätige bitte die Windows-Abfrage mit «Ja»; "
                                         "darin läuft der Vorgang und du siehst das Ergebnis live.")}
+        run_parts = (["cmd", "/c", *parts] if tool in self._CMD_BUILTINS else parts)
         try:
-            proc = subprocess.run(parts, capture_output=True, text=True, timeout=45,
+            proc = subprocess.run(run_parts, capture_output=True, text=True, errors="replace", timeout=45,
                                   shell=False, creationflags=_NO_WINDOW)
         except FileNotFoundError:
             return {"ok": False, "msg": f"«{tool}» ist auf diesem System nicht verfügbar."}
@@ -1146,10 +1179,50 @@ class ActionRouter:
             out = out[:700] + " …"
         return {"ok": True, "msg": (f"✓ «{command}»\n{out}" if out else f"✓ «{command}» ausgeführt.")}
 
+    def _run_safe_powershell(self, parts: list, command: str) -> dict:
+        """Fuehrt GENAU EIN rein lesendes PowerShell-Cmdlet aus (Get-/Test-/Measure-/…).
+        Pipes/Verkettung/Subexpressions sind durch den Metachar-Block bereits ausgeschlossen,
+        also kann hier nur ein einzelnes Cmdlet stehen. Das Verb muss in _PS_SAFE_VERBS sein —
+        alles, was aendert/loescht/startet, wird abgelehnt. shell=False, -NoProfile."""
+        cmdlet = ""
+        idx = -1
+        for i in range(1, len(parts)):
+            if re.match(r"^[a-z]+-[a-z][a-z0-9]*$", parts[i].lower()):
+                cmdlet = parts[i]
+                idx = i
+                break
+        if not cmdlet:
+            return {"ok": False,
+                    "msg": ("Bei PowerShell führe ich nur ein einzelnes Lese-Cmdlet aus — z.B. "
+                            "«powershell Get-Process», «powershell Get-Service» oder "
+                            "«powershell Get-ComputerInfo».")}
+        verb = cmdlet.split("-", 1)[0].lower()
+        if verb not in self._PS_SAFE_VERBS:
+            return {"ok": False,
+                    "msg": (f"«{cmdlet}» ist kein reines Lese-Cmdlet. Ich führe nur Get-/Test-/Measure-… "
+                            "aus — nichts, das etwas ändert, löscht oder startet.")}
+        inner = " ".join(parts[idx:])      # ab dem Cmdlet (keine fremden PS-Optionen)
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", inner],
+                capture_output=True, text=True, errors="replace", timeout=30, shell=False, creationflags=_NO_WINDOW)
+        except FileNotFoundError:
+            return {"ok": False, "msg": "PowerShell ist auf diesem System nicht verfügbar."}
+        except subprocess.TimeoutExpired:
+            return {"ok": True, "msg": f"«{command}» läuft länger als erwartet — im Hintergrund weiter."}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "msg": f"Fehler: {e}"}
+        out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        if len(out) > 700:
+            out = out[:700] + " …"
+        if proc.returncode == 0:
+            return {"ok": True, "msg": (f"✓ «{command}»\n{out}" if out else f"✓ «{command}» ausgeführt.")}
+        return {"ok": False, "msg": f"«{command}» fehlgeschlagen (Code {proc.returncode}).\n{out}"}
+
     def _run_diag_bg(self, parts: list, command: str) -> None:
         """Langlaufendes Diagnose-Tool im Hintergrund + Status merken + Abschluss-Meldung."""
         try:
-            proc = subprocess.run(parts, capture_output=True, text=True, timeout=1800,
+            proc = subprocess.run(parts, capture_output=True, text=True, errors="replace", timeout=1800,
                                   shell=False, creationflags=_NO_WINDOW)
             tail = (((proc.stdout or "") + (proc.stderr or "")).strip())[-300:]
             if proc.returncode == 0:
