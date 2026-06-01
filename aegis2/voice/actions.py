@@ -1151,6 +1151,10 @@ class ActionRouter:
         Vektor statt Shell-String (shell=False), Metachar-Block, Längenlimit,
         Timeout. Kein shell=True, keine beliebigen Befehle."""
         import shlex
+        # Haeufige Schreibweise OHNE Leerzeichen ("sfc/scannow", "ipconfig/all") -> Tool + Flag
+        # trennen ("sfc /scannow"), sonst sieht der Allowlist-Parser EIN Token und lehnt faelschlich
+        # ab (Nutzer-Fund: "sfc/scannow" wurde verweigert, obwohl sfc erlaubt ist).
+        command = re.sub(r"^(\s*[A-Za-z]{2,})(/)", r"\1 \2", command)
         if len(command) > 120:
             return {"ok": False, "msg": "Befehl zu lang — abgelehnt."}
         if any(ch in self._CMD_BAD_CHARS for ch in command):
