@@ -464,6 +464,16 @@ kbd{font-family:var(--fm); font-size:12px; background:rgba(255,255,255,.07); bor
 .mode-orb #voice-history .bubble{font-size:12px; padding:9px 12px; line-height:1.45; max-width:100%}
 .mode-orb.overlay-open #voice-history{display:none}   /* bei offenem Embed ausblenden */
 body.chat-hidden #voice-history{display:none}         /* «schließe den chat» -> Panel aus */
+/* Vision-Thumbnail: klein oben links — zeigt, was AEGIS bei «was siehst du» sieht */
+#vision-thumb{position:fixed; left:14px; top:78px; z-index:72; width:220px;
+  background:var(--bg2); border:1px solid var(--line-2); border-radius:10px; overflow:hidden;
+  box-shadow:0 14px 40px rgba(0,0,0,.55), 0 0 16px var(--glow-soft)}
+#vision-thumb .vthumb-head{display:flex; align-items:center; justify-content:space-between;
+  padding:5px 9px; font-size:10px; letter-spacing:.5px; color:var(--acc2);
+  background:linear-gradient(180deg, rgba(45,226,255,.12), transparent)}
+#vision-thumb .vthumb-head button{background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; line-height:1; padding:0 2px}
+#vision-thumb .vthumb-head button:hover{color:var(--crit)}
+#vision-thumb img{width:100%; display:block}
 #integrity-pill{display:none}            /* „DEV"-Badge im Topbar entfernt (Nutzer-Wunsch) */
 .mode-orb .view[data-view="voice"] .voice-input{max-width:580px; margin:10px auto 0}
 /* "Verfuegbare Kommandos"-Karte auf der Heimansicht ausblenden (aufgeraeumt) */
