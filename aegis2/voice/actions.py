@@ -1675,10 +1675,14 @@ class ActionRouter:
                 return {"ok": True, "msg": f"{hit} — das hast du mir gemerkt."}
             # kein Treffer -> normaler LLM-Pfad (hat die Notizen via context_string ohnehin)
         t = " " + text.lower() + " "
-        for keys, ans in self._PERSONA:
-            if any(k in t for k in keys):
-                self._hist.clear()          # klare Persona-Antwort -> Kontext zuruecksetzen
-                return {"ok": True, "msg": ans}
+        # Persona-Kurzantworten NUR bei kurzen, eigenstaendigen Smalltalk-/Begruessungs-Eingaben.
+        # Sonst kapert z.B. "...also alles gut" am Satzende eine inhaltliche Antwort. Laengere
+        # Saetze sind echte Aussagen/Antworten -> ab an den LLM, der den Gespraechs-Kontext kennt.
+        # KEIN _hist.clear() mehr: das warf mitten im Gespraech den Kontext weg.
+        if len(text.split()) <= 5:
+            for keys, ans in self._PERSONA:
+                if any(k in t for k in keys):
+                    return {"ok": True, "msg": ans}
         # Optionales lokales LLM (Ollama) — mit kurzem Gespraechs-Kontext,
         # damit Folge-Antworten ("ich antworte drauf") Sinn ergeben.
         try:
