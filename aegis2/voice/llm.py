@@ -163,6 +163,13 @@ def installed_models() -> list:
         return []
 
 
+def _thinks(model: str) -> bool:
+    """True fuer qwen3-'Denk'-Modelle (NICHT die -instruct-Varianten). Fuer die schalten wir
+    Ollamas Denk-Modus per think=False ab -> schnell + sauber (qwen3:8b ~0,9 s statt ~5 s)."""
+    m = (model or "").lower()
+    return "qwen3" in m and "instruct" not in m
+
+
 # Praeferenz (bestes zuerst) fuer die Auto-Wahl, wenn der Nutzer nichts gesetzt hat.
 # 2026-Recherche: Gemma 3 = bestes DEUTSCH (Polish), Qwen3 = bester Reasoning/Agent-
 # Allrounder (Apache-2.0). Beide gemischt; der Nutzer kann jedes Modell/Backend selbst
@@ -282,11 +289,14 @@ def ask_json(prompt: str, system: str | None = None, timeout: int = 45,
     m = active_model()
     if not m:
         return None
-    body = json.dumps({
+    _body = {
         "model": m, "prompt": prompt, "system": system or SYSTEM,
         "stream": False, "format": schema if schema else "json",
         "options": {"num_predict": num_predict, "temperature": 0.0 if schema else 0.2},
-    }).encode("utf-8")
+    }
+    if _thinks(m):
+        _body["think"] = False
+    body = json.dumps(_body).encode("utf-8")
     try:
         req = _u.Request(OLLAMA + "/api/generate", data=body,
                          headers={"Content-Type": "application/json"})
@@ -321,19 +331,20 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
     m = model or active_model()
     if not m:
         return None
-    # qwen3-"Denk"-Modelle: /no_think schaltet den langsamen <think>-Block ab (Instruct-
-    # Varianten denken ohnehin nicht). Bringt qwen3 von ~30 s auf wenige Sekunden.
-    _ml = (m or "").lower()
-    eff_prompt = ("/no_think\n" + prompt) if ("qwen3" in _ml and "instruct" not in _ml) else prompt
+    # qwen3-"Denk"-Modelle: Ollamas think=False schaltet den langsamen Denk-Modus SAUBER ab
+    # (Instruct-Varianten denken ohnehin nicht). qwen3:8b dann ~0,9 s statt ~5 s, korrektes
+    # Deutsch. (Das alte /no_think-Prompt-Prefix half nicht zuverlaessig.)
 
     def _gen(sys_prompt: str):
-        body = json.dumps({
-            "model": m, "prompt": eff_prompt, "system": sys_prompt, "stream": False,
+        _body = {
+            "model": m, "prompt": prompt, "system": sys_prompt, "stream": False,
             "keep_alive": -1,      # Modell DAUERHAFT geladen halten -> nie langsames Neu-Laden
-                                   # (Jarvis-Gefuehl; haelt VRAM/RAM, ok fuer Dauer-Assistenten)
             "options": {"num_predict": num_predict, "temperature": 0.6,
                         "top_p": 0.9, "num_ctx": 4096},
-        }).encode("utf-8")
+        }
+        if _thinks(m):
+            _body["think"] = False
+        body = json.dumps(_body).encode("utf-8")
         try:
             req = _u.Request(OLLAMA + "/api/generate", data=body,
                              headers={"Content-Type": "application/json"})
@@ -369,13 +380,14 @@ def ask_stream(prompt: str, model: str | None = None, system: str | None = None,
     m = model or active_model()
     if not m:
         return
-    _ml = (m or "").lower()
-    eff = ("/no_think\n" + prompt) if ("qwen3" in _ml and "instruct" not in _ml) else prompt
-    body = json.dumps({
-        "model": m, "prompt": eff, "system": system or SYSTEM, "stream": True,
+    _body = {
+        "model": m, "prompt": prompt, "system": system or SYSTEM, "stream": True,
         "keep_alive": -1,
         "options": {"num_predict": num_predict, "temperature": 0.6, "top_p": 0.9, "num_ctx": 4096},
-    }).encode("utf-8")
+    }
+    if _thinks(m):
+        _body["think"] = False
+    body = json.dumps(_body).encode("utf-8")
     try:
         req = _u.Request(OLLAMA + "/api/generate", data=body,
                          headers={"Content-Type": "application/json"})

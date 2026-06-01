@@ -55,10 +55,10 @@ def best_model() -> str:
     vram = _gpu_vram_gb()
     if vram >= 22 or (vram == 0 and ram_gb >= 48):
         return "qwen3:30b-a3b-instruct-2507"   # MoE: 30B-Qualitaet, nur ~3B aktiv -> schnell
-    if vram >= 10:                             # z.B. RTX 3060 12GB / 3080 / 4070
+    if vram >= 16:                             # 16 GB+ Karten -> groesseres Modell mit Headroom
         return "qwen3:14b"
-    if vram >= 6:                              # 6-8 GB Karten
-        return "qwen3:8b"
+    if vram >= 6:                              # 6-15 GB (RTX 3060 12GB / 3070 / 4060Ti ...) ->
+        return "qwen3:8b"                       # Sweet-Spot: ~0,9 s (think=False) + korrektes Deutsch
     if vram >= 4 or ram_gb >= 12:              # kleine GPU oder reiner CPU-Betrieb mit gutem RAM
         return "qwen3:4b-instruct"
     return MODEL                               # ganz schwach -> schlanker Fallback (llama3.2:3b)
