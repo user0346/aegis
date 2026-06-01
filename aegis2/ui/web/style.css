@@ -2,28 +2,40 @@
    AEGIS V2 — Security-Ops Dark Glass (v2.1.0)
    ============================================================ */
 :root{
-  --bg:#080b12; --bg2:#0b1019; --bg3:#0e1422;
-  --panel:rgba(255,255,255,.05); --panel-2:rgba(255,255,255,.07);
-  --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.14);
-  --txt:#e7eef7; --muted:#8595ad; --dim:#566178;
-  --acc:#38bdf8; --acc2:#22d3ee; --acc-deep:#0e7490;
-  --glow:rgba(56,189,248,.35); --glow-soft:rgba(56,189,248,.10);
-  --ok:#34d399; --warn:#fbbf24; --threat:#fb923c; --crit:#f87171; --quar:#a78bfa;
+  /* JARVIS-HUD: tiefes Navy-Schwarz + Arc-Reactor-Cyan */
+  --bg:#05070d; --bg2:#080c15; --bg3:#0b111d; --bg-ink:#02040a;
+  --panel:rgba(140,190,255,.045); --panel-2:rgba(140,190,255,.07);
+  --line:rgba(120,200,255,.12); --line-2:rgba(120,200,255,.22); --bracket:rgba(60,230,255,.55);
+  --txt:#e9f4ff; --muted:#7e93b3; --dim:#4a5870;
+  --acc:#2de2ff; --acc2:#7af6ff; --acc-deep:#0a6f8a; --acc-ice:#a9b9ff;
+  --glow:rgba(45,226,255,.40); --glow-soft:rgba(45,226,255,.12); --glow-strong:rgba(45,226,255,.65);
+  --ok:#36e0a0; --warn:#ffc24b; --threat:#ff8a3d; --crit:#ff5470; --quar:#b694ff;
   --r:13px; --r-sm:9px; --r-xs:6px;
   --fs:ui-sans-serif,system-ui,"Segoe UI",Roboto,Inter,sans-serif;
   --fm:ui-monospace,"Cascadia Code","Consolas",monospace;
+  --fd:"Segoe UI",system-ui,ui-sans-serif,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{
   background:
-    radial-gradient(900px 500px at 78% -8%, rgba(56,189,248,.10), transparent 60%),
-    radial-gradient(700px 460px at 0% 108%, rgba(167,139,250,.07), transparent 55%),
+    radial-gradient(1100px 620px at 80% -10%, rgba(45,226,255,.10), transparent 60%),
+    radial-gradient(820px 540px at -5% 110%, rgba(122,140,255,.06), transparent 55%),
     var(--bg);
   color:var(--txt); font-family:var(--fs); font-size:14px; line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-#app{display:flex; flex-direction:column; min-height:100vh}
+/* fixes HUD-Feld: feines Tech-Gitter + CRT-Scanlines + Vignette, hinter allem */
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.7;
+  background:
+    linear-gradient(rgba(120,200,255,.035) 1px, transparent 1px) 0 0/46px 46px,
+    linear-gradient(90deg, rgba(120,200,255,.035) 1px, transparent 1px) 0 0/46px 46px,
+    repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+  -webkit-mask:radial-gradient(130% 100% at 50% 0%, #000 55%, transparent 100%);
+  mask:radial-gradient(130% 100% at 50% 0%, #000 55%, transparent 100%);
+}
+#app{display:flex; flex-direction:column; min-height:100vh; position:relative; z-index:1}
 .muted{color:var(--muted)} .mono{font-family:var(--fm)}
 h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
 ::selection{background:rgba(56,189,248,.28)}
@@ -56,7 +68,8 @@ h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
   padding:8px 15px; border-radius:999px; cursor:pointer; transition:.16s;
 }
 .tab:hover{color:var(--txt); background:rgba(255,255,255,.04)}
-.tab.is-active{color:#04141f; background:linear-gradient(180deg,var(--acc2),var(--acc)); box-shadow:0 0 18px var(--glow-soft); border-color:transparent}
+.tab.is-active{color:#04141f; background:linear-gradient(180deg,var(--acc2),var(--acc)); box-shadow:0 0 22px var(--glow), inset 0 0 0 1px rgba(255,255,255,.25); border-color:transparent;
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))}
 
 .status-cluster{display:flex; gap:8px; align-items:center}
 .pill{font-size:11px; font-weight:600; letter-spacing:.8px; padding:6px 13px; border-radius:999px; border:1px solid var(--line-2)}
@@ -80,8 +93,10 @@ h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
 
 /* ---------- cards / glass ---------- */
 .card{
-  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  position:relative; background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
   padding:18px 20px; margin-bottom:18px;
+  backdrop-filter:blur(14px) saturate(1.15);
+  box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
 }
 .card-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px}
 .card-head h2{font-size:14px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#c6d4e8}
@@ -91,6 +106,8 @@ h1,h2,h3{margin:0; font-weight:600; letter-spacing:.2px}
 .stat-tile{
   position:relative; background:var(--panel); border:1px solid var(--line);
   border-radius:var(--r); padding:18px 20px; overflow:hidden;
+  backdrop-filter:blur(12px) saturate(1.15);
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);
 }
 .stat-tile::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--acc); box-shadow:0 0 16px var(--glow)}
 .stat-label{font-size:11.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin-bottom:8px}
