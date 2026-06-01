@@ -322,6 +322,15 @@ class ActionRouter:
             pass
         return {"ok": True, "msg": "Chat ist wieder da."}
 
+    def _do_hide_vision(self, args) -> dict:
+        """«schließe das kleine Fenster/Embed» / «schließe was du siehst» -> das Vision-Thumbnail
+        (oben links) ausblenden."""
+        try:
+            self.ui_cmd({"action": "hide_vision"})
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "msg": "Vorschau geschlossen."}
+
     def _do_check_safety(self, args) -> dict:
         """«ist das sicher?» / «prüf diesen Link/Text» -> Link gegen Blocklist + Heuristik prüfen,
         sonst Text vom lokalen LLM auf Phishing/Scam bewerten. Opt-in: NUR auf Zuruf, lokal."""

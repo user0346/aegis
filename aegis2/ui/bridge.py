@@ -103,8 +103,8 @@ class AegisBridge(QObject):
         a = (c or {}).get("action")
         if a == "switch_tab":
             self.voiceState.emit("tab", c.get("tab", ""))
-        elif a in ("hide_chat", "show_chat"):
-            self.voiceState.emit("ui", a)              # Chat-Panel ein-/ausblenden (panels.js)
+        elif a in ("hide_chat", "show_chat", "hide_vision"):
+            self.voiceState.emit("ui", a)              # Chat-Panel / Vision-Thumbnail (panels.js)
         elif a == "show_vision":
             self.voiceState.emit("vision", c.get("img", "") or "")   # Screenshot ins Vision-Embed
         elif a == "hide_window":
