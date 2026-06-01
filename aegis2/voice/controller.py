@@ -89,7 +89,9 @@ class VoiceController:
             det = intent_mod.classify(clean)
             if det.get("intent") in ("whats_new", "learnings", "kb_status",
                                       "status", "threats", "usb", "scan_status",
-                                      "update", "verify"):
+                                      "update", "verify", "knowledge"):
+                # 'knowledge' ("was ist ein Trojaner?") deterministisch -> _do_knowledge
+                # (Fakten + LLM). Sonst riet der LLM-Klassifikator es faelschlich als 'status'.
                 return self._finish(det, text)
         except Exception:  # noqa: BLE001
             pass
