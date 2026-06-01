@@ -63,12 +63,13 @@ _PAGE = r"""<!doctype html><html lang=de><head><meta charset=utf-8>
 <meta name=theme-color content="#070b14"><title>AEGIS</title><style>
 :root{color-scheme:dark;--bg:#070b14;--card:#0f1626;--line:#1b2640;--txt:#dbe4f0;--mut:#8a93a6;--acc:#37b6ff;--ok:#37d39a;--warn:#facc15;--crit:#f9737e}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font:15px/1.45 -apple-system,system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--txt);padding-bottom:72px}
+body{margin:0;font:15px/1.45 -apple-system,system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--txt)}
 header{padding:14px 16px;display:flex;align-items:center;gap:11px;position:sticky;top:0;z-index:5;background:rgba(8,12,22,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .dot{width:13px;height:13px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);flex:none}
 .dot.warn{background:var(--warn);box-shadow:0 0 12px var(--warn)}.dot.crit{background:var(--crit);box-shadow:0 0 12px var(--crit)}
 h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.14em}.sub{color:var(--mut);font-size:12px}
-.wrap{padding:12px}.hide{display:none}
+.wrap{padding:12px 12px calc(66px + env(safe-area-inset-bottom))}.hide{display:none}
+#tab-chat{padding-bottom:calc(122px + env(safe-area-inset-bottom))}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
 .card .n{font-size:26px;font-weight:750;line-height:1}.card .l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
@@ -83,17 +84,28 @@ button:active{background:#1b2c49}.btnacc{background:var(--acc);color:#04121f;bor
 .me{background:var(--acc);color:#04121f;margin-left:auto;border-bottom-right-radius:4px}
 .ae{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
 #chatbox{min-height:40vh;display:flex;flex-direction:column}
-.inputbar{position:fixed;left:0;right:0;bottom:54px;display:flex;gap:8px;padding:8px 12px;background:rgba(8,12,22,.95);border-top:1px solid var(--line)}
+.inputbar{position:fixed;left:0;right:0;bottom:calc(49px + env(safe-area-inset-bottom));display:flex;gap:8px;padding:8px 12px;background:rgba(8,12,22,.97);border-top:1px solid var(--line);z-index:6}
 .inputbar input{flex:1;font:inherit;color:var(--txt);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:rgba(8,12,22,.96);border-top:1px solid var(--line);z-index:6}
 nav a{flex:1;text-align:center;padding:11px 0 calc(11px + env(safe-area-inset-bottom));color:var(--mut);font-size:12px;font-weight:600;letter-spacing:.02em}
 nav a.on{color:var(--acc)}
+.kv{display:flex;justify-content:space-between;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:7px}
+.kv .k{color:var(--mut);font-size:13px}.kv .v{font-weight:650;font-size:13.5px;text-align:right;word-break:break-word}
+.kv .v.good{color:var(--ok)}.kv .v.bad{color:var(--crit)}.kv .v.warn{color:var(--warn)}
+.mod{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px}
+.md{width:9px;height:9px;border-radius:50%;background:#46506b;flex:none}.md.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.mod .mn{font-size:13.5px}
 </style></head><body>
 <header><span class=dot id=dot></span><div><h1>A E G I S</h1><div class=sub id=sub>verbinde…</div></div></header>
 
 <div class=wrap id=tab-status>
   <div class=cards id=cards></div>
   <div class=h2>Letzte Ereignisse</div><div id=evts></div>
+</div>
+
+<div class="wrap hide" id=tab-system>
+  <div class=h2>System</div><div id=sysinfo></div>
+  <div class=h2>Module (Wächter)</div><div id=modlist></div>
 </div>
 
 <div class="wrap hide" id=tab-chat>
@@ -113,6 +125,7 @@ nav a.on{color:var(--acc)}
 
 <nav>
   <a class=on data-t=status onclick="go('status')">Status</a>
+  <a data-t=system onclick="go('system')">System</a>
   <a data-t=chat onclick="go('chat')">Chat</a>
   <a data-t=schutz onclick="go('schutz')">Schutz</a>
 </nav>
@@ -122,17 +135,35 @@ function esc(s){return(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<
 function tile(n,l){return '<div class=card><div class=n>'+n+'</div><div class=l>'+l+'</div></div>'}
 async function jget(p){var r=await fetch(p+(p.indexOf('?')<0?'?':'&')+'t='+encodeURIComponent(T),{cache:'no-store'});return r.json()}
 async function jpost(p,b){var r=await fetch(p+'?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});return r.json()}
-function go(t){TAB=t;['status','chat','schutz'].forEach(function(x){document.getElementById('tab-'+x).classList.toggle('hide',x!==t)});
+function go(t){TAB=t;['status','system','chat','schutz'].forEach(function(x){document.getElementById('tab-'+x).classList.toggle('hide',x!==t)});
  document.getElementById('chatbar').classList.toggle('hide',t!=='chat');
  document.querySelectorAll('nav a').forEach(function(a){a.classList.toggle('on',a.dataset.t===t)});
- if(t==='schutz')loadSchutz();}
+ if(t==='schutz')loadSchutz();
+ if(t==='system'||t==='status')tick();}
 async function tick(){
  try{var s=await jget('api/status');var crit=s.threats_24h>0,warn=s.quarantine_pending>0;
   document.getElementById('dot').className='dot'+(crit?' crit':warn?' warn':'');
-  document.getElementById('sub').textContent=(crit?'Achtung — Bedrohung':warn?'Quarantäne wartet':'Alles ruhig')+' · '+new Date().toLocaleTimeString();
-  if(TAB==='status'){document.getElementById('cards').innerHTML=tile(s.threats_24h,'Bedrohungen 24h')+tile(s.quarantine_pending,'in Quarantäne')+tile(s.events_24h,'Ereignisse 24h')+tile(s.programs_known,'bekannte Programme');
+  document.getElementById('sub').textContent=(crit?'Achtung — Bedrohung':warn?'Quarantäne wartet':'Alles ruhig')+' · '+(s.modules_running||0)+'/'+(s.modules_total||0)+' Wächter · '+new Date().toLocaleTimeString();
+  if(TAB==='status'){document.getElementById('cards').innerHTML=tile(s.threats_24h,'Bedrohungen 24h')+tile(s.quarantine_pending,'in Quarantäne')+tile(s.events_24h,'Ereignisse 24h')+tile((s.modules_running||0)+'/'+(s.modules_total||0),'Wächter aktiv')+tile(s.programs_known,'bekannte Programme')+tile(s.files_total,'Dateien erfasst');
    var e=await jget('api/events');document.getElementById('evts').innerHTML=(e.events||[]).map(function(x){return '<div class="evt '+esc(x.severity)+'"><div class=m>'+esc(x.message)+'</div><div class=meta>'+esc(x.source)+' · '+esc(x.category)+' · '+esc(x.ago)+'</div></div>'}).join('')||'<div class=muted>Noch keine Ereignisse.</div>';}
+  else if(TAB==='system'){renderSystem(s);}
  }catch(err){document.getElementById('sub').textContent='Verbindung verloren …'}
+}
+function kv(k,v,cls){return '<div class=kv><div class=k>'+esc(k)+'</div><div class="v'+(cls?' '+cls:'')+'">'+esc(String(v))+'</div></div>'}
+function renderSystem(s){
+ var ig=s.integrity||{},up=s.update||{},au=s.autonomy||{};
+ var igt=ig.verified?'✓ verifiziert':(ig.safe_mode?'⚠ Safe-Mode':(ig.frozen?'gepinnt (exe)':'Quellcode-Modus')),igc=ig.verified?'good':(ig.safe_mode?'bad':'');
+ var upt=up.staged?('● Update bereit'+(up.version?' '+up.version:'')):'aktuell',upc=up.staged?'warn':'good';
+ document.getElementById('sysinfo').innerHTML=
+  kv('Version', s.version||'—')+
+  kv('Autonomie',(au.level_name||'—')+(au.active?' · aktiv':''),au.active?'warn':'')+
+  kv('Integrität',igt,igc)+
+  kv('Update',upt,upc)+
+  kv('Verbindungen 1h', s.connections_1h)+
+  kv('Domains geblockt', s.domains_blocked, s.domains_blocked>0?'good':'')+
+  kv('Unbekannte Dateien', s.files_unknown, s.files_unknown>0?'warn':'');
+ var m=s.modules||[];
+ document.getElementById('modlist').innerHTML=m.length?m.map(function(x){return '<div class=mod><span class="md'+(x.on?' on':'')+'"></span><span class=mn>'+esc(x.name)+'</span></div>'}).join(''):'<div class=muted>—</div>';
 }
 function addBubble(who,txt){var d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'ae');d.textContent=txt;document.getElementById('chatbox').appendChild(d);d.scrollIntoView();}
 async function sendMsg(){var i=document.getElementById('msg'),t=i.value.trim();if(!t)return;i.value='';addBubble('me',t);
@@ -303,11 +334,43 @@ class MobileView(Module):
                         ls = learned_summary(db) or {}
                     except Exception:  # noqa: BLE001
                         ls = {}
+                    orch = outer.orch
+
+                    def _ro(cmd):
+                        """READ-ONLY Orchestrator-Abfrage — reine Anzeige, aendert nie State."""
+                        try:
+                            h = getattr(orch, "_cmd_" + cmd, None)
+                            return (h({}) or {}) if h else {}
+                        except Exception:  # noqa: BLE001
+                            return {}
+
+                    mods = []
+                    try:
+                        for nm, on in (orch.module_states() or {}).items():
+                            mods.append({"name": nm, "on": bool(on)})
+                    except Exception:  # noqa: BLE001
+                        pass
+                    try:
+                        from aegis2 import __version__ as _ver
+                    except Exception:  # noqa: BLE001
+                        _ver = "?"
                     self._send(200, json.dumps({
+                        "version": _ver,
                         "threats_24h": int(st.get("threats_24h", 0) or 0),
                         "events_24h": int(st.get("events_24h", 0) or 0),
                         "quarantine_pending": int(st.get("quarantine_pending", 0) or 0),
                         "programs_known": int(ls.get("baseline_known", 0) or 0),
+                        "files_total": int(st.get("files_total", 0) or 0),
+                        "files_unknown": int(st.get("files_unknown", 0) or 0),
+                        "connections_1h": int(st.get("connections_1h", 0) or 0),
+                        "domains_blocked": int(st.get("domains_blocked", 0) or 0),
+                        "modules_running": sum(1 for m in mods if m["on"]),
+                        "modules_total": len(mods),
+                        "modules": mods,
+                        "integrity": _ro("integrity_status"),
+                        "update": _ro("update_status"),
+                        "autonomy": _ro("autonomy_status"),
+                        "scan": _ro("scan_status"),
                     }))
                     return
                 if path == "/api/events":
