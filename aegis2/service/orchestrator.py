@@ -119,7 +119,7 @@ class Orchestrator:
         # gleichen WLAN live sehen, was AEGIS macht. Self-gated (laeuft nur bei AN).
         try:
             from ..shared.modules.mobile_view import MobileView
-            self.modules.append(MobileView(self.bus, self.db))
+            self.modules.append(MobileView(self.bus, self.db, orch=self))
         except Exception:  # noqa: BLE001
             pass
 
