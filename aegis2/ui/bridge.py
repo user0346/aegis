@@ -80,7 +80,23 @@ class AegisBridge(QObject):
                     {"t": "cmd", "name": f.get("name", ""),
                      "args": f.get("args", {}), "ref": secrets.token_hex(6)}),
                 status_cb=lambda: self._last_stats)
+            try:                    # Voice/Desktop: Chat-Antwort Satz-fuer-Satz streamen + sprechen
+                self._vc.router.speak_cb = self._speak_sentence
+            except Exception:  # noqa: BLE001
+                pass
         return self._vc
+
+    def _speak_sentence(self, sentence):
+        """Voice-Streaming: einen einzelnen, fertigen Satz sofort sprechen (Orb -> 'speaking').
+        Wird vom Chat-Pfad pro Satz aufgerufen, waehrend der Rest noch generiert."""
+        if not sentence:
+            return
+        self.voiceState.emit("state", "speaking")
+        try:
+            from aegis2.voice.sir_speaker import speak_text
+            speak_text(sentence)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _voice_ui_cmd(self, c):
         a = (c or {}).get("action")
@@ -100,7 +116,9 @@ class AegisBridge(QObject):
             self.voiceState.emit("transcript", res.get("transcript", "") or "")
             self.voiceState.emit("reply", res.get("msg", "") or "")
             msg = res.get("msg", "")
-            if msg:
+            # Wurde die Antwort bereits Satz-fuer-Satz gestreamt-gesprochen (Voice-Chat),
+            # NICHT noch einmal komplett vorlesen.
+            if msg and not res.get("spoken"):
                 self.voiceState.emit("state", "speaking")
                 try:
                     from aegis2.voice.sir_speaker import speak_text

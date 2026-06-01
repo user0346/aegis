@@ -66,6 +66,9 @@ class ActionRouter:
         self.ui_cmd = ui_cmd or (lambda _: None)
         self.service_cmd = service_cmd or (lambda _: None)
         self.status_cb = status_cb or (lambda: {})
+        # Optional: Satz-fuer-Satz sprechen (Voice-Streaming). Setzt die Bridge fuer den
+        # Sprach-/Desktop-Pfad; im Handy-Chat (nur Text) bleibt es None.
+        self.speak_cb = None
         self._hist: list = []          # kurzer Konversations-Kontext fuer Smalltalk
         self._pending_platform = None  # offene "Spotify oder YouTube?"-Rueckfrage
         self._pending_model = None     # fertig geladenes Modell, das auf Aktivierung wartet
@@ -1748,7 +1751,27 @@ class ActionRouter:
                 ctx = ""
                 if self._hist:
                     ctx = "Bisheriges Gespraech:\n" + "\n".join(self._hist[-10:]) + "\n\n"
-                a = llm.ask(ctx + "Nutzer: " + text + "\nAEGIS:", system=sys_ctx)
+                _prompt = ctx + "Nutzer: " + text + "\nAEGIS:"
+                if self.speak_cb:                     # VOICE-STREAMING: jeden fertigen Satz sofort
+                    parts = []                        # sprechen, waehrend der Rest noch generiert
+                    try:
+                        for _sent in llm.stream_sentences(_prompt, system=sys_ctx):
+                            parts.append(_sent)
+                            try:
+                                self.speak_cb(_sent)
+                            except Exception:  # noqa: BLE001
+                                pass
+                    except Exception:  # noqa: BLE001
+                        pass
+                    a = " ".join(parts).strip()
+                    if a:
+                        try:
+                            from . import auto_memory
+                            auto_memory.observe(text, a)
+                        except Exception:  # noqa: BLE001
+                            pass
+                        return {"ok": True, "msg": a, "via": "ollama", "spoken": True}
+                a = llm.ask(_prompt, system=sys_ctx)
                 if a:
                     try:                              # AEGIS merkt sich dauerhafte Fakten ueber
                         from . import auto_memory     # dich VON SELBST (Hintergrund, blockt nie)
