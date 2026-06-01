@@ -149,6 +149,11 @@ class Orchestrator:
             record_snapshot(self.db)
         except Exception:  # noqa: BLE001
             pass
+        try:                                   # KI-Modell im Hintergrund vorwaermen -> erste
+            from ..voice import llm            # Frage kommt sofort statt ~20 s Kaltstart
+            llm.prewarm()
+        except Exception:  # noqa: BLE001
+            pass
 
     def stop_all(self) -> None:
         for m in self.modules:

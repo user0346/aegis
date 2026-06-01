@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 
 try:
     import urllib.request as _u
@@ -60,9 +61,20 @@ def _clean(t: str) -> str:
 def _provider() -> str:
     try:
         from ..shared.db import get_db
-        return (get_db().get_setting("llm_provider", "ollama") or "ollama").strip().lower()
+        db = get_db()
+        p = (db.get_setting("llm_provider", "ollama") or "ollama").strip().lower()
     except Exception:  # noqa: BLE001
         return "ollama"
+    # SELBSTHEILUNG: "Fremd-Backend" gewaehlt, aber KEINE Adresse hinterlegt -> das ist nie
+    # erreichbar und wuerde den Assistenten stumm schalten ("brauche lokale KI"). Statt-
+    # dessen automatisch das lokale Ollama nehmen, das ja laeuft. Der Nutzer muss nichts tun.
+    if p == "openai_compatible":
+        try:
+            if not (db.get_setting("llm_base_url", "") or "").strip():
+                return "ollama"
+        except Exception:  # noqa: BLE001
+            return "ollama"
+    return p
 
 
 def _oai_cfg() -> dict:
@@ -151,9 +163,13 @@ def installed_models() -> list:
 # 2026-Recherche: Gemma 3 = bestes DEUTSCH (Polish), Qwen3 = bester Reasoning/Agent-
 # Allrounder (Apache-2.0). Beide gemischt; der Nutzer kann jedes Modell/Backend selbst
 # waehlen (Settings -> KI-Modell/Backend). Siehe docs/ROADMAP.md.
-_PREFERRED = ("gemma3:27b", "qwen3:30b-a3b-instruct-2507", "qwen3:14b", "gemma3:12b",
-              "qwen3:8b", "gemma3:4b", "qwen3:4b-instruct", "qwen3:4b", "qwen2.5:7b",
-              "qwen2.5:3b", "llama3.1:8b", "gemma3:1b", "llama3.2:3b")
+# Reihenfolge = SCHNELL **und** gut fuer einen Sprachassistenten. Nicht-denkende Instruct-
+# Modelle zuerst (gemma3 = bestes Deutsch; qwen2.5 = flott + klug). qwen3-"Denk"-Modelle ans
+# ENDE: ihre <think>-Bloecke kosten zig Sekunden (qwen3:14b ~36 s vs. qwen2.5:7b ~1 s). Wird
+# ein qwen3-Denkmodell doch genutzt, schaltet ask() per /no_think das Denken ab.
+_PREFERRED = ("gemma3:27b", "gemma3:12b", "qwen3:30b-a3b-instruct-2507", "gemma3:4b",
+              "qwen2.5:7b", "qwen3:4b-instruct", "qwen2.5:3b", "llama3.1:8b",
+              "llama3.2:3b", "gemma3:1b", "qwen3:14b", "qwen3:8b", "qwen3:4b")
 
 
 def active_model() -> str | None:
@@ -185,6 +201,28 @@ def set_active_model(name: str) -> bool:
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+def prewarm() -> None:
+    """Laedt das aktive Modell beim App-Start im HINTERGRUND in den RAM (keep_alive), damit
+    die ERSTE echte Frage nicht ~20 s kalt laedt, sondern sofort kommt (Jarvis-Gefuehl).
+    Best-effort, blockiert nie, schweigt bei Fehler/keinem Ollama."""
+    if _u is None or _provider() != "ollama":
+        return
+
+    def _w():
+        try:
+            m = active_model()
+            if not m:
+                return
+            body = json.dumps({"model": m, "keep_alive": "30m"}).encode("utf-8")  # leerer
+            req = _u.Request(OLLAMA + "/api/generate", data=body,                  # prompt = nur laden
+                             headers={"Content-Type": "application/json"})
+            _u.urlopen(req, timeout=180).read()
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Thread(target=_w, daemon=True, name="LLMPrewarm").start()
 
 
 def ask_json(prompt: str, system: str | None = None, timeout: int = 45,
@@ -230,14 +268,22 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
         return None
     # Multi-Backend: OpenAI-kompatibles Ziel (LM Studio/llama.cpp/vLLM/Cloud) statt Ollama.
     if _provider() == "openai_compatible":
-        return _ask_openai_compatible(prompt, system or SYSTEM, timeout, num_predict)
+        r = _ask_openai_compatible(prompt, system or SYSTEM, timeout, num_predict)
+        if r is not None:
+            return r
+        # Fremd-Backend nicht erreichbar (Adresse falsch / Server aus) -> NICHT verstummen,
+        # sondern lokal auf Ollama weiterversuchen (Selbstheilung; faellt hier unten durch).
     m = model or active_model()
     if not m:
         return None
+    # qwen3-"Denk"-Modelle: /no_think schaltet den langsamen <think>-Block ab (Instruct-
+    # Varianten denken ohnehin nicht). Bringt qwen3 von ~30 s auf wenige Sekunden.
+    _ml = (m or "").lower()
+    eff_prompt = ("/no_think\n" + prompt) if ("qwen3" in _ml and "instruct" not in _ml) else prompt
 
     def _gen(sys_prompt: str):
         body = json.dumps({
-            "model": m, "prompt": prompt, "system": sys_prompt, "stream": False,
+            "model": m, "prompt": eff_prompt, "system": sys_prompt, "stream": False,
             "keep_alive": "30m",   # Modell 30 Min im Speicher halten -> kein langsames
                                    # Neu-Laden bei Folgefragen (Hauptgrund fuer "dauert lange")
             "options": {"num_predict": num_predict, "temperature": 0.5},
