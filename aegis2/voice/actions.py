@@ -1526,12 +1526,20 @@ class ActionRouter:
             r"([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]{1,28})", text, re.I)
         if am:
             name = am.group(1).strip()
-            try:
-                from ..shared import user_memory
-                user_memory.set_address(name)
-            except Exception:  # noqa: BLE001
-                pass
-            return {"ok": True, "msg": f"Verstanden — ich spreche dich ab jetzt mit {name} an."}
+            # Schutz 1: Stoppwoerter sind keine Namen ("ich heiße UND was..." fing frueher "und").
+            _bad = {"und", "oder", "wie", "was", "ob", "nicht", "doch", "denn", "auch", "mal",
+                    "eigentlich", "bitte", "jetzt", "gerade", "noch", "schon", "wer", "wieso"}
+            # Schutz 2: "wie/ob/weißt du ... ich heiße ...?" ist eine FRAGE, keine Namensnennung.
+            _frage = re.search(r"\b(wie|ob|wei[sß]t|weisst|kennst|noch|sag\w*)\b.{0,25}\bich\s+hei[sß]+e\b",
+                               text, re.I)
+            if name.lower() not in _bad and not _frage:
+                try:
+                    from ..shared import user_memory
+                    user_memory.set_address(name)
+                except Exception:  # noqa: BLE001
+                    pass
+                return {"ok": True, "msg": f"Verstanden — ich spreche dich ab jetzt mit {name} an."}
+            # sonst: durchfallen -> die Frage wird normal beantwortet (Memory/LLM)
         # "welches Modell nutzt du / bist du?" -> deterministisch das ECHTE Modell nennen
         # (statt das Modell ueber sich selbst raten zu lassen).
         if (re.search(r"\b(welches?|was\s+f[üu]r)\b.{0,25}\bmodell\b", text, re.I)
@@ -1738,6 +1746,11 @@ class ActionRouter:
                     ctx = "Bisheriges Gespraech:\n" + "\n".join(self._hist[-10:]) + "\n\n"
                 a = llm.ask(ctx + "Nutzer: " + text + "\nAEGIS:", system=sys_ctx)
                 if a:
+                    try:                              # AEGIS merkt sich dauerhafte Fakten ueber
+                        from . import auto_memory     # dich VON SELBST (Hintergrund, blockt nie)
+                        auto_memory.observe(text, a)
+                    except Exception:  # noqa: BLE001
+                        pass
                     return {"ok": True, "msg": a, "via": "ollama"}  # _hist pflegt jetzt zentral _finish
         except Exception:
             pass
