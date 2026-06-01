@@ -176,11 +176,41 @@ _PREFERRED = ("gemma3:27b", "gemma3:12b", "qwen3:30b-a3b-instruct-2507", "gemma3
               "llama3.2:3b", "gemma3:1b", "qwen3:14b", "qwen3:8b", "qwen3:4b")
 
 
+_pulling: set = set()
+_pull_lock = threading.Lock()
+
+
+def _ensure_model_async(name: str) -> None:
+    """Zieht das hardware-beste Modell EINMAL im Hintergrund nach (ollama pull), ohne zu
+    blockieren. So bekommt JEDE Maschine automatisch ihr bestes Modell, ohne Nutzer-Zutun."""
+    if not name:
+        return
+    with _pull_lock:
+        if name in _pulling:
+            return
+        _pulling.add(name)
+
+    def _w():
+        try:
+            import subprocess
+            import sys as _sys
+            subprocess.run(["ollama", "pull", name], capture_output=True, timeout=3600,
+                           creationflags=(0x08000000 if _sys.platform == "win32" else 0))
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            with _pull_lock:
+                _pulling.discard(name)
+
+    threading.Thread(target=_w, daemon=True, name="ModelPull").start()
+
+
 def active_model() -> str | None:
-    """Das zu nutzende Modell — verlaesslich statt zufaellig models[0]:
-       1) vom Nutzer aktiviertes Modell (Setting 'llm_model'), falls installiert
-       2) bestes installiertes nach Praeferenzliste
-       3) Fallback: erstes verfuegbares."""
+    """Das zu nutzende Modell — AUTONOM + hardware-bewusst:
+       1) vom Nutzer manuell gewaehltes Modell (Setting 'llm_model'), falls installiert
+       2) bestes Modell fuer DIESE Hardware (best_model() nach VRAM/RAM) — installiert -> nehmen,
+          sonst im Hintergrund nachziehen und solange das beste Verfuegbare nutzen
+       3) bestes installiertes nach Praeferenzliste, sonst erstes verfuegbare."""
     inst = installed_models()
     if not inst:
         return None
@@ -189,6 +219,17 @@ def active_model() -> str | None:
         chosen = (get_db().get_setting("llm_model", "") or "").strip()
         if chosen and chosen in inst:
             return chosen
+    except Exception:  # noqa: BLE001
+        pass
+    # AUTONOM: bestes Modell fuer diese Maschine (dicke GPU -> grosses Modell, schwacher PC ->
+    # schlankes). best_model() entscheidet nach VRAM/RAM. Fehlt es lokal -> Hintergrund-Pull.
+    try:
+        from .ollama_setup import best_model as _best
+        want = (_best() or "").strip()
+        if want:
+            if want in inst:
+                return want
+            _ensure_model_async(want)
     except Exception:  # noqa: BLE001
         pass
     for p in _PREFERRED:
