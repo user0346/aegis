@@ -34,7 +34,9 @@ SYSTEM = ("Du bist AEGIS, der lokale Sicherheits-Assistent auf dem PC des Nutzer
           "und schlage den naechsten Schritt vor. ERFINDE NIEMALS Fakten ueber den Nutzer "
           "(z.B. einen Namen) — kennst du seinen Namen nicht, sag das ehrlich statt zu raten. "
           "Ist die Anfrage mehrdeutig, stell GENAU EINE "
-          "kurze Rueckfrage, sonst antworte direkt. Beziehe dich auf das bisherige Gespraech.\n"
+          "kurze Rueckfrage, sonst antworte direkt. Beziehe dich auf das bisherige Gespraech und "
+          "geh KONKRET auf das ein, was der Nutzer gerade geschrieben hat — antworte gezielt darauf, "
+          "wiederhole es nicht bloss. Denk kurz nach und gib eine durchdachte, hilfreiche Antwort.\n"
           "DEINE FAEHIGKEITEN — nenne sie mit JA + Beispiel, wenn gefragt wird, was du kannst: "
           "installierte Programme/Apps per Name oeffnen ('oeffne Discord', 'oeffne Steam'), "
           "Websites oeffnen, im Web sowie auf Spotify/YouTube suchen, den Sicherheits-Status "
@@ -329,7 +331,9 @@ def _has_cjk(t: str) -> bool:
 
 
 def ask(prompt: str, model: str | None = None, timeout: int = 120,
-        system: str | None = None, num_predict: int = 480) -> str | None:
+        system: str | None = None, num_predict: int = 480, deep: bool = False) -> str | None:
+    """deep=True schaltet bei qwen3 den Denk-Modus AN (bessere Reasoning bei echten Fragen,
+    dafuer langsamer). Default aus (schnell fuer Smalltalk)."""
     if _u is None or not prompt:
         return None
     # Multi-Backend: OpenAI-kompatibles Ziel (LM Studio/llama.cpp/vLLM/Cloud) statt Ollama.
@@ -346,15 +350,17 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
     # (Instruct-Varianten denken ohnehin nicht). qwen3:8b dann ~0,9 s statt ~5 s, korrektes
     # Deutsch. (Das alte /no_think-Prompt-Prefix half nicht zuverlaessig.)
 
+    _np = (num_predict + 600) if deep else num_predict   # Denk-Block braucht extra Token-Budget
+
     def _gen(sys_prompt: str):
         _body = {
             "model": m, "prompt": prompt, "system": sys_prompt, "stream": False,
             "keep_alive": -1,      # Modell DAUERHAFT geladen halten -> nie langsames Neu-Laden
-            "options": {"num_predict": num_predict, "temperature": 0.6,
+            "options": {"num_predict": _np, "temperature": 0.6,
                         "top_p": 0.9, "num_ctx": 4096},
         }
         if _thinks(m):
-            _body["think"] = False
+            _body["think"] = bool(deep)     # deep=True -> qwen3 denkt nach (bessere Antwort)
         body = json.dumps(_body).encode("utf-8")
         try:
             req = _u.Request(OLLAMA + "/api/generate", data=body,

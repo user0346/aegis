@@ -1775,7 +1775,12 @@ class ActionRouter:
                         except Exception:  # noqa: BLE001
                             pass
                         return {"ok": True, "msg": a, "via": "ollama", "spoken": True}
-                a = llm.ask(_prompt, system=sys_ctx)
+                # Echte Frage -> qwen3 "denken" lassen (bessere Reasoning); Smalltalk -> schnell.
+                _deep = (len(text.split()) >= 9) or bool(re.search(
+                    r"\?|^\s*(was|wer|wie|warum|wieso|weshalb|wof[üu]r|wann|welche\w*|"
+                    r"erkl[äa]r\w*|erz[äa]hl\w*|nenne?|vergleich\w*|unterschied|begr[üu]nd\w*)\b",
+                    text, re.I))
+                a = llm.ask(_prompt, system=sys_ctx, deep=_deep)
                 if a:
                     try:                              # AEGIS merkt sich dauerhafte Fakten ueber
                         from . import auto_memory     # dich VON SELBST (Hintergrund, blockt nie)
