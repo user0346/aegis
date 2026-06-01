@@ -312,3 +312,81 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
             return resp2
         return "Alles klar. Womit kann ich dir helfen?"     # bleibt fremd -> sauberer Fallback
     return resp or None
+
+
+def ask_stream(prompt: str, model: str | None = None, system: str | None = None,
+               num_predict: int = 480):
+    """Generator: streamt die Antwort als Text-Deltas (Ollama stream=True). Basis fuers
+    Satz-fuer-Satz-Sprechen (Jarvis-Gefuehl). Faellt fuer Fremd-Backends auf ask() zurueck."""
+    if _u is None or not prompt:
+        return
+    if _provider() == "openai_compatible":
+        r = _ask_openai_compatible(prompt, system or SYSTEM, 120, num_predict)
+        if r:
+            yield r
+        return
+    m = model or active_model()
+    if not m:
+        return
+    _ml = (m or "").lower()
+    eff = ("/no_think\n" + prompt) if ("qwen3" in _ml and "instruct" not in _ml) else prompt
+    body = json.dumps({
+        "model": m, "prompt": eff, "system": system or SYSTEM, "stream": True,
+        "keep_alive": -1,
+        "options": {"num_predict": num_predict, "temperature": 0.6, "top_p": 0.9, "num_ctx": 4096},
+    }).encode("utf-8")
+    try:
+        req = _u.Request(OLLAMA + "/api/generate", data=body,
+                         headers={"Content-Type": "application/json"})
+        with _u.urlopen(req, timeout=120) as r:
+            for line in r:                       # Ollama sendet ein JSON-Objekt pro Zeile
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line.decode("utf-8"))
+                except Exception:  # noqa: BLE001
+                    continue
+                chunk = d.get("response") or ""
+                if chunk:
+                    yield chunk
+                if d.get("done"):
+                    break
+    except Exception:  # noqa: BLE001
+        return
+
+
+# Satzende: . ! ? … evtl. mit schliessendem Zeichen, gefolgt von Leerraum/Ende.
+_SENT_END = re.compile(r'([\.!\?…]+["»\)\]]?)(\s|$)')
+
+
+def stream_sentences(prompt: str, model: str | None = None, system: str | None = None,
+                     num_predict: int = 480):
+    """Streamt die Antwort und gibt sie SATZWEISE heraus (fuer sofortiges Sprechen, waehrend
+    der Rest noch generiert). Entfernt <think>-Bloecke live. Jeder Satz ist schon 'sauber'."""
+    buf = ""
+    in_think = False
+    for delta in ask_stream(prompt, model, system, num_predict):
+        buf += delta
+        # qwen3-<think>…</think> live wegschneiden (falls ein Denkmodell genutzt wird)
+        if "<think>" in buf and not in_think:
+            in_think = True
+        if in_think:
+            end = buf.find("</think>")
+            if end == -1:
+                continue                          # noch mitten im Denkblock -> warten
+            buf = buf[end + len("</think>"):]
+            in_think = False
+        # vollstaendige Saetze ausgeben
+        while True:
+            m = _SENT_END.search(buf)
+            if not m:
+                break
+            cut = m.end()
+            sent = _clean(buf[:cut]).strip()
+            buf = buf[cut:]
+            if sent:
+                yield sent
+    tail = _clean(buf).strip()
+    if tail:
+        yield tail
