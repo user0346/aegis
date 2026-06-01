@@ -20,7 +20,11 @@ SYSTEM = ("Du bist AEGIS, der lokale Sicherheits-Assistent auf dem PC des Nutzer
           "freundlich, direkt, trocken-kompetent. Du DUZT den Nutzer immer (niemals 'Sie') und "
           "sprichst reines, natuerliches Deutsch — KEINE englischen Woerter einmischen (kein "
           "'however', 'actually', 'sure', 'okay so'); Eigennamen wie Windows oder Ollama bleiben. "
-          "Beispielton: 'Klar, schau ich dir an.'\n"
+          "Bei lockerem Smalltalk oder kurzer/abweisender Antwort (z.B. 'nichts', 'egal', 'nein') "
+          "antworte ebenso locker und kurz und nimm NICHT an, dass eine Aufgabe dahinter steckt. Du "
+          "darfst menschlich und humorvoll sein (ruhig mal ein Witz oder Spruch) — nur bei ECHTEN "
+          "Sicherheits-Aktionen bleibst du sachlich. Variiere deine Antworten; wiederhole NIE "
+          "denselben Standardsatz und gib keine Floskel-Vorlagen woertlich wieder.\n"
           "SO ANTWORTEST DU (deine Antwort wird VORGELESEN): kurze, gesprochene Saetze. "
           "KEINE Listen, Aufzaehlungen, Sternchen, Markdown, Emojis oder Regieanweisungen. "
           "Standardmaessig 1-3 Saetze — geh nur ins Detail, wenn ausdruecklich gefragt; "
@@ -43,15 +47,22 @@ SYSTEM = ("Du bist AEGIS, der lokale Sicherheits-Assistent auf dem PC des Nutzer
           "nenne ihm den Befehl, z.B.: 'Sag einfach Scan, dann starte ich einen echten System-Scan.'")
 
 
+# Emoji-/Symbol-Bloecke — raus aus jeder Antwort (Regel "keine Emojis" + TTS kann sie nicht sprechen).
+_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF"
+    "\U00002B00-\U00002BFF\U00002300-\U000023FF️‍]", flags=re.UNICODE)
+
+
 def _clean(t: str) -> str:
     """Entfernt Stoerer: <think>-Bloecke (qwen3-Reasoning), (Regie-Hinweise),
-    *Aktionen*, Mehrfach-Whitespace."""
+    *Aktionen*, Emojis, Mehrfach-Whitespace."""
     if not t:
         return t
     t = re.sub(r"(?is)<think>.*?</think>", "", t)   # qwen3 'denkt laut' -> komplett raus
     t = re.sub(r"(?is)<think>.*$", "", t)           # offener/abgeschnittener think-Block
     t = re.sub(r"\([^)]{0,40}\)", "", t)        # (Pause), (lacht)
     t = re.sub(r"\*[^*]{0,40}\*", "", t)         # *seufzt*
+    t = _EMOJI_RE.sub("", t)                     # Emojis raus (Regel + TTS-tauglich)
     t = re.sub(r"\s{2,}", " ", t).strip()
     return t
 
