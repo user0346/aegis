@@ -12,15 +12,27 @@ from __future__ import annotations
 
 import hmac
 import json
+import re
 import secrets
+import shutil
 import socket
+import subprocess
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from .base import Module
 from ..events import Severity, Category
+
+# cloudflared (Cloudflare Quick Tunnel) — optionaler Fernzugriff "von ueberall" (mobile Daten /
+# fremdes WLAN). Ein einzelnes signiertes Cloudflare-Binary; Quick-Tunnel braucht KEIN Konto.
+_CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/download/"
+                    "cloudflared-windows-amd64.exe")
+_CREATE_NO_WINDOW = 0x08000000
+_TRYCF_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
 # Nur diese Befehle darf das Handy ausloesen (sicher: lesen/scannen/Quarantaene verwalten).
@@ -267,6 +279,84 @@ class MobileView(Module):
         except Exception as e:  # noqa: BLE001
             return f"Fehler: {type(e).__name__}"
 
+    # ---- Fernzugriff "von ueberall" via Cloudflare Quick Tunnel (opt-in) ----
+    def _cloudflared_path(self) -> Path:
+        return Path.home() / ".aegis" / "bin" / "cloudflared.exe"
+
+    def _ensure_cloudflared(self):
+        p = self._cloudflared_path()
+        try:
+            if p.exists() and p.stat().st_size > 1_000_000:
+                return p
+        except OSError:
+            pass
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            self.emit(Severity.INFO, Category.SYSTEM,
+                      "Handy-Fernzugriff: lade einmalig cloudflared (~50 MB) …")
+            tmp = p.with_suffix(".part")
+            with urllib.request.urlopen(_CLOUDFLARED_URL, timeout=180) as r, open(tmp, "wb") as f:
+                shutil.copyfileobj(r, f)
+            tmp.replace(p)
+            return p if (p.exists() and p.stat().st_size > 1_000_000) else None
+        except Exception as e:  # noqa: BLE001
+            self.emit(Severity.WARN, Category.SYSTEM,
+                      f"Handy-Fernzugriff: cloudflared-Download fehlgeschlagen ({type(e).__name__}).")
+            return None
+
+    def _start_tunnel(self, port: int):
+        """cloudflared Quick-Tunnel -> oeffentliche HTTPS-URL (Token-gated). Returns Popen|None."""
+        exe = self._ensure_cloudflared()
+        if not exe:
+            return None
+        try:
+            proc = subprocess.Popen(
+                [str(exe), "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                creationflags=_CREATE_NO_WINDOW, text=True, encoding="utf-8",
+                errors="replace", bufsize=1)
+        except Exception as e:  # noqa: BLE001
+            self.emit(Severity.WARN, Category.SYSTEM,
+                      f"Handy-Fernzugriff: cloudflared-Start fehlgeschlagen ({type(e).__name__}).")
+            return None
+
+        def _reader():
+            got = False
+            try:
+                for line in proc.stdout:
+                    if not got:
+                        m = _TRYCF_RE.search(line or "")
+                        if m:
+                            got = True
+                            base = m.group(0)
+                            try:
+                                self.db.set_setting("mobile_remote_url", f"{base}/?t={self._token()}")
+                            except Exception:  # noqa: BLE001
+                                pass
+                            self.emit(Severity.INFO, Category.SYSTEM,
+                                      f"Handy-Fernzugriff aktiv (von ueberall): {base}")
+            except Exception:  # noqa: BLE001
+                pass
+
+        threading.Thread(target=_reader, daemon=True, name="CFTunnelReader").start()
+        return proc
+
+    def _stop_tunnel(self, proc) -> None:
+        if proc is None:
+            return
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001
+                proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.db.set_setting("mobile_remote_url", "")
+        except Exception:  # noqa: BLE001
+            pass
+
     def run(self) -> None:
         while not self._stop.is_set():
             if bool(self.db.get_setting("mobile_view_enabled", False)):
@@ -433,8 +523,20 @@ class MobileView(Module):
         srv = threading.Thread(target=httpd.serve_forever,
                                kwargs={"poll_interval": 0.5}, daemon=True, name="MobileViewHTTP")
         srv.start()
+        # Fernzugriff-Tunnel (opt-in) parallel zum LAN-Server verwalten.
+        tunnel = None
+        if bool(self.db.get_setting("mobile_remote_enabled", False)):
+            tunnel = self._start_tunnel(port)
         while not self._stop.is_set() and bool(self.db.get_setting("mobile_view_enabled", False)):
-            self._stop.wait(1.0)
+            self._stop.wait(2.0)
+            want = bool(self.db.get_setting("mobile_remote_enabled", False))
+            if want and (tunnel is None or tunnel.poll() is not None):
+                tunnel = self._start_tunnel(port)        # an / abgestuerzt -> (neu) starten
+            elif not want and tunnel is not None:
+                self._stop_tunnel(tunnel)
+                tunnel = None
+        if tunnel is not None:
+            self._stop_tunnel(tunnel)
         try:
             httpd.shutdown()
             httpd.server_close()
