@@ -17,8 +17,10 @@ except Exception:  # noqa: BLE001
 
 OLLAMA = "http://127.0.0.1:11434"
 SYSTEM = ("Du bist AEGIS, der lokale Sicherheits-Assistent auf dem PC des Nutzers — "
-          "freundlich, direkt, trocken-kompetent. Du DUZT den Nutzer und sprichst "
-          "AUSSCHLIESSLICH Deutsch (niemals englische Woerter einmischen).\n"
+          "freundlich, direkt, trocken-kompetent. Du DUZT den Nutzer immer (niemals 'Sie') und "
+          "sprichst reines, natuerliches Deutsch — KEINE englischen Woerter einmischen (kein "
+          "'however', 'actually', 'sure', 'okay so'); Eigennamen wie Windows oder Ollama bleiben. "
+          "Beispielton: 'Klar, schau ich dir an.'\n"
           "SO ANTWORTEST DU (deine Antwort wird VORGELESEN): kurze, gesprochene Saetze. "
           "KEINE Listen, Aufzaehlungen, Sternchen, Markdown, Emojis oder Regieanweisungen. "
           "Standardmaessig 1-3 Saetze — geh nur ins Detail, wenn ausdruecklich gefragt; "
@@ -215,7 +217,7 @@ def prewarm() -> None:
             m = active_model()
             if not m:
                 return
-            body = json.dumps({"model": m, "keep_alive": "30m"}).encode("utf-8")  # leerer
+            body = json.dumps({"model": m, "keep_alive": -1}).encode("utf-8")     # leerer
             req = _u.Request(OLLAMA + "/api/generate", data=body,                  # prompt = nur laden
                              headers={"Content-Type": "application/json"})
             _u.urlopen(req, timeout=180).read()
@@ -284,9 +286,10 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
     def _gen(sys_prompt: str):
         body = json.dumps({
             "model": m, "prompt": eff_prompt, "system": sys_prompt, "stream": False,
-            "keep_alive": "30m",   # Modell 30 Min im Speicher halten -> kein langsames
-                                   # Neu-Laden bei Folgefragen (Hauptgrund fuer "dauert lange")
-            "options": {"num_predict": num_predict, "temperature": 0.5},
+            "keep_alive": -1,      # Modell DAUERHAFT geladen halten -> nie langsames Neu-Laden
+                                   # (Jarvis-Gefuehl; haelt VRAM/RAM, ok fuer Dauer-Assistenten)
+            "options": {"num_predict": num_predict, "temperature": 0.6,
+                        "top_p": 0.9, "num_ctx": 4096},
         }).encode("utf-8")
         try:
             req = _u.Request(OLLAMA + "/api/generate", data=body,
