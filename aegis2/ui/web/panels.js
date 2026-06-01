@@ -175,6 +175,10 @@
     const ttl=$("consent-ttl"); if(ttl) ttl.value=d.consent_ttl_min||10;
     const ph=(id,on)=>{const e=$(id); if(e&&on) e.placeholder="●●●●●●●●  (gesetzt · DPAPI-verschluesselt)";};
     ph("vt-key",d.vt_key_set); ph("claude-key",d.claude_key_set); ph("pv-key",d.pv_key_set);
+    { const e=$("llm-provider"); if(e&&d.llm_provider) e.value=d.llm_provider; }
+    { const e=$("llm-base-url"); if(e) e.value=d.llm_base_url||""; }
+    { const e=$("llm-model"); if(e) e.value=d.llm_model||""; }
+    ph("llm-key", d.llm_key_set);
   }
   function saveSettings(){
     const c=(id)=>{const e=$(id); return e?!!e.checked:false;}; const v=(id)=>{const e=$(id); return e?e.value.trim():"";};
@@ -184,8 +188,11 @@
     const ttl=parseInt(v("consent-ttl"),10); if(!isNaN(ttl)) args.consent_ttl_min=Math.min(1440,Math.max(1,ttl));
     const vt=v("vt-key"), ck=v("claude-key"), pv=v("pv-key");
     if(vt) args.vt_api_key=vt; if(ck) args.claude_api_key=ck; if(pv) args.pv_access_key=pv;
+    { const p=v("llm-provider"); if(p) args.llm_provider=p; }
+    args.llm_base_url=v("llm-base-url"); args.llm_model=v("llm-model");
+    const lk=v("llm-key"); if(lk) args.llm_api_key=lk;
     sendCmd("settings.save",args);
-    ["vt-key","claude-key","pv-key"].forEach(id=>{const e=$(id); if(e) e.value="";});
+    ["vt-key","claude-key","pv-key","llm-key"].forEach(id=>{const e=$(id); if(e) e.value="";});
     const b=$("save-settings"); if(b){ const o=b.textContent; b.textContent="Gespeichert ✓"; setTimeout(()=>{b.textContent=o;},1500); }
     setTimeout(loadSettings,400);
   }
@@ -510,6 +517,15 @@
     if(ttsTest) ttsTest.addEventListener("click",()=>{
       const v=ttsSel?ttsSel.value:""; if(v) sendCmd("settings.save",{tts_voice:v});
       if(window.aegis&&window.aegis.ttsPreview){ try{ window.aegis.ttsPreview(v); }catch(e){} }
+    });
+    const llmSave=$("llm-save");
+    if(llmSave) llmSave.addEventListener("click",function(){
+      const g=(id)=>{const e=$(id); return e?e.value.trim():"";};
+      const a={ llm_provider:g("llm-provider"), llm_base_url:g("llm-base-url"), llm_model:g("llm-model") };
+      const k=g("llm-key"); if(k) a.llm_api_key=k;
+      sendCmd("settings.save",a);
+      const ke=$("llm-key"); if(ke) ke.value="";
+      llmSave.textContent="Gespeichert ✓"; setTimeout(function(){ llmSave.textContent="Backend speichern"; },1500);
     });
     const ss=$("scan-start"); if(ss) ss.addEventListener("click",scanStart);
     const cc=$("scan-cancel"); if(cc) cc.addEventListener("click",scanCancel);

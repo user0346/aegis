@@ -391,6 +391,7 @@ class Orchestrator:
             "vt_api_key": "vt_api_key",
             "claude_api_key": "anthropic_api_key",
             "pv_access_key": "picovoice_access_key",
+            "llm_api_key": "llm_api_key",       # Cloud-LLM-Key verschluesselt (nicht Klartext)
         }
         saved = []
         for ui_key, sec_key in secret_map.items():
@@ -406,6 +407,9 @@ class Orchestrator:
             self.db.set_setting("consent_ttl_min", int(args["consent_ttl_min"]))
         if "tts_voice" in args:
             self.db.set_setting("tts_voice", str(args["tts_voice"])[:80])
+        for _sk in ("llm_provider", "llm_base_url", "llm_model"):  # Multi-Backend-LLM
+            if _sk in args:
+                self.db.set_setting(_sk, str(args[_sk])[:200])
         return {"saved_secrets": saved, "ok": True}
 
     def _cmd_settings_get(self, args: dict) -> dict:
@@ -430,6 +434,10 @@ class Orchestrator:
             "vt_key_set": _has("vt_api_key"),
             "claude_key_set": _has("anthropic_api_key"),
             "pv_key_set": _has("picovoice_access_key"),
+            "llm_provider": self.db.get_setting("llm_provider", "ollama"),
+            "llm_base_url": self.db.get_setting("llm_base_url", ""),
+            "llm_model": self.db.get_setting("llm_model", ""),
+            "llm_key_set": _has("llm_api_key"),
         }
 
     def _cmd_vt_status(self, args: dict) -> dict:

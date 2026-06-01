@@ -465,6 +465,38 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>KI-Modell / Backend</h2></div>
+        <p class="muted" style="margin:0 0 12px;">
+          Standard: lokales <strong>Ollama</strong>. Du kannst aber jedes OpenAI-kompatible
+          Ziel nutzen — <strong>LM Studio, llama.cpp, vLLM, Jan, LocalAI</strong> … oder eine
+          Cloud-API. Nur Adresse + Modellname (+ ggf. Schlüssel) eintragen.
+        </p>
+        <div class="form-row">
+          <label>Backend</label>
+          <select id="llm-provider">
+            <option value="ollama">Ollama (lokal, Standard)</option>
+            <option value="openai_compatible">OpenAI-kompatibel (LM Studio / llama.cpp / vLLM / Cloud)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Adresse (nur OpenAI-kompatibel) — z. B. http://localhost:1234</label>
+          <input type="text" id="llm-base-url" placeholder="http://localhost:1234" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label>Modell — z. B. qwen3:8b · llama-3.1-8b</label>
+          <input type="text" id="llm-model" placeholder="qwen3:8b" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label>API-Schlüssel (nur Cloud; lokal leer lassen)</label>
+          <input type="password" id="llm-key" placeholder="leer = nicht nötig" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label>&nbsp;</label>
+          <button class="btn btn-sm" id="llm-save">Backend speichern</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>Autonome Aktionen</h2></div>
         <p class="muted" style="margin:0 0 12px;">
           Jede dieser Aktionen verlangt deine explizite Zustimmung in der

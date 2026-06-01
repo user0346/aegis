@@ -51,9 +51,76 @@ def _clean(t: str) -> str:
     return t
 
 
+# ============================================================
+#  Multi-Backend: Default = Ollama nativ (unveraendert). Setzt der Nutzer
+#  'llm_provider' = "openai_compatible", geht ask() ueber die OpenAI-kompatible
+#  /v1/chat/completions-API -> deckt LM Studio, llama.cpp, vLLM, Jan, LocalAI,
+#  KoboldCpp, GPT4All UND Cloud ab. Nur base_url/model/api_key noetig.
+# ============================================================
+def _provider() -> str:
+    try:
+        from ..shared.db import get_db
+        return (get_db().get_setting("llm_provider", "ollama") or "ollama").strip().lower()
+    except Exception:  # noqa: BLE001
+        return "ollama"
+
+
+def _oai_cfg() -> dict:
+    """base_url (mit /v1), model, api_key aus den Settings."""
+    try:
+        from ..shared.db import get_db
+        db = get_db()
+        base = (db.get_setting("llm_base_url", "") or "").strip().rstrip("/")
+        if base and not base.endswith("/v1"):
+            base += "/v1"
+        key = ""
+        try:
+            from ..cognition.secrets_store import get_secret
+            key = (get_secret("llm_api_key") or "").strip()   # Cloud-Key verschluesselt
+        except Exception:  # noqa: BLE001
+            key = ""
+        return {"base": base,
+                "model": (db.get_setting("llm_model", "") or "").strip(),
+                "key": key}
+    except Exception:  # noqa: BLE001
+        return {"base": "", "model": "", "key": ""}
+
+
+def _ask_openai_compatible(prompt: str, system: str, timeout: int, num_predict: int) -> str | None:
+    cfg = _oai_cfg()
+    if _u is None or not cfg["base"] or not cfg["model"]:
+        return None
+    body = json.dumps({
+        "model": cfg["model"],
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": prompt}],
+        "temperature": 0.5, "max_tokens": num_predict, "stream": False,
+    }).encode("utf-8")
+    headers = {"Content-Type": "application/json",
+               "Authorization": "Bearer " + (cfg["key"] or "not-needed")}
+    try:
+        req = _u.Request(cfg["base"] + "/chat/completions", data=body, headers=headers)
+        with _u.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        choices = d.get("choices") or [{}]
+        txt = ((choices[0].get("message") or {}).get("content") or "").strip()
+        return _clean(txt) or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def available(timeout: float = 2.5) -> bool:
     if _u is None:
         return False
+    if _provider() == "openai_compatible":
+        cfg = _oai_cfg()
+        if not cfg["base"] or not cfg["model"]:
+            return False
+        try:
+            with _u.urlopen(cfg["base"] + "/models", timeout=timeout) as r:
+                return getattr(r, "status", 200) == 200
+        except Exception:  # noqa: BLE001
+            return True   # /models evtl. auth-gated -> konfiguriert = nutzbar (ask() zeigt echte Fehler)
     try:
         with _u.urlopen(OLLAMA + "/api/tags", timeout=timeout) as r:
             return getattr(r, "status", 200) == 200
@@ -157,6 +224,9 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
         system: str | None = None, num_predict: int = 480) -> str | None:
     if _u is None or not prompt:
         return None
+    # Multi-Backend: OpenAI-kompatibles Ziel (LM Studio/llama.cpp/vLLM/Cloud) statt Ollama.
+    if _provider() == "openai_compatible":
+        return _ask_openai_compatible(prompt, system or SYSTEM, timeout, num_predict)
     m = model or active_model()
     if not m:
         return None
