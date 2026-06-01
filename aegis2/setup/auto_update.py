@@ -141,6 +141,22 @@ def start_service(install_path: Path) -> bool:
         return False
 
 
+def _start_shell(install_path: Path) -> bool:
+    """Startet die UI-Shell neu (pythonw bin/aegis_app.py) — nach einem Update bekommt
+    der Nutzer sein Fenster zurueck (vorher kam nur der Hintergrund-Service wieder hoch)."""
+    pyw = Path(sys.executable).parent / "pythonw.exe"
+    app = install_path / "bin" / "aegis_app.py"
+    if not (pyw.exists() and app.exists()):
+        return False
+    try:
+        subprocess.Popen([str(pyw), str(app)], cwd=str(install_path),
+                         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
+                         close_fds=True)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def acquire_lock() -> bool:
     if LOCK_FILE.exists():
         # Check if lock is stale (>30 min old)
@@ -228,17 +244,21 @@ def apply_update(install_path: Path) -> tuple[bool, str]:
         stop_shell()
         time.sleep(1)
 
-        # 3) Backup current
-        old_dir = install_path.with_suffix(".old")
+        # 3) Backup (KOPIE, KEIN Rename des LAUFENDEN Verzeichnisses). Der fruehere
+        #    install_path.rename() scheiterte bei Source-Installs, weil das laufende
+        #    python die Installation als Import-Wurzel haelt (Live-Dir-Lock -> OSError).
+        #    Nach dem Stoppen ist In-Place-Overwrite sicher (.py werden beim Import
+        #    gelesen + geschlossen, kein dauerhafter Handle).
+        old_dir = install_path.with_name(install_path.name + ".bak_upd")
         if old_dir.exists():
             shutil.rmtree(old_dir, ignore_errors=True)
         try:
-            # Rename, not move — atomic on same fs
-            install_path.rename(old_dir)
-        except OSError as e:
-            return False, f"could not move current install: {e}"
+            shutil.copytree(install_path, old_dir,
+                            ignore=shutil.ignore_patterns("__pycache__", ".git", "*.bak_upd"))
+        except Exception as e:  # noqa: BLE001
+            return False, f"backup failed: {e}"
 
-        # 4) Extract new
+        # 4) Neue Dateien IN-PLACE ueber die Installation extrahieren (kein Rename).
         install_path.mkdir(parents=True, exist_ok=True)
         # SICHERHEIT: Canonical Zip-Slip-Guard. Der alte Substring-Check
         # (".." in member) war unzureichend — er liess absolute Pfade ("/x"),
@@ -280,14 +300,12 @@ def apply_update(install_path: Path) -> tuple[bool, str]:
                         resolved.parent.mkdir(parents=True, exist_ok=True)
                         with zf.open(member) as src, open(resolved, "wb") as dst:
                             shutil.copyfileobj(src, dst)
-        except Exception as e:
-            # Rollback: frischen (evtl. unvollstaendigen) Baum verwerfen und
-            # das .old-Backup zuruecksetzen. Das Backup existiert hier noch,
-            # weil wir es erst NACH erfolgreicher Extraktion loeschen.
-            shutil.rmtree(install_path, ignore_errors=True)
+        except Exception as e:  # noqa: BLE001
+            # Rollback: Backup zurueck UEBER die (evtl. halb ueberschriebene) Installation
+            # kopieren. KEIN rmtree+rename des LAUFENDEN Verzeichnisses (Live-Dir-Lock).
             try:
-                old_dir.rename(install_path)
-            except OSError:
+                shutil.copytree(old_dir, install_path, dirs_exist_ok=True)
+            except Exception:  # noqa: BLE001
                 pass
             return False, f"extraction failed: {e}"
 
@@ -305,9 +323,11 @@ def apply_update(install_path: Path) -> tuple[bool, str]:
         STAGED_ZIP.unlink(missing_ok=True)
         STAGED_META.unlink(missing_ok=True)
 
-        # 7) Restart service
+        # 7) Service UND UI neu starten — vorher kam nur der Hintergrund-Service wieder
+        #    hoch und der Nutzer blieb ohne Fenster.
         time.sleep(1)
         start_service(install_path)
+        _start_shell(install_path)
 
         return True, f"updated to {applied_meta.get('version', '?')}"
     finally:

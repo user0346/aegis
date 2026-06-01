@@ -148,8 +148,12 @@ def installed_models() -> list:
 
 
 # Praeferenz (bestes zuerst) fuer die Auto-Wahl, wenn der Nutzer nichts gesetzt hat.
-_PREFERRED = ("qwen3:30b-a3b-instruct-2507", "qwen3:14b", "qwen3:8b", "qwen3:4b-instruct",
-              "qwen3:4b", "qwen2.5:7b", "qwen2.5:3b", "llama3.1:8b", "llama3.2:3b")
+# 2026-Recherche: Gemma 3 = bestes DEUTSCH (Polish), Qwen3 = bester Reasoning/Agent-
+# Allrounder (Apache-2.0). Beide gemischt; der Nutzer kann jedes Modell/Backend selbst
+# waehlen (Settings -> KI-Modell/Backend). Siehe docs/ROADMAP.md.
+_PREFERRED = ("gemma3:27b", "qwen3:30b-a3b-instruct-2507", "qwen3:14b", "gemma3:12b",
+              "qwen3:8b", "gemma3:4b", "qwen3:4b-instruct", "qwen3:4b", "qwen2.5:7b",
+              "qwen2.5:3b", "llama3.1:8b", "gemma3:1b", "llama3.2:3b")
 
 
 def active_model() -> str | None:
