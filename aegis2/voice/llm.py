@@ -115,8 +115,42 @@ def _oai_cfg() -> dict:
         return {"base": "", "model": "", "key": ""}
 
 
-def _ask_openai_compatible(prompt: str, system: str, timeout: int, num_predict: int) -> str | None:
-    cfg = _oai_cfg()
+def _cloud_cfg() -> dict:
+    """Cloud-Deep-Backend (z. B. OpenRouter/Nemotron) — GETRENNT von der lokalen KI, damit
+    Smalltalk/Voice lokal bleiben und nur echte Fragen die staerkere Cloud nutzen. Liest
+    eigene Settings (llm_cloud_*) + verschluesselten Key 'llm_cloud_api_key'."""
+    try:
+        from ..shared.db import get_db
+        db = get_db()
+        base = (db.get_setting("llm_cloud_base_url", "") or "").strip().rstrip("/")
+        if base and not base.endswith("/v1"):
+            base += "/v1"
+        key = ""
+        try:
+            from ..cognition.secrets_store import get_secret
+            key = (get_secret("llm_cloud_api_key") or "").strip()
+        except Exception:  # noqa: BLE001
+            key = ""
+        return {"base": base,
+                "model": (db.get_setting("llm_cloud_model", "") or "").strip(),
+                "key": key}
+    except Exception:  # noqa: BLE001
+        return {"base": "", "model": "", "key": ""}
+
+
+def _cloud_deep_on() -> bool:
+    """Hybrid-Brain aktiv? Setting 'llm_cloud_deep' AN -> echte/tiefe Fragen gehen an die Cloud,
+    Smalltalk + Voice bleiben lokal. Default AUS (rein lokal, privat)."""
+    try:
+        from ..shared.db import get_db
+        return bool(get_db().get_setting("llm_cloud_deep", False))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _ask_openai_compatible(prompt: str, system: str, timeout: int, num_predict: int,
+                           cfg: dict | None = None) -> str | None:
+    cfg = cfg or _oai_cfg()
     if _u is None or not cfg["base"] or not cfg["model"]:
         return None
     body = json.dumps({
@@ -343,6 +377,17 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
             return r
         # Fremd-Backend nicht erreichbar (Adresse falsch / Server aus) -> NICHT verstummen,
         # sondern lokal auf Ollama weiterversuchen (Selbstheilung; faellt hier unten durch).
+    # Hybrid-Brain: echte/tiefe Fragen (deep=True) -> staerkeres Cloud-Modell (z. B. Nemotron),
+    # falls konfiguriert. Smalltalk + Voice bleiben lokal (schnell + privat). Cloud-Fehler ->
+    # faellt unten auf die lokale KI zurueck (nie stumm).
+    elif deep and _cloud_deep_on():
+        _cc = _cloud_cfg()
+        if _cc["base"] and _cc["model"]:
+            # Reasoning-Modelle (z. B. Nemotron) "denken" VOR der Antwort und teilen sich das
+            # Token-Budget -> grosszuegig Luft geben, damit die Antwort nie abgeschnitten wird.
+            r = _ask_openai_compatible(prompt, system or SYSTEM, timeout, num_predict + 900, cfg=_cc)
+            if r is not None:
+                return r
     m = model or active_model()
     if not m:
         return None

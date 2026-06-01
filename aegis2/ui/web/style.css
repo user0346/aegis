@@ -146,13 +146,19 @@ input::placeholder{color:var(--dim)}
 .dd-btn::after{content:"▾"; color:var(--muted); font-size:11px; transition:.18s}
 .dd.open .dd-btn::after{transform:rotate(180deg); color:var(--acc)}
 .dd.open .dd-btn{border-color:var(--acc); box-shadow:0 0 0 3px var(--glow-soft)}
+.dd{position:relative}
 .dd-menu{
-  position:absolute; z-index:60; top:calc(100% + 6px); left:0; min-width:100%;
+  position:absolute; z-index:200; top:calc(100% + 6px); left:0; min-width:100%;
   background:#10182a; border:1px solid var(--line-2); border-radius:var(--r-sm);
   padding:5px; box-shadow:0 18px 44px rgba(0,0,0,.6);
   display:none; max-height:280px; overflow:auto;
 }
 .dd.open .dd-menu{display:block; animation:fade .14s ease}
+/* Jede .card hat backdrop-filter -> eigener Stacking-Context; eine SPAETERE Karte (z.B.
+   "KI-MODELL") uebermalte sonst das nach unten aufklappende Dropdown der frueheren Karte
+   ("SPRACHAUSGABE"). Die Karte mit offenem Dropdown nach vorne heben -> Menue liegt oben. */
+.card:has(.dd.open){position:relative; z-index:200; overflow:visible}
+.dd.open{z-index:200}
 .dd-opt{padding:8px 12px; border-radius:var(--r-xs); font-size:13px; color:var(--muted); cursor:pointer; white-space:nowrap; transition:.12s}
 .dd-opt:hover{background:rgba(255,255,255,.06); color:var(--txt)}
 .dd-opt.sel{color:#04141f; background:linear-gradient(180deg,var(--acc2),var(--acc)); font-weight:600}
@@ -188,6 +194,7 @@ input::placeholder{color:var(--dim)}
 .thread li{padding:11px 14px; border-radius:var(--r-sm); background:rgba(255,255,255,.025); border:1px solid var(--line); font-size:13px}
 .thread li.empty{color:var(--dim); text-align:center; background:transparent; border-style:dashed}
 .thread .row-warn{border-left:3px solid var(--warn); border-radius:var(--r-sm)}
+.thread .row-ok{border-left:3px solid var(--ok); background:rgba(54,224,160,.06); border-radius:var(--r-sm)}
 .thread .row-bad{border-left:3px solid var(--crit); background:rgba(248,113,113,.06)}
 .ev-sev{font-family:var(--fm); font-size:11px; font-weight:600; padding:1px 7px; border-radius:999px; margin-right:8px; background:rgba(255,255,255,.07)}
 .ev-src{color:var(--acc); margin-right:8px; font-size:12px}
@@ -245,7 +252,8 @@ input::placeholder{color:var(--dim)}
 .brain-overlay-label{font-size:11px; letter-spacing:2px; color:var(--acc); text-shadow:0 0 12px var(--glow)}
 .brain-overlay-stats{font-family:var(--fm); font-size:11px; color:var(--muted)}
 .voice-state h2{font-size:26px; margin-bottom:8px}
-.voice-transcript{margin:14px 0; padding:12px 14px; border-radius:var(--r-sm); background:rgba(0,0,0,.3); border:1px solid var(--line); font-family:var(--fm); font-size:13px; color:#b7c6db; min-height:42px}
+/* Redundant zum Chat-Verlauf (Bubbles) -> ausgeblendet, sonst erscheint jede Antwort doppelt. */
+.voice-transcript{display:none}
 .voice-input{display:flex; gap:9px} .voice-input input{flex:1}
 .cmd-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
 .cmd-list li{font-size:13px; color:var(--muted)}
@@ -284,7 +292,13 @@ kbd{font-family:var(--fm); font-size:12px; background:rgba(255,255,255,.07); bor
 .spinner{width:34px; height:34px; border:3px solid rgba(56,189,248,.2); border-top-color:var(--acc); border-radius:50%; animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-@media(max-width:900px){.cognition-hero{grid-template-columns:1fr} .tabs{justify-content:flex-start}}
+@media(max-width:900px){
+  .cognition-hero{display:flex; flex-direction:column; align-items:stretch; gap:14px}
+  .tabs{justify-content:flex-start}
+  /* Orb sauber zentriert + auf kleinen Screens proportional skaliert (vw-Cap) */
+  .brain-stage{width:220px; max-width:64vw; min-height:0; aspect-ratio:1; margin:6px auto 0; align-self:center}
+  .voice-state{width:100%}
+}
 
 /* Voice-Feedback (Live-Zustaende) */
 #voice-status{transition:color .2s}
@@ -302,8 +316,231 @@ kbd{font-family:var(--fm); font-size:12px; background:rgba(255,255,255,.07); bor
 .bubble-copy{display:inline-flex;align-items:center;gap:4px;margin-top:7px;padding:3px 9px;font-size:11px;font-weight:500;line-height:1;cursor:pointer;color:#9fb0c3;background:transparent;border:1px solid rgba(255,255,255,.14);border-radius:7px;opacity:.6;transition:opacity .15s,background .15s,color .15s}
 .bubble-copy:hover{opacity:1;background:rgba(255,255,255,.08);color:#dbeafe}
 .bubble-copy:active{transform:translateY(1px)}
+/* "Denkt nach"-Indikator: animierte Punkte (echtes Reasoning sichtbar machen) */
+.bubble-thinking{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.14)}
+.think-row{display:flex;align-items:center;gap:9px}
+.think-label{color:var(--dim,#9aa6b2);font-size:13px;font-style:italic}
+.think-dots{display:inline-flex;gap:4px}
+.think-dots i{width:6px;height:6px;border-radius:50%;background:var(--acc,#36e0a0);display:inline-block;animation:think-bounce 1.2s infinite ease-in-out both}
+.think-dots i:nth-child(1){animation-delay:-.24s}
+.think-dots i:nth-child(2){animation-delay:-.12s}
+.think-dots i:nth-child(3){animation-delay:0s}
+@keyframes think-bounce{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
+/* Jarvis-Antwort: sanftes Einblenden + Sprech-Glow (Cyan) waehrend TTS spricht */
+.bubble-reveal{animation:bubble-in .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes bubble-in{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.bubble-speaking{border-color:#38bdf8 !important;animation:bubble-speak 1.4s ease-in-out infinite}
+@keyframes bubble-speak{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}50%{box-shadow:0 0 18px 2px rgba(56,189,248,.42)}}
+
+/* ============================================================
+   JARVIS HUD v2 — Grosser Umbau (rein additiv, Cyan-Fundament).
+   Holo-Panels, Eck-Brackets, Scan-Glow, Arc-Reactor-Hero.
+   ============================================================ */
+/* Panels -> Holo-HUD: hellerer Rahmen, wandernde Scan-Linie oben, Eck-Bracket, Hover-Glow */
+.card{border-color:var(--line-2)}
+.card::before{content:""; position:absolute; left:0; right:0; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg, transparent 0%, var(--acc2) 50%, transparent 100%);
+  background-size:55% 100%; background-repeat:no-repeat; opacity:.85;
+  animation:hud-scan 5s linear infinite}
+@keyframes hud-scan{0%{background-position:-55% 0}100%{background-position:155% 0}}
+.card::after{content:""; position:absolute; right:9px; top:9px; width:14px; height:14px; pointer-events:none;
+  border-top:2px solid var(--bracket); border-right:2px solid var(--bracket); opacity:.65}
+.card:hover{border-color:var(--line-2);
+  box-shadow:0 14px 36px rgba(0,0,0,.42), 0 0 0 1px rgba(45,226,255,.18), 0 0 26px rgba(45,226,255,.12)}
+
+/* Stat-Kacheln -> HUD-Gauges: Wert leuchtet, Eck-Akzent unten-rechts */
+.stat-value{text-shadow:0 0 18px rgba(45,226,255,.25)}
+.stat-tile::after{content:""; position:absolute; right:8px; bottom:8px; width:12px; height:12px; pointer-events:none;
+  border-bottom:2px solid var(--bracket); border-right:2px solid var(--bracket); opacity:.5}
+.stat-tile:hover{box-shadow:0 0 22px rgba(45,226,255,.14)}
+
+/* Tabs: Hover-Glow-Unterstrich (aktiver Tab unveraendert) */
+.tab{position:relative}
+.tab:not(.is-active)::after{content:""; position:absolute; left:50%; right:50%; bottom:3px; height:2px;
+  background:var(--acc); box-shadow:0 0 10px var(--glow); opacity:0; transition:.18s; pointer-events:none}
+.tab:hover:not(.is-active)::after{left:22%; right:22%; opacity:.9}
+
+/* Status-Pills: dezenter Glow-Atem */
+.pill-ok{animation:pill-breathe 3.6s ease-in-out infinite}
+@keyframes pill-breathe{0%,100%{box-shadow:0 0 12px rgba(52,211,153,.14)}50%{box-shadow:0 0 20px rgba(52,211,153,.30)}}
+
+/* Dashboard HUD-Hero mit Arc-Reactor-Orb */
+.hud-hero{display:flex; align-items:center; gap:22px; padding:18px 22px; margin-bottom:18px; position:relative;
+  border:1px solid var(--line-2); border-radius:var(--r); overflow:hidden;
+  background:linear-gradient(120deg, rgba(45,226,255,.07), rgba(122,140,255,.03) 60%, transparent), var(--panel);
+  box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 0 44px rgba(45,226,255,.05)}
+.hud-hero::after{content:""; position:absolute; right:10px; top:10px; width:18px; height:18px;
+  border-top:2px solid var(--bracket); border-right:2px solid var(--bracket); opacity:.6}
+.reactor{position:relative; width:92px; height:92px; flex:0 0 auto}
+.reactor i{position:absolute; border-radius:50%; display:block; inset:0}
+.reactor .core{inset:31px; background:radial-gradient(circle, var(--acc2), var(--acc) 58%, transparent 74%);
+  box-shadow:0 0 26px var(--glow-strong), 0 0 54px var(--glow); animation:reactor-pulse 2.8s ease-in-out infinite}
+.reactor .r1{inset:5px; border:1px solid var(--line-2); border-top-color:var(--acc); animation:spin 6s linear infinite}
+.reactor .r2{inset:17px; border:1px solid transparent; border-left-color:var(--acc2); border-bottom-color:var(--acc-deep); animation:spin 4s linear infinite reverse}
+.reactor .r3{inset:1px; border:1px dashed rgba(120,200,255,.22); animation:spin 18s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes reactor-pulse{0%,100%{opacity:.8; transform:scale(.97)}50%{opacity:1; transform:scale(1.04)}}
+.hud-hero-text{flex:1; min-width:0}
+.hud-hero-title{font-size:22px; font-weight:700; letter-spacing:3px; color:var(--txt); line-height:1.1}
+.hud-hero-title .hud-on{color:var(--acc); text-shadow:0 0 16px var(--glow)}
+.hud-hero-sub{color:var(--muted); font-size:12.5px; letter-spacing:.3px; margin-top:4px}
+.hud-bar{margin-top:11px; height:3px; border-radius:3px; background:rgba(120,200,255,.12); overflow:hidden}
+.hud-bar span{display:block; height:100%; width:38%; border-radius:3px;
+  background:linear-gradient(90deg, transparent, var(--acc2), var(--acc)); box-shadow:0 0 12px var(--glow);
+  animation:hud-bar-move 2.8s ease-in-out infinite}
+@keyframes hud-bar-move{0%{margin-left:-40%}100%{margin-left:102%}}
+/* HUD-Uhr (JARVIS-Telemetrie, rechts im Hero; auf Mobil bricht sie sauber um) */
+.hud-clock{margin-left:auto; text-align:right; flex:0 0 auto; align-self:flex-start}
+.hud-time{font-size:25px; font-weight:700; letter-spacing:2px; color:var(--acc); text-shadow:0 0 14px var(--glow); line-height:1}
+.hud-date{font-size:10.5px; letter-spacing:1.5px; color:var(--muted); margin-top:4px}
+.hud-meta{font-size:10px; letter-spacing:1px; color:var(--ok); margin-top:6px; opacity:.9}
+@media(max-width:900px){.hud-hero{flex-wrap:wrap} .hud-clock{margin-left:0; text-align:left; width:100%; margin-top:8px}}
+/* SYSTEM VITALS — animierte HUD-Balken */
+.vitals{display:flex; flex-direction:column; gap:11px}
+.vital{display:grid; grid-template-columns:128px 1fr 46px; align-items:center; gap:12px}
+.vital-label{font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted)}
+.vital-bar{position:relative; height:7px; border-radius:4px; background:rgba(120,200,255,.08); overflow:hidden; box-shadow:inset 0 0 6px rgba(0,0,0,.4)}
+.vital-bar i{position:absolute; left:0; top:0; bottom:0; width:2%; border-radius:4px; background:linear-gradient(90deg,var(--acc-deep),var(--acc)); box-shadow:0 0 10px var(--glow); transition:width .8s cubic-bezier(.4,0,.2,1)}
+.vital-bar i.v-ok{background:linear-gradient(90deg,rgba(54,224,160,.5),var(--ok)); box-shadow:0 0 10px rgba(54,224,160,.4)}
+.vital-bar i.v-bad{background:linear-gradient(90deg,rgba(255,90,110,.5),var(--crit)); box-shadow:0 0 12px rgba(255,84,112,.5)}
+.vital-val{font-size:12px; text-align:right; color:var(--txt); font-variant-numeric:tabular-nums}
+@media(max-width:560px){.vital{grid-template-columns:94px 1fr 40px; gap:8px} .vital-label{font-size:10px}}
+
+/* JARVIS Cognition-Core: rotierende HUD-Ringe + Tick-Kranz um den Orb (Assistent) */
+.brain-stage{overflow:visible}
+.brain-stage .orb-ring, .brain-stage .orb-ticks{position:absolute; border-radius:50%; pointer-events:none; z-index:2}
+.orb-ring{inset:0}
+.orb-ring.r-dash{inset:-5%; border:1px dashed rgba(90,200,255,.38); animation:spin 28s linear infinite}
+.orb-ring.r-seg{inset:5%; border:2px solid transparent; border-top-color:var(--acc); border-right-color:rgba(45,226,255,.32); box-shadow:0 0 16px rgba(45,226,255,.10); animation:spin 15s linear infinite reverse}
+.orb-ring.r-seg2{inset:12%; border:1px solid transparent; border-bottom-color:var(--acc2); border-left-color:rgba(122,140,255,.45); animation:spin 9s linear infinite}
+.orb-ticks{inset:-1%;
+  background:repeating-conic-gradient(from 0deg, rgba(120,200,255,.55) 0deg .4deg, transparent .4deg 9deg);
+  -webkit-mask:radial-gradient(circle, transparent 46%, #000 47%, #000 49.5%, transparent 50%);
+  mask:radial-gradient(circle, transparent 46%, #000 47%, #000 49.5%, transparent 50%);
+  animation:spin 80s linear infinite}
 /* ---- Memory-Ansicht ---- */
 .mem-body{display:flex;flex-direction:column;gap:1px}
 .mem-row{display:flex;gap:14px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.06)}
 .mem-k{flex:0 0 150px;color:#94a3b8;font-size:13px}
 .mem-v{flex:1;color:#e5e7eb;font-size:14px;word-break:break-word}
+/* AEGIS-Brain-Editor (Identität/Regeln, wird bei jeder Antwort gelesen) */
+.brain-text{width:100%; min-height:300px; resize:vertical; font-family:var(--fm); font-size:13px;
+  line-height:1.55; color:#dbe4f0; background:rgba(0,0,0,.32); border:1px solid var(--line-2);
+  border-radius:10px; padding:12px 14px; white-space:pre-wrap; tab-size:2; box-sizing:border-box}
+.brain-text:focus{outline:none; border-color:var(--acc); box-shadow:0 0 0 1px var(--acc), 0 0 18px rgba(45,226,255,.12)}
+
+/* ============================================================
+   Orb-minimal (Single-Screen) — aktiv via <body class="mode-orb">.
+   Home = Orb + Chat (data-view="voice"), immer sichtbar; alle anderen
+   Ansichten erscheinen als einblendbares Overlay darueber (Backdrop/✕/Esc
+   schliesst). Ohne die Body-Klasse bleibt das klassische Tab-Layout.
+   ============================================================ */
+.mode-orb .topbar{position:sticky; top:0; z-index:90; background:rgba(8,11,18,.92); backdrop-filter:blur(8px)}
+/* Tabs/Dock komplett ausgeblendet — JARVIS navigiert per Stimme ("zeig Bedrohungen",
+   "Dashboard", ...). Panels öffnen als Overlay über dem Orb, ✕/Esc/Klick-daneben schliesst.
+   Die .tab-Buttons bleiben im DOM (app.js togglet sie via Sprach-switch_tab harmlos weiter). */
+.mode-orb .tabs.dock{display:none}
+
+/* --- Heimansicht: Orb + Chat vertikal zentriert auf einem Schirm --- */
+.mode-orb .views{display:flex; flex-direction:column}
+.mode-orb .view[data-view="voice"].is-active{
+  display:flex; flex-direction:column; justify-content:center;
+  min-height:calc(100vh - var(--hdr,64px) - 80px)}
+.mode-orb .view[data-view="voice"] .cognition-hero{
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  background:transparent; border:0; box-shadow:none; padding:0; max-width:720px; margin:0 auto}
+.mode-orb .view[data-view="voice"] .cognition-hero::before,
+.mode-orb .view[data-view="voice"] .cognition-hero::after{display:none}   /* keine Karten-Deko auf dem Orb */
+.mode-orb .view[data-view="voice"] .brain-stage{width:min(42vmin,360px); min-height:0; margin:2px auto 0}
+.mode-orb .view[data-view="voice"] .voice-state{width:100%; text-align:center}
+.mode-orb .view[data-view="voice"] .voice-state > .muted{opacity:.82}
+/* Chat-Verlauf an den LINKEN Fenster-Rand (Orb bleibt mittig & clean), kompakter + scrollbar statt
+   abgeschnitten. embeds.js löst #voice-history aus der backdrop-filter-Karte in #app, damit
+   position:fixed relativ zum FENSTER greift (nicht zur Karte). */
+.mode-orb #voice-history{
+  position:fixed; left:16px; bottom:88px; top:auto; right:auto; z-index:6;
+  width:min(360px,30vw); max-width:none; max-height:54vh; overflow-y:auto;
+  text-align:left; margin:0; padding-right:6px; font-size:12px}
+.mode-orb #voice-history .bubble{font-size:12px; padding:9px 12px; line-height:1.45; max-width:100%}
+.mode-orb.overlay-open #voice-history{display:none}   /* bei offenem Embed ausblenden */
+body.chat-hidden #voice-history{display:none}         /* «schließe den chat» -> Panel aus */
+#integrity-pill{display:none}            /* „DEV"-Badge im Topbar entfernt (Nutzer-Wunsch) */
+.mode-orb .view[data-view="voice"] .voice-input{max-width:580px; margin:10px auto 0}
+/* "Verfuegbare Kommandos"-Karte auf der Heimansicht ausblenden (aufgeraeumt) */
+.mode-orb .view[data-view="voice"] .card:not(.cognition-hero){display:none}
+
+/* --- Overlays: jede Ansicht ausser Home als zentrierte Karte ueber Backdrop --- */
+.overlay-backdrop{position:fixed; inset:0; z-index:80; display:none; background:rgba(4,7,12,.62)}
+.mode-orb.overlay-open .overlay-backdrop{display:block}
+.mode-orb .view.is-active:not([data-view="voice"]){
+  position:fixed; z-index:81; left:50%; transform:translateX(-50%);
+  top:calc(var(--hdr,64px) + 14px); width:min(1180px,94vw);
+  max-height:calc(100vh - var(--hdr,64px) - 30px); overflow-y:auto;
+  background:var(--bg2,#0b0f17); border:1px solid var(--line-2); border-radius:14px;
+  box-shadow:0 30px 90px rgba(0,0,0,.6); padding:18px 20px 26px; animation:overlayIn .2s ease}
+@keyframes overlayIn{from{opacity:0; transform:translate(-50%,10px)} to{opacity:1; transform:translate(-50%,0)}}
+.overlay-close{position:fixed; z-index:91; top:calc(var(--hdr,64px) + 16px); right:22px;
+  width:34px; height:34px; display:none; align-items:center; justify-content:center; font-size:15px;
+  color:var(--muted); background:var(--bg2,#0b0f17); border:1px solid var(--line-2); border-radius:9px;
+  cursor:pointer; line-height:1}
+.mode-orb.overlay-open .overlay-close{display:flex}
+
+/* === EMBEDS: bewegbare/skalierbare Panels mit Glow-Rahmen (embeds.js) ===
+   PERFORMANCE: KEIN animiertes box-shadow (Repaint-Sturm über dem WebGL-Orb = Fenster-Hänger);
+   der Sprech-Puls läuft über die OPACITY eines Pseudo-Rings (GPU-composited, billig). Greifleiste
+   OHNE backdrop-filter (sticky+blur im Scroll-Container über WebGL hängt QtWebEngine). */
+.embed-host{position:relative; transition:box-shadow .25s ease, border-color .25s ease}
+.mode-orb .view.is-active.embed-floated:not([data-view="voice"]){
+  left:auto; right:auto; transform:none; animation:none; margin:0}
+.embed-host.embed-active{border-color:var(--acc); box-shadow:0 26px 80px rgba(0,0,0,.55), 0 0 18px var(--glow-soft)}
+.embed-host:hover{border-color:var(--acc); box-shadow:0 26px 80px rgba(0,0,0,.55), 0 0 24px var(--glow)}
+.embed-host.embed-active::after{content:""; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none; box-shadow:0 0 24px var(--glow); opacity:0; transition:opacity .3s}
+body.aegis-speaking .embed-host.embed-active::after{animation:embed-pulse 1.8s ease-in-out infinite}
+@keyframes embed-pulse{0%,100%{opacity:.18} 50%{opacity:.8}}
+.embed-dragging{user-select:none; cursor:grabbing}
+.embed-grip{position:sticky; top:0; z-index:4; display:flex; align-items:center; gap:9px;
+  margin:-18px -20px 14px; padding:9px 16px; cursor:grab; user-select:none;
+  background:linear-gradient(180deg, #11203a, #0b1424);
+  border-bottom:1px solid var(--line); border-radius:13px 13px 0 0}
+.embed-grip:active{cursor:grabbing}
+.embed-dots{color:var(--acc); letter-spacing:2px; font-size:13px}
+.embed-title{font-weight:700; font-size:11.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--acc2)}
+.embed-hint{margin-left:auto; font-size:9.5px; color:var(--dim); white-space:nowrap}
+.embed-resize{position:absolute; right:4px; bottom:4px; width:16px; height:16px; cursor:nwse-resize; z-index:4;
+  opacity:.5; background:
+    linear-gradient(135deg, transparent 46%, var(--acc) 46%, var(--acc) 58%, transparent 58%,
+                    transparent 70%, var(--acc) 70%, var(--acc) 82%, transparent 82%)}
+.embed-resize:hover{opacity:1}
+
+/* === Architektur-Embed: zentraler Core + Komponenten ringsum (wie bist du aufgebaut) === */
+.arch{display:grid; gap:13px; padding:8px 4px 4px;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-areas:"percept observe protect" "voice core tools" ". memory .";}
+.arch-percept{grid-area:percept}.arch-observe{grid-area:observe}.arch-protect{grid-area:protect}
+.arch-voice{grid-area:voice}.arch-tools{grid-area:tools}.arch-memory{grid-area:memory}
+.arch-box{background:var(--panel); border:1px solid var(--line-2); border-radius:11px;
+  padding:12px 14px 12px 16px; position:relative; overflow:hidden}
+.arch-box::before{content:""; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:linear-gradient(180deg,var(--acc),transparent)}
+.arch-box b{display:block; color:var(--acc2); font-size:11.5px; letter-spacing:.4px; text-transform:uppercase; margin-bottom:5px}
+.arch-box span{font-size:11px; color:var(--muted); line-height:1.45}
+.arch-core{grid-area:core; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  border-radius:50%; aspect-ratio:1; min-height:130px; align-self:center; justify-self:center; width:100%; max-width:175px;
+  background:radial-gradient(circle at 50% 40%, rgba(45,226,255,.22), rgba(45,226,255,.04) 70%, transparent);
+  border:1px solid var(--acc); box-shadow:0 0 30px var(--glow-soft), inset 0 0 26px rgba(45,226,255,.15)}
+.arch-core-l{font-size:19px; font-weight:800; letter-spacing:3px; color:#eafcff; text-shadow:0 0 14px var(--glow)}
+.arch-core-s{font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--acc2)}
+@media (max-width:680px){.arch{grid-template-columns:1fr; grid-template-areas:"core" "percept" "observe" "protect" "voice" "tools" "memory"}
+  .arch-core{max-width:140px}}
+/* Chat-Bubbles sauber umbrechen (nicht abgeschnitten) */
+.mode-orb #voice-history .bubble{word-break:break-word; overflow-wrap:anywhere}
+/* Embeds KOMPAKTER öffnen (nicht bildschirmfüllend) — per Ecke vergrößerbar. Verhindert das
+   "zu groß / links abgeschnitten". Architektur-Diagramm noch etwas kleiner. */
+.mode-orb .view.is-active.embed-host:not(.embed-floated):not([data-view="voice"]){width:min(880px,90vw)}
+.mode-orb .view.is-active[data-view="architecture"].embed-host:not(.embed-floated){width:min(680px,90vw)}
+.overlay-close:hover{color:var(--txt); border-color:var(--acc)}
+@media(max-width:900px){
+  .mode-orb .view.is-active:not([data-view="voice"]){width:96vw; top:calc(var(--hdr,84px) + 8px);
+    max-height:calc(100vh - var(--hdr,84px) - 16px)}
+}

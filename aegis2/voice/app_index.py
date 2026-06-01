@@ -141,3 +141,76 @@ def open_or_focus(query: str):
         return (True, "gestartet")
     except Exception as e:  # noqa: BLE001
         return (False, str(e))
+
+
+def _pid_for(query: str):
+    """PID der laufenden App zu `query` finden (über .lnk-Ziel-Exe, sonst Prozessname)."""
+    pid = None
+    try:
+        lnk = find_app(query)
+        if lnk:
+            pid = _running_pid(_target_exe(lnk))
+    except Exception:  # noqa: BLE001
+        pid = None
+    if not pid:
+        try:
+            pid = _running_pid(query if query.lower().endswith(".exe") else query + ".exe")
+        except Exception:  # noqa: BLE001
+            pid = None
+    return pid
+
+
+def _window_of_pid(pid: int):
+    try:
+        import win32gui      # type: ignore
+        import win32process  # type: ignore
+        wins = []
+
+        def _cb(h, _):
+            if win32gui.IsWindowVisible(h) and win32gui.GetWindowText(h):
+                try:
+                    _, wp = win32process.GetWindowThreadProcessId(h)
+                    if wp == pid:
+                        wins.append(h)
+                except Exception:  # noqa: BLE001
+                    pass
+        win32gui.EnumWindows(_cb, None)
+        return wins[0] if wins else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def focus_only(query: str):
+    """Nur das BESTEHENDE Fenster nach vorne holen — startet NICHTS. (ok, msg)."""
+    pid = _pid_for(query)
+    if pid and _focus_pid(pid):
+        return (True, "nach vorne geholt")
+    return (False, "läuft gerade nicht")
+
+
+def move_to_primary(query: str):
+    """Das Fenster der App auf den Hauptmonitor verschieben (Größe bleibt, geklemmt). (ok, msg)."""
+    pid = _pid_for(query)
+    if not pid:
+        return (False, "läuft gerade nicht")
+    try:
+        import win32gui  # type: ignore
+        import win32con  # type: ignore
+        import win32api  # type: ignore
+        h = _window_of_pid(pid)
+        if not h:
+            return (False, "kein Fenster gefunden")
+        mon = win32api.MonitorFromPoint((0, 0), win32con.MONITOR_DEFAULTTOPRIMARY)
+        wl, wt, wr, wb = win32api.GetMonitorInfo(mon)["Work"]    # Arbeitsbereich Hauptmonitor
+        win32gui.ShowWindow(h, win32con.SW_RESTORE)
+        l, t, r, b = win32gui.GetWindowRect(h)
+        w, ht = r - l, b - t
+        nw, nh = min(w, wr - wl - 20), min(ht, wb - wt - 20)
+        win32gui.SetWindowPos(h, 0, wl + 60, wt + 60, nw, nh, win32con.SWP_NOZORDER)
+        try:
+            win32gui.SetForegroundWindow(h)
+        except Exception:  # noqa: BLE001
+            pass
+        return (True, "auf den Hauptmonitor verschoben")
+    except Exception as e:  # noqa: BLE001
+        return (False, str(e))

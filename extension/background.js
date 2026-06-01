@@ -88,6 +88,7 @@ function connectNative() {
       bridgeUp = true;                  // erst jetzt ist die Bruecke nachweislich da
       reconnectDelay = 3000;            // erfolgreiche Verbindung -> Backoff zuruecksetzen
       if (!m) return;
+      if (m.cmd) { handleBrowserCmd(m); return; }   // Browser-Control-Befehl von der Desktop-App
       if (Array.isArray(m.blocklist)) {
         m.blocklist.forEach(d => BLOCKSET.add(String(d).toLowerCase()));
         syncDnrRules();                 // neue Domains auch auf Netzwerkebene blocken
@@ -104,6 +105,85 @@ function connectNative() {
   } catch (e) { nativePort = null; bridgeUp = false; serviceUp = false; scheduleReconnect(); }
 }
 function pushNative(ev) { try { if (nativePort) nativePort.postMessage(ev); } catch (e) {} }
+
+// ===== Browser-Control: Befehle der Desktop-App ausfuehren (Allow-List, sicher) =====
+// Nur diese Befehle sind erlaubt. KEIN beliebiger Code, KEINE Passwort-/Formular-Aktionen.
+const BC_ALLOWED = new Set(["media", "open_url", "list_tabs", "now_playing", "close_url"]);
+const BC_MEDIA_HOSTS = ["*://*.youtube.com/*", "*://music.youtube.com/*",
+  "*://open.spotify.com/*", "*://*.soundcloud.com/*", "*://*.twitch.tv/*", "*://*.netflix.com/*"];
+
+function bcNorm(u) { return String(u || "").replace(/[#?].*$/, "").replace(/\/+$/, "").toLowerCase(); }
+
+async function bcAudibleTab() {
+  let tabs = await chrome.tabs.query({ audible: true });
+  if (!tabs.length) tabs = await chrome.tabs.query({ url: BC_MEDIA_HOSTS });
+  return tabs[0] || null;
+}
+
+// Laeuft im MAIN world der Seite (serialisiert -> keine Closures, nur args):
+function bcMediaInPage(action) {
+  const els = Array.from(document.querySelectorAll("video,audio"));
+  const v = els.find(e => !e.paused && e.currentTime > 0) || els[0];
+  if (!v) return false;
+  if (action === "pause") v.pause();
+  else if (action === "play") { v.play().catch(() => {}); }
+  else if (action === "stop") { v.pause(); }
+  else { v.paused ? v.play().catch(() => {}) : v.pause(); }   // playpause-Toggle
+  return true;
+}
+function bcNowPlayingInPage() {
+  const ms = navigator.mediaSession, md = ms && ms.metadata;
+  const els = Array.from(document.querySelectorAll("video,audio"));
+  const v = els.find(e => !e.paused) || els[0];
+  return {
+    state: (ms && ms.playbackState) || (v ? (v.paused ? "paused" : "playing") : "none"),
+    title: md && md.title, artist: md && md.artist, album: md && md.album
+  };
+}
+
+async function handleBrowserCmd(m) {
+  const res = { t: "cmd_result", id: m.id, cmd: m.cmd, ok: false };
+  try {
+    if (!BC_ALLOWED.has(m.cmd)) throw new Error("nicht erlaubter Befehl");
+    if (m.cmd === "list_tabs") {
+      const tabs = await chrome.tabs.query({});
+      res.tabs = tabs.map(t => ({ url: t.url, title: t.title, active: !!t.active, audible: !!t.audible }));
+      res.ok = true;
+    } else if (m.cmd === "open_url") {
+      const url = String(m.url || "");
+      if (!/^https?:\/\//i.test(url)) throw new Error("nur http(s)");
+      const all = await chrome.tabs.query({});
+      const hit = all.find(t => bcNorm(t.url) === bcNorm(url));
+      if (hit) {                                  // schon offen -> fokussieren statt duplizieren
+        await chrome.tabs.update(hit.id, { active: true });
+        try { await chrome.windows.update(hit.windowId, { focused: true }); } catch (e) {}
+        res.focused = true;
+      } else { await chrome.tabs.create({ url, active: true }); res.created = true; }
+      res.ok = true;
+    } else if (m.cmd === "close_url") {
+      const all = await chrome.tabs.query({});
+      const hit = all.find(t => bcNorm(t.url) === bcNorm(m.url));
+      if (hit) { await chrome.tabs.remove(hit.id); res.ok = true; } else { res.error = "Tab nicht offen"; }
+    } else if (m.cmd === "media") {
+      const tab = await bcAudibleTab();
+      if (!tab) { res.error = "kein abspielender Tab"; }
+      else {
+        const r = await chrome.scripting.executeScript({
+          target: { tabId: tab.id }, world: "MAIN", func: bcMediaInPage, args: [String(m.action || "playpause")] });
+        res.ok = !!(r && r[0] && r[0].result); res.tab = tab.title;
+      }
+    } else if (m.cmd === "now_playing") {
+      const tab = await bcAudibleTab();
+      if (!tab) { res.playing = null; res.ok = true; }
+      else {
+        const r = await chrome.scripting.executeScript({
+          target: { tabId: tab.id }, world: "MAIN", func: bcNowPlayingInPage });
+        res.playing = (r && r[0] && r[0].result) || null; res.tabTitle = tab.title; res.ok = true;
+      }
+    }
+  } catch (e) { res.error = String((e && e.message) || e); }
+  pushNative(res);   // Ergebnis zurueck an den Host -> Desktop-App
+}
 
 // Vom Host live gelieferte Domains zusaetzlich als dynamische DNR-Regeln aktiv blocken.
 // rules.json ist statisch — so lernt auch der echte Netzwerk-Block neue Bedrohungen dazu.

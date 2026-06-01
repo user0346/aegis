@@ -173,7 +173,7 @@ def status_report(db, stats: Optional[dict] = None) -> str:
     if mods_tot:
         lines.append(f"{mods_run} von {mods_tot} Waechtern aktiv, {events} Ereignisse "
                      f"beobachtet.")
-    lines.append(f"Gelernt: {s['baseline_known']} normale Programme, "
-                 f"{s['rep_bad']} boesartige Objekte, {s['domains_blocked']} "
-                 f"blockierte Domains, {s['patterns_learned']} verfeinerte Muster.")
+    lines.append(f"Gelernt: {s['baseline_known']} Programme als Normal-Baseline, "
+                 f"{s['rep_bad']} boesartige Objekte erkannt, {s['domains_blocked']} "
+                 f"Risiko-Domains gesperrt — und es werden laufend mehr.")
     return " ".join(lines)

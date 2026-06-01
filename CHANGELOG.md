@@ -3,11 +3,22 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.5.0
+- AEGIS sieht jetzt deinen Bildschirm: sag „was ist das" oder „was siehst du" — ein Screenshot wird lokal erkannt (Modell llama3.2-vision) und bei echter Gefahr (Phishing, gefälschte Warnung) gewarnt. Komplett offline, nur auf Zuruf
+- Bewegbare Embeds: jede Ansicht (Einstellungen, Scan, Architektur …) öffnet als verschiebbares, skalierbares Panel mit leuchtendem Rahmen. Sag „wie bist du aufgebaut" für ein Diagramm deiner Struktur oder „was kannst du" für die Fähigkeiten-Übersicht
+- App-genaue Mediensteuerung: „Spotify leiser" senkt NUR Spotify (nicht den System-Sound), und „pausiere/fortsetzen" kennt jetzt den echten Wiedergabe-Status
+- Sicherheitscheck im Chat: „ist das sicher: <Link oder Text>" prüft Links gegen die Sperrliste und bewertet verdächtige Nachrichten auf Betrug
+- Sauberere Bedienung: „schließe den Chat" blendet den Verlauf aus, „welches Modell" nennt das KI-Modell, und Tippfehler bei „nächster Song" werden erkannt
+- Web-Suche jetzt über DuckDuckGo (privater & sicherer, ohne Tracking) statt Google
+
 ## v2.4.9
 - Mehr als Ollama: du kannst AEGIS jetzt mit JEDEM KI-Backend verbinden — Ollama (Standard), LM Studio, llama.cpp, vLLM, Jan oder eine Cloud-API. Einfach in Einstellungen → „KI-Modell/Backend" Adresse + Modell eintragen
 - Handy-Live-Ansicht: sieh vom Smartphone (gleiches WLAN) live, was AEGIS macht — Status + letzte Ereignisse. Nur Ansicht, per geheimem Token gesichert, standardmäßig aus (Einstellungen → „Handy-Ansicht")
 - Updates aus dem Quellcode funktionieren jetzt zuverlässig (kein hängender Datei-Tausch mehr) und holen danach auch dein Fenster zurück
-- Bessere Modell-Empfehlung: für schönes Deutsch eignet sich Gemma 3 besonders, für Logik/Agenten Qwen3 — AEGIS wählt automatisch das Beste, was du installiert hast (Hintergrund: docs/MODELLE_2026.md)
+- Deutlich besseres Deutsch & Sprachverständnis: AEGIS spricht jetzt standardmäßig über Gemma 3 (sauberes Deutsch statt gelegentlichem Abdriften ins Französische) und erkennt deine Sprache mit einem deutsch-spezialisierten Whisper-Modell direkt auf der Grafikkarte — schneller und genauer
+- Echte Systemwerte statt Schätzung: „Systeminfo" / „Auslastung" / „mehr Infos" liest jetzt CPU, Arbeitsspeicher, Festplatte und Laufzeit live aus — keine erfundenen Zahlen mehr
+- „Einstellungen" per Sprache („Settings", „App-Settings") öffnen jetzt zuverlässig AEGIS' eigene Einstellungen, statt versehentlich eine andere App zu starten
+- Saubereres Gedächtnis: Test-/Unsinns-Eingaben landen nicht mehr als „Wissen", und gemerkte Fakten tauchen nicht mehr versehentlich in Antworten auf
 
 ## v2.4.8
 - AEGIS begrüßt dich jetzt von selbst beim Start — mit Text UND Sprache, ohne dass du erst einen Knopf drücken musst

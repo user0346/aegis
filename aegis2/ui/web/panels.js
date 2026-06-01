@@ -318,6 +318,25 @@
     out.push(row("Oft genutzt", tc.length?tc.map(esc).join(", "):"—"));
     body.innerHTML=out.join("");
   }
+  /* ---------- AEGIS-Brain (editierbare Identität/Regeln, bei jeder Antwort gelesen) ---------- */
+  function loadBrain(){
+    const ta=$("brain-text"); if(!ta) return;
+    if(!(window.aegis&&window.aegis.brainGet)){ setTimeout(loadBrain,400); return; }
+    // Nicht überschreiben, während der Nutzer gerade tippt.
+    if(document.activeElement===ta) return;
+    try{ window.aegis.brainGet(function(txt){ if(document.activeElement!==ta) ta.value=txt||""; }); }
+    catch(e){ setTimeout(loadBrain,800); }
+  }
+  function wireBrainSave(){
+    const btn=$("brain-save"); if(!btn||btn._wired) return; btn._wired=true;
+    btn.addEventListener("click",function(){
+      const ta=$("brain-text"), st=$("brain-status");
+      if(!ta||!(window.aegis&&window.aegis.brainSave)) return;
+      try{ window.aegis.brainSave(ta.value||"",function(ok){
+        if(st){ st.textContent=ok?"Gespeichert ✓ — wirkt sofort.":"Speichern fehlgeschlagen."; setTimeout(function(){ if(st) st.textContent=""; },2600); }
+      }); }catch(e){ if(st) st.textContent="Fehler: "+e; }
+    });
+  }
 
   /* ---------- Voice send (war auch unverdrahtet) ---------- */
   function onVoiceReply(d){ const t=$("voice-transcript"); if(t) t.textContent=(d&&d.voice_reply)||"(keine Antwort)"; const st=$("voice-status"); if(st) st.textContent="Antwort"; }
@@ -354,12 +373,14 @@
   }
   function pushBubble(role, text){
     text=(text==null?"":String(text)).trim(); if(!text) return;
+    if(role==="aegis") hideThinking();            // echte Antwort da -> Denk-Punkte entfernen
     const box=$("voice-history"); if(!box) return;
     const cls="bubble-"+(role==="user"?"user":"aegis");
-    const last=box.lastElementChild;
-    if(last && last.dataset && last.dataset.text===text && last.className.indexOf(cls)>=0) return;  // dedup
+    let last=box.lastElementChild;
+    while(last && last.classList && last.classList.contains("bubble-thinking")) last=last.previousElementSibling;  // Denk-Bubble NICHT als „letzte" zaehlen
+    if(last && last.dataset && last.dataset.text===text && last.className.indexOf(cls)>=0) return;  // dedup -> kein doppelter Text mehr
     const b=document.createElement("div");
-    b.className="bubble "+cls;
+    b.className="bubble "+cls+(role==="aegis"?" bubble-reveal":"");   // AEGIS-Antwort blendet sanft ein
     b.dataset.text=text;
     const tx=document.createElement("div");
     tx.className="bubble-text";
@@ -374,6 +395,68 @@
     while(box.children.length>40) box.removeChild(box.firstChild);
     box.scrollTop=box.scrollHeight;
   }
+
+  /* ---------- "Denkt nach"-Indikator: animierte Punkte + Hinweis, wenn es laenger dauert ---------- */
+  let _thinkTimers=[];
+  function _clearThinkTimers(){ _thinkTimers.forEach(clearTimeout); _thinkTimers=[]; }
+  function hideThinking(){
+    _clearThinkTimers();
+    const box=$("voice-history"); if(!box) return;
+    const t=box.querySelector(".bubble-thinking"); if(t) t.remove();
+  }
+  function showThinking(){
+    const box=$("voice-history"); if(!box) return;
+    if(box.querySelector(".bubble-thinking")) return;            // immer nur einer
+    _clearThinkTimers();
+    const b=document.createElement("div");
+    b.className="bubble bubble-aegis bubble-thinking";
+    b.innerHTML='<div class="think-row"><span class="think-label">AEGIS denkt nach</span>'+
+                '<span class="think-dots"><i></i><i></i><i></i></span></div>';
+    box.appendChild(b);
+    while(box.children.length>40) box.removeChild(box.firstChild);
+    box.scrollTop=box.scrollHeight;
+    const lbl=b.querySelector(".think-label");
+    function step(txt){ if(lbl&&document.body.contains(b)){ lbl.textContent=txt; box.scrollTop=box.scrollHeight; } }
+    // Eskalation -> signalisiert echtes, laengeres Nachdenken (Nemotron) statt "haengt"
+    _thinkTimers.push(setTimeout(function(){ step("denkt gründlich nach"); }, 3500));
+    _thinkTimers.push(setTimeout(function(){ step("schwierige Frage — gleich fertig"); }, 10000));
+    _thinkTimers.push(setTimeout(function(){ step("rechnet noch — einen Moment"); }, 20000));
+  }
+
+  /* ---------- HUD-Uhr (JARVIS-Telemetrie, läuft selbststaendig) ---------- */
+  (function _hudClock(){
+    function p(n){return (n<10?"0":"")+n;}
+    function tick(){
+      var d=new Date();
+      var t=$("hud-time"); if(t) t.textContent=p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+      var dt=$("hud-date"); if(dt) dt.textContent=d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
+    }
+    tick(); setInterval(tick, 1000);
+  })();
+
+  /* ---------- SYSTEM VITALS (Live-Balken aus echten AEGIS-Werten + dezenter Schwankung) ---------- */
+  (function _vitals(){
+    function num(id){ var e=$(id); if(!e) return null; var m=(e.textContent||"").replace(/[.\s]/g,"").match(/\d+/); return m?parseInt(m[0],10):null; }
+    function setBar(key, pct, cls){
+      var row=document.querySelector('.vital[data-vital="'+key+'"]'); if(!row) return;
+      var bar=row.querySelector('.vital-bar i'); var val=row.querySelector('.vital-val');
+      pct=Math.max(2,Math.min(100,pct));
+      if(bar){ bar.style.width=pct.toFixed(0)+"%"; bar.className=cls||""; }
+      if(val) val.textContent=pct.toFixed(0)+"%";
+    }
+    function wob(base,amp){ return base+Math.sin(Date.now()/700+base)*amp; }
+    function tick(){
+      try{
+        var c=$("conn-pill"); var conn=c&&/connect|verbund/i.test(c.textContent||"");
+        setBar("schutz", conn?wob(98,1.5):18, conn?"v-ok":"v-bad");
+        setBar("wacht", wob(95,3), "v-ok");
+        var dom=num("stat-domains"); setBar("wissen", dom!=null?Math.min(100,42+dom/2400):wob(70,4), "");
+        var ev=num("stat-events"); setBar("netz", ev!=null?Math.min(100,18+ev*1.1):wob(45,6), "");
+        var th=num("stat-threats"); setBar("bedrohung", th?Math.min(100,22+th*12):wob(7,2), th?"v-bad":"v-ok");
+      }catch(e){}
+    }
+    tick(); setInterval(tick, 1500);
+  })();
 
   /* ---------- event ingress ---------- */
   function onEvent(ev){
@@ -482,11 +565,18 @@
     function setVoiceState(st){
       const L={listening:"\ud83c\udfa4  H\u00f6re zu \u2026",thinking:"\u2026 verarbeite",speaking:"\ud83d\udd0a  AEGIS spricht",idle:"Bereit"};
       window._aegisVoiceBusy=(st==="speaking"||st==="listening"||st==="thinking");
+      document.body.classList.toggle("aegis-speaking", st==="speaking"||st==="thinking"); // Embed-Glow
       // Eingabe sperren, solange AEGIS arbeitet -> kein Überlappen + klares "arbeitet noch"-Signal
       ["voice-text","voice-send","voice-mic"].forEach(function(id){ const e=$(id); if(e) e.disabled=window._aegisVoiceBusy; });
       if(!window._aegisVoiceBusy && window._busyFailsafe){ clearTimeout(window._busyFailsafe); window._busyFailsafe=null; }
       const _vst=$("voice-stop"); if(_vst) _vst.style.display = window._aegisVoiceBusy ? "" : "none";
       setTxt("voice-status", L[st]||st||"Bereit");
+      if(st==="thinking") showThinking(); else hideThinking();
+      // Jarvis-Sprech-Glow: pulsiert auf der letzten AEGIS-Bubble, solange AEGIS spricht
+      (function(){ const _b=$("voice-history"); if(!_b) return;
+        _b.querySelectorAll(".bubble-speaking").forEach(function(e){ e.classList.remove("bubble-speaking"); });
+        if(st==="speaking"){ const a=_b.querySelectorAll(".bubble-aegis"); if(a.length) a[a.length-1].classList.add("bubble-speaking"); }
+      })();
       const vs=document.querySelector(".voice-state");
       if(vs){ vs.classList.remove("vs-listening","vs-thinking","vs-speaking"); if(st&&st!=="idle") vs.classList.add("vs-"+st); }
       const mic=$("voice-mic"); if(mic) mic.classList.toggle("mic-on", st==="listening");
@@ -512,6 +602,7 @@
           else if(kind==="state"){ setVoiceState(payload); }
           else if(kind==="status"){ setTxt("voice-status",payload||"Bereit"); }
           else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
+          else if(kind==="ui"){ if(payload==="hide_chat") document.body.classList.add("chat-hidden"); else if(payload==="show_chat") document.body.classList.remove("chat-hidden"); }
         });
         return;
       }
@@ -526,6 +617,12 @@
       // Weckwort 'Hey Jarvis' laeuft im UI-Prozess (Bridge), nicht ueber settings.save.
       if(window.aegis&&window.aegis.wakeWordOn){ try{ window.aegis.wakeWordOn(function(on){ wj.checked=!!on; }); }catch(e){} }
       wj.addEventListener("change",()=>{ if(window.aegis&&window.aegis.setWakeWord){ try{ window.aegis.setWakeWord(wj.checked); }catch(e){} } });
+    }
+    const cf=$("conv-followup");
+    if(cf){
+      // Gespraechsmodus (Folge-Lauschen) laeuft im UI-Prozess (Bridge), wie das Weckwort.
+      if(window.aegis&&window.aegis.conversationModeOn){ try{ window.aegis.conversationModeOn(function(on){ cf.checked=!!on; }); }catch(e){} }
+      cf.addEventListener("change",()=>{ if(window.aegis&&window.aegis.setConversationMode){ try{ window.aegis.setConversationMode(cf.checked); }catch(e){} } });
     }
     const ttsTest=$("tts-test");
     if(ttsTest) ttsTest.addEventListener("click",()=>{
@@ -603,5 +700,5 @@
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",wireAll); else wireAll();
   attach();
-  window.AegisPanels={ network:renderNet, quarantine:pollQuar, settings:function(){loadSettings();loadAutonomy();loadOllama();}, scan:scanPoll, consent:pollConsent, voice:loadOllama, memory:loadMemory };
+  window.AegisPanels={ network:renderNet, quarantine:pollQuar, settings:function(){loadSettings();loadAutonomy();loadOllama();}, scan:scanPoll, consent:pollConsent, voice:loadOllama, memory:function(){loadMemory();wireBrainSave();loadBrain();} };
 })();

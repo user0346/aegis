@@ -17,8 +17,10 @@ from __future__ import annotations
 
 # capability -> (settings-key, default)
 _CAP = {
-    "websearch": ("allow_websearch", False),
-    "shell":     ("allow_shell", False),
+    # Default ON (Nutzerwunsch „alle Fähigkeiten an"). Shell bleibt zusaetzlich durch die
+    # Allowlist im Executor geschuetzt (nur sichere Diagnose-/Reparatur-Tools, nie destruktiv).
+    "websearch": ("allow_websearch", True),
+    "shell":     ("allow_shell", True),
     "learning":  ("allow_learning", True),
 }
 

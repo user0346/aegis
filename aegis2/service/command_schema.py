@@ -45,6 +45,7 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
         "consent_ttl_min": (lambda v: _is_int(v, 1, 1440), False),
         "tts_voice": (lambda v: _is_str(v, 80), False),
         "tts_enabled": (_is_bool, False),
+        "conversation_followup": (_is_bool, False),
         "llm_provider": (lambda v: _is_str(v, 32), False),
         "llm_base_url": (lambda v: _is_str(v, 200), False),
         "llm_model":    (lambda v: _is_str(v, 120), False),

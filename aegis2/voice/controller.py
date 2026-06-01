@@ -22,19 +22,27 @@ class VoiceController:
         self.router = ActionRouter(ui_cmd=ui_cmd, service_cmd=service_cmd, status_cb=status_cb)
         self.prefer_local = prefer_local
 
-    def listen_once(self, language: str = "de", on_stage=None) -> dict:
+    def listen_once(self, language: str = "de", on_stage=None,
+                    follow_up: bool = False) -> dict:
         """Eine Push-to-Talk-Runde: aufnehmen, verstehen, ausfuehren.
-        on_stage(stage) wird mit 'listening'/'thinking' aufgerufen (UI-Feedback)."""
+        on_stage(stage) wird mit 'listening'/'thinking' aufgerufen (UI-Feedback).
+        follow_up=True: freihändige Folge-Runde (Gespräch ohne erneutes Weckwort) — wartet
+        nur kurz auf Sprachbeginn und endet bei Stille STILL (kein Fehlertext, kein TTS)."""
         from . import recorder, stt
         if on_stage: on_stage("listening")
-        wav = recorder.record_until_silence()
+        wav = recorder.record_until_silence(max_wait_s=(5.0 if follow_up else None))
         if not wav:
+            if follow_up:
+                # Folge-Fenster ohne Eingabe -> Gespräch sauber beenden, nichts sagen.
+                return {"ok": False, "stage": "record", "quiet": True, "follow_up_end": True}
             if not getattr(recorder, "HAS_AUDIO", True):
                 return {"ok": False, "stage": "record", "quiet": True,
                         "msg": "Spracheingabe ist in dieser Version nicht aktiv — "
                                "tippe deine Anweisung einfach unten ein."}
             return {"ok": False, "stage": "record",
-                    "msg": "Kein Mikrofon gefunden — tippe deine Anweisung unten ein."}
+                    "msg": "Ich hab nichts aufgenommen — sag direkt nach «Hey Jarvis» kurz und "
+                           "etwas lauter deine Anweisung. Klappt es nicht, prüf in den Windows-"
+                           "Sound-Einstellungen das Eingabe-Mikrofon. Oder tippe es einfach unten ein."}
         if on_stage: on_stage("thinking")
         text = stt.transcribe_wav(wav, language=language, prefer_local=self.prefer_local)
         if not text:
@@ -63,6 +71,15 @@ class VoiceController:
             return {"ok": True, "msg": "Ja? Womit kann ich dir helfen?",
                     "transcript": text, "intent": "greet"}
         clean = stripped or text
+        # 0) OFFENE PC-POWER-RUECKFRAGE: liegt eine Neustart-/Herunterfahren-Bestaetigung an,
+        # MUSS die Antwort ("ja, neu starten" / "nein") direkt in _do_query laufen — sonst
+        # wuerde "ja, neu starten" faelschlich das restart-Pattern (AEGIS-Selbstneustart)
+        # treffen. Der Pending-Handler in _do_query entscheidet sicher. Ausnahme: ist die
+        # Eingabe selbst wieder ein klarer PC-Power-Befehl, faellt sie durch -> frische
+        # Rueckfrage (sonst verfiele ein erneuter "fahr runter" stumm im Query-LLM).
+        if getattr(self.router, "_pending_power", None):
+            if intent_mod.classify_command(clean).get("intent") != "pc_power":
+                return self._finish({"intent": "query", "args": {"text": clean}}, text)
         # 1) DIREKTBEFEHL — nur EINDEUTIGE, verb-verankerte Befehle (öffne/spiele/beende,
         # sichere Tools wie "sfc /scannow", nackte URLs) feuern sofort. Stichwort-Intents
         # (scan/suche/status/...) laufen NICHT hier, sondern ueber das Modell (Schritt 3)

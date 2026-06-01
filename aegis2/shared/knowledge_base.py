@@ -130,11 +130,27 @@ def _doc_chunks() -> list:
     return out
 
 
+def _looks_like_garbage(text: str) -> bool:
+    """True bei offensichtlichem Müll/Test-Spam — wiederholtes Einzelzeichen ('ääääää…',
+    'aaaaaa…') oder dasselbe Wort x-fach ('wort wort wort…'). Solcher Unsinn ist kein Wissen
+    und soll NICHT in die Wissensbasis (vermuellte sonst 'was hast du gelernt')."""
+    import re as _re
+    t = (text or "").strip()
+    if not t:
+        return True
+    if _re.fullmatch(r"(.)\1{6,}", _re.sub(r"\s+", "", t)):          # 'ääääää…', 'aaaaaa…'
+        return True
+    words = _re.findall(r"[^\W\d_]+", t.lower())
+    if len(words) >= 4 and len(set(words)) <= max(2, len(words) // 4):  # 'wort wort wort…'
+        return True
+    return False
+
+
 def learn(text: str) -> bool:
     """Neues Wissen ablegen ('lerne: ...'). Returns True bei Erfolg/Duplikat.
     Der Vektor-Index wird beim naechsten search() inkrementell nachgezogen."""
     text = (text or "").strip()[:1000]
-    if len(text) < 3:
+    if len(text) < 3 or _looks_like_garbage(text):
         return False
     with _LOCK:
         items = _load_json()

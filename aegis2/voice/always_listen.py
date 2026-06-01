@@ -107,8 +107,8 @@ class AlwaysListen:
         except Exception:  # noqa: BLE001
             return
         use_sd = _have("sounddevice")
-        thr = self._threshold()
         while not self._stop.is_set():
+            thr = self._threshold()        # pro Lausch-Session frisch -> Schwellen-Setting wirkt live
             try:
                 woke = self._session_sd(thr, np) if use_sd else self._session_pa(thr, np)
             except Exception as e:  # noqa: BLE001

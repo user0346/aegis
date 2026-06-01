@@ -174,20 +174,15 @@ class AegisWindow(QMainWindow):
             log.info("Swapped fallback -> WebView")
             # Proaktive Begruessung: AEGIS meldet sich beim Start SELBST (kein Knopf noetig).
             # Kurzer Versatz, damit die UI ihren voiceState-Listener gebunden hat.
+            # greet() startet den Weckwort-Lauscher selbst NACH Begruessung + erster Antwort
+            # (siehe bridge.greet) — darum hier KEIN separater initWake-Timer mehr (sonst
+            # griffe er mitten in greets Antwort-Lauschen das Mikro).
             try:
                 if not getattr(self, "_greet_scheduled", False):
                     self._greet_scheduled = True
                     QTimer.singleShot(1800, self.bridge.greet)
             except Exception:  # noqa: BLE001
                 log.exception("greet scheduling failed (non-fatal)")
-            # Weckwort 'Hey Jarvis' starten, falls eingeschaltet (opt-in). Nach der
-            # Begruessung, damit diese den Lauscher nicht selbst triggert.
-            try:
-                if not getattr(self, "_wake_scheduled", False):
-                    self._wake_scheduled = True
-                    QTimer.singleShot(3200, self.bridge.initWake)
-            except Exception:  # noqa: BLE001
-                log.exception("wake init scheduling failed (non-fatal)")
         else:
             self._fallback.setText(
                 "<div style='color:#f97373'>"

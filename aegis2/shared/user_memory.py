@@ -88,6 +88,13 @@ def add_note(text: str) -> bool:
         return False
     if re.match(r"^https?://\S+$", text):          # nackte URL ohne Aussage -> kein Fakt
         return False
+    # Offensichtlichen Test-Spam abweisen: wiederholtes Einzelzeichen ('ääääää…') oder dasselbe
+    # Wort x-fach ('wort wort wort…') ist kein Fakt — sonst vermuellt das Gedaechtnis.
+    if re.fullmatch(r"(.)\1{6,}", re.sub(r"\s+", "", low)):
+        return False
+    _w = re.findall(r"[^\W\d_]+", low)
+    if len(_w) >= 4 and len(set(_w)) <= max(2, len(_w) // 4):
+        return False
     if len(text) > 280:                            # an Satz-/Wortgrenze kuerzen, nicht im Wort
         cut = max(text.rfind(". ", 0, 280), text.rfind("! ", 0, 280), text.rfind("? ", 0, 280))
         text = (text[:cut + 1] if cut > 100 else text[:280].rsplit(" ", 1)[0] + " …")

@@ -424,8 +424,8 @@ class Orchestrator:
                 saved.append(sec_key)
         for _tk in ("auto_quarantine", "wake_active", "cloud_stt",
                     "allow_websearch", "allow_shell", "allow_learning",
-                    "enable_active_response", "tts_enabled", "mobile_view_enabled",
-                    "mobile_remote_enabled"):
+                    "enable_active_response", "tts_enabled", "conversation_followup",
+                    "mobile_view_enabled", "mobile_remote_enabled"):
             if _tk in args:
                 self.db.set_setting(_tk, bool(args[_tk]))
         if "consent_ttl_min" in args:

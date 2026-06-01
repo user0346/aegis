@@ -104,15 +104,24 @@
   }
 
   // ---------- Recent Threats (Dashboard) ----------
+  // Zeigt offene Bedrohungen (THREAT/CRITICAL) UND abgewehrte Aktionen. Browser-Blocks
+  // (grabify/iplogger), Download-Blocks und Quarantaene kommen als WARN rein — ohne sie blockt
+  // AEGIS sichtbar etwas, "Recent Threats" bliebe aber leer (wirkt widerspruechlich). Abgewehrtes
+  // wird gruen mit "✓ ABGEWEHRT" gezeigt, offene Bedrohungen bleiben gelb/rot.
+  const _DEFENDED_RE = /blockiert|geblockt|blocked|quarant|abgewehrt/i;
   function addThreat(ev) {
-    if (ev.severity !== "THREAT" && ev.severity !== "CRITICAL") return;
+    const sev = ev.severity;
+    const open = sev === "THREAT" || sev === "CRITICAL";
+    const defended = sev === "WARN" && _DEFENDED_RE.test(ev.message || "");
+    if (!open && !defended) return;
     const ol = $("threats-list");
     if (!ol) return;
     const empty = ol.querySelector(".empty");
     if (empty) empty.remove();
     const li = document.createElement("li");
-    li.className = ev.severity === "CRITICAL" ? "row-bad" : "row-warn";
-    li.textContent = "[" + ev.severity + "] " + (ev.source || "?") + ": " + (ev.message || "");
+    li.className = sev === "CRITICAL" ? "row-bad" : (defended ? "row-ok" : "row-warn");
+    const tag = defended ? "✓ ABGEWEHRT" : sev;
+    li.textContent = "[" + tag + "] " + (ev.source || "?") + ": " + (ev.message || "");
     ol.insertBefore(li, ol.firstChild);
     while (ol.children.length > 30) ol.removeChild(ol.lastChild);
   }

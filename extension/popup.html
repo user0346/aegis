@@ -1,50 +1,104 @@
 <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>AEGIS Guard</title>
 <style>
-:root{--bg:#080b12;--panel:rgba(255,255,255,.05);--line:rgba(255,255,255,.09);--acc:#38bdf8;--txt:#e7eef7;--muted:#8595ad;--crit:#f87171;--warn:#fbbf24;--ok:#34d399}
-html,body{margin:0;width:300px;background:var(--bg);color:var(--txt);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
-.head{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line)}
-.mark{width:26px;height:26px}
-.head h1{margin:0;font-size:14px;letter-spacing:2px}
-.head .sub{font-size:10px;color:var(--muted)}
-.pill{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--ok);border:1px solid rgba(52,211,153,.4);background:rgba(52,211,153,.08);padding:3px 10px;border-radius:999px}
-.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px 15px 12px}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 6px;text-align:center}
-.stat .v{font-size:22px;font-weight:700;font-family:ui-monospace,Consolas,monospace}
-.stat .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
-.v-crit{color:var(--crit)}.v-warn{color:var(--warn)}.v-acc{color:var(--acc)}
-.conn{padding:0 15px 12px;display:flex;flex-direction:column;gap:6px}
-.conn-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt)}
-.dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:#475569;transition:background .2s}
-.dot.on{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
-.dot.off{background:#475569}
+/* AEGIS Guard — am System-HUD ausgerichtet (style.css :root) */
+:root{
+  --bg:#05070d; --bg2:#080c15; --panel:rgba(140,190,255,.05); --panel-2:rgba(140,190,255,.08);
+  --line:rgba(120,200,255,.12); --line-2:rgba(120,200,255,.22); --bracket:rgba(60,230,255,.55);
+  --txt:#e9f4ff; --muted:#7e93b3; --dim:#4a5870;
+  --acc:#2de2ff; --acc2:#7af6ff; --glow:rgba(45,226,255,.40); --glow-soft:rgba(45,226,255,.12);
+  --ok:#36e0a0; --warn:#ffc24b; --threat:#ff8a3d; --crit:#ff5470;
+  --fm:ui-monospace,"Cascadia Code","Consolas",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:322px}
+body{
+  background:
+    radial-gradient(560px 320px at 85% -20%, rgba(45,226,255,.12), transparent 60%),
+    radial-gradient(420px 300px at -10% 120%, rgba(122,140,255,.07), transparent 55%),
+    var(--bg);
+  color:var(--txt); font:13px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased; position:relative; overflow:hidden;
+}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;z-index:0;
+  background-image:linear-gradient(rgba(120,200,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,200,255,.045) 1px,transparent 1px);
+  background-size:27px 27px;}
+body>*{position:relative;z-index:1}
+
+.head{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(45,226,255,.06),transparent)}
+.mark{width:28px;height:28px;filter:drop-shadow(0 0 7px var(--glow))}
+.head h1{margin:0;font-size:15px;font-weight:700;letter-spacing:3px;
+  background:linear-gradient(90deg,var(--acc2),var(--acc));-webkit-background-clip:text;background-clip:text;color:transparent}
+.head .sub{font-size:9px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-top:1px}
+.pill{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:1.4px;color:var(--ok);
+  border:1px solid rgba(54,224,160,.45);background:rgba(54,224,160,.08);padding:4px 11px;border-radius:999px;
+  box-shadow:0 0 12px rgba(54,224,160,.22)}
+.pill::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);
+  margin-right:6px;vertical-align:middle;box-shadow:0 0 6px var(--ok);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;padding:15px 16px 11px}
+.stat{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 6px;text-align:center;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.5}
+.stat::after{content:"";position:absolute;right:7px;top:7px;width:10px;height:10px;
+  border-top:1.5px solid var(--bracket);border-right:1.5px solid var(--bracket);opacity:.55}
+.stat .v{font-size:23px;font-weight:700;font-family:var(--fm);line-height:1}
+.stat .l{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:5px}
+.v-crit{color:var(--crit)}.v-warn{color:var(--warn)}.v-acc{color:var(--acc);text-shadow:0 0 12px var(--glow)}
+
+.page{margin:3px 16px 13px;display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.page .shield{font-size:15px;line-height:1}
+.page .ph{flex:1;min-width:0}
+.page .ph b{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fm)}
+.page .ph small{font-size:10px;color:var(--muted)}
+.page .pstate{font-size:9.5px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+
+.conn{padding:0 16px 13px;display:flex;flex-direction:column;gap:7px}
+.conn-row{display:flex;align-items:center;gap:9px;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--dim);transition:.2s}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.off{background:var(--dim)}
 .conn-state{margin-left:auto;font-weight:600;font-size:11px}
 .s-on{color:var(--ok)}.s-off{color:var(--muted)}
-.info{padding:0 15px 12px;font-size:12px;color:var(--muted)}
-.exc{padding:0 15px 12px}
-.exc-head{display:flex;align-items:center;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
-.exc-head button{margin-left:auto;font:inherit;font-size:10px;text-transform:none;letter-spacing:0;color:var(--crit);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.35);border-radius:7px;padding:2px 9px;cursor:pointer}
-.exc-head button:hover{background:rgba(248,113,113,.18)}
+
+.info{padding:0 16px 13px;font-size:11.5px;color:var(--muted);line-height:1.55}
+.info b{color:var(--acc2);font-weight:600}
+
+.exc{padding:0 16px 12px}
+.exc-head{display:flex;align-items:center;font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px}
+.exc-head button{margin-left:auto;font:inherit;font-size:10px;text-transform:none;letter-spacing:0;color:var(--crit);background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.35);border-radius:7px;padding:2px 9px;cursor:pointer}
+.exc-head button:hover{background:rgba(255,84,112,.18)}
 .exc-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:5px}
-.exc-row span{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--warn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exc-row span{font-family:var(--fm);font-size:12px;color:var(--warn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .exc-row button{margin-left:auto;flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;line-height:1}
-.exc-row button:hover{color:var(--crit);border-color:rgba(248,113,113,.5)}
-.foot{padding:9px 15px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.exc-row button:hover{color:var(--crit);border-color:rgba(255,84,112,.5)}
+
+.foot{padding:10px 16px;border-top:1px solid var(--line);font-size:10px;color:var(--dim);display:flex;align-items:center;gap:7px}
+.foot::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 6px var(--glow)}
 </style></head><body>
 <div class="head"><img class="mark" src="icons/icon-48.png" alt="">
-<div><h1>AEGIS</h1><div class="sub">Guard</div></div><div class="pill">AKTIV</div></div>
+  <div><h1>AEGIS</h1><div class="sub">Guard · Browser-Schutz</div></div><div class="pill">AKTIV</div></div>
 <div class="grid">
-<div class="stat"><div class="v v-warn" id="s-warned">0</div><div class="l">Gewarnt</div></div>
-<div class="stat"><div class="v v-crit" id="s-dl">0</div><div class="l">Downloads</div></div>
-<div class="stat"><div class="v v-acc" id="s-block">0</div><div class="l">Blocklist</div></div>
+  <div class="stat"><div class="v v-warn" id="s-warned">0</div><div class="l">Gewarnt</div></div>
+  <div class="stat"><div class="v v-crit" id="s-dl">0</div><div class="l">Downloads</div></div>
+  <div class="stat"><div class="v v-acc" id="s-block">0</div><div class="l">Blockliste</div></div>
+</div>
+<div class="page" id="page-wrap" style="display:none">
+  <span class="shield" id="page-icon">🛡️</span>
+  <div class="ph"><b id="page-host">—</b><small id="page-note">wird überwacht</small></div>
+  <span class="pstate s-on" id="page-state"></span>
 </div>
 <div class="conn">
   <div class="conn-row"><span class="dot" id="d-bridge"></span>Browser-Brücke<span class="conn-state s-off" id="t-bridge">…</span></div>
   <div class="conn-row"><span class="dot" id="d-service"></span>Desktop-Service<span class="conn-state s-off" id="t-service">…</span></div>
 </div>
-<div class="info">Schützt vor IP-Loggern, Phishing-URLs &amp; Risiko-Downloads. Verdächtige Links werden auf jeder Seite markiert.</div>
+<div class="info">Schützt vor <b>IP-Loggern</b>, <b>Phishing-URLs</b> &amp; <b>Risiko-Downloads</b>. Verdächtige Links werden auf jeder Seite markiert.</div>
 <div class="exc" id="exc-wrap" style="display:none">
   <div class="exc-head">Erlaubte Ausnahmen <button id="exc-clear">alle entfernen</button></div>
   <div id="exc-list"></div>
 </div>
-<div class="foot">AEGIS Guard 2.4.0 · komplementär zur Desktop-App</div>
+<div class="foot">AEGIS Guard · komplementär zur Desktop-App</div>
 <script src="popup.js"></script></body></html>

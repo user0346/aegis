@@ -61,6 +61,10 @@
     ttsPreview: function (v) {},
     setWakeWord: function (on) { postJSON("/api/exec", { name: "settings.save", args: { wake_word_enabled: !!on } }).catch(function () {}); },
     wakeWordOn: function (cb) { if (cb) cb(false); },
+    // Gespraechsmodus betrifft nur den Sprach-Loop am PC; am Handy (Tippen) ohne Wirkung,
+    // aber die Einstellung wird trotzdem persistiert, damit der Schalter konsistent bleibt.
+    setConversationMode: function (on) { postJSON("/api/exec", { name: "settings.save", args: { conversation_followup: !!on } }).catch(function () {}); },
+    conversationModeOn: function (cb) { if (cb) cb(true); },
     memoryGet: function (cb) { getJSON("/api/memory").then(function (d) { if (cb) cb(JSON.stringify(d)); }).catch(function () { if (cb) cb("{}"); }); },
     ollamaStatus: function (cb) { getJSON("/api/ollama").then(function (d) { if (cb) cb(JSON.stringify(d)); }).catch(function () { if (cb) cb('{"installed":true,"running":true}'); }); },
     ollamaStart: function () {},

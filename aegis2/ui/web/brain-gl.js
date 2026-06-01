@@ -37,6 +37,7 @@
   const GL = {
     ok: false, _raf: 0,
     state: 0, stateTarget: 0, pulse: 0, threat: 0, threatTarget: 0,
+    _breath: 0, _bob: 0,                 // Phasen-Akkumulatoren (Atmen/Schweben) — kein Phasensprung
     thinkingOn: false, voiceState: "", _voiceTs: 0,
     col: C_IDLE.clone(),
 
@@ -133,15 +134,16 @@
       this.inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 3), innerMat);
       scene.add(this.inner);
 
-      // ---- Ringe entfernt (Nutzerwunsch — sahen nicht gut aus) — nur der Plasma-Kern ----
+      // ---- WebGL-Ringe bleiben aus; die HUD-Ringe kommen jetzt als knackige CSS-Overlays
+      //      um den Orb (siehe .orb-ring in style.css) — sehen deutlich besser aus. ----
       this.rings = [];
 
-      // ---- Partikel-Swirl-Feld (additiv) — auf Wunsch deaktiviert (0 = aus) ----
-      const N = 0;
+      // ---- Partikel-Globus (additiv) — JARVIS-Cognition-Core: dichte Punktwolke um den Kern ----
+      const N = 900;
       const pos = new Float32Array(N * 3), seed = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         const u = Math.random(), v = Math.random();
-        const th = 2 * Math.PI * u, ph = Math.acos(2 * v - 1), rr = 2.0 + Math.random() * 2.7;
+        const th = 2 * Math.PI * u, ph = Math.acos(2 * v - 1), rr = 1.8 + Math.random() * 1.05;
         pos[i * 3] = rr * Math.sin(ph) * Math.cos(th);
         pos[i * 3 + 1] = rr * Math.sin(ph) * Math.sin(th);
         pos[i * 3 + 2] = rr * Math.cos(ph);
@@ -151,7 +153,7 @@
       pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       pg.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
       const pu = { uTime: { value: 0 }, uColor: { value: this.col.clone() },
-                   uSize: { value: H / 17 }, uSpeed: { value: 1.0 }, uIntensity: { value: 1.0 } };
+                   uSize: { value: H / 25 }, uSpeed: { value: 1.0 }, uIntensity: { value: 1.0 } };
       this.pu = pu;
       const pMat = new THREE.ShaderMaterial({
         uniforms: pu, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -177,7 +179,7 @@
       const W = this.stage.clientWidth || 460, H = this.stage.clientHeight || 460;
       this.renderer.setSize(W, H, false);
       this.camera.aspect = W / H; this.camera.updateProjectionMatrix();
-      if (this.pu) this.pu.uSize.value = H / 17;
+      if (this.pu) this.pu.uSize.value = H / 25;
     },
 
     _loop() {
@@ -220,8 +222,16 @@
       const k = dt * (0.11 + active * 0.4 + this.threat * 0.35);
       this.core.rotation.y += k * 0.3; this.core.rotation.x += k * 0.05;
       this.inner.rotation.y -= k * 0.34;
-      this.inner.scale.setScalar(1.0 + Math.sin(t * (0.8 + active * 0.9)) * (0.009 + active * 0.024) + this.pulse * 0.03);
+      // Atmen über einen Phasen-Akkumulator statt sin(t*freq): ein Frequenzwechsel (active ändert
+      // sich) verursacht so KEINEN Phasensprung mehr -> das sichtbare Zucken ist weg.
+      this._breath += dt * (0.8 + active * 0.9);
+      this.inner.scale.setScalar(1.0 + Math.sin(this._breath) * (0.009 + active * 0.024) + this.pulse * 0.03);
       this.points.rotation.y += dt * (0.04 + active * 0.12);
+      // Idle-Schweben: ruht die Kugel (dreht kaum), schwebt sie sanft auf und ab; wird sie aktiv
+      // (dreht sichtbar), fadet das Schweben weg -> nie beides gleichzeitig, wirkt ruhig.
+      this._bob += dt * 0.5;
+      const bobY = Math.sin(this._bob) * 0.06 * (1 - Math.min(1, active * 1.8));
+      this.core.position.y = bobY; this.inner.position.y = bobY; this.points.position.y = bobY;
       // Gedanken-Ringe: zentrierte Halo-Kreise — im Idle ruhig sichtbar, beim Denken SANFT
       // heller (kein Aufblitzen). Kein Drehen (frontal) -> bleiben exakt zentriert.
       for (let ri = 0; ri < this.rings.length; ri++) {

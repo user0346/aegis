@@ -9,6 +9,7 @@ import json
 import logging
 import secrets
 import threading
+import time
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
@@ -102,6 +103,8 @@ class AegisBridge(QObject):
         a = (c or {}).get("action")
         if a == "switch_tab":
             self.voiceState.emit("tab", c.get("tab", ""))
+        elif a in ("hide_chat", "show_chat"):
+            self.voiceState.emit("ui", a)              # Chat-Panel ein-/ausblenden (panels.js)
         elif a == "hide_window":
             self.voiceState.emit("hide", "")
         elif a == "confirm_file_search":
@@ -128,6 +131,61 @@ class AegisBridge(QObject):
         finally:
             self.voiceState.emit("state", "idle")
 
+    # ---- Freihändige Gesprächs-Fortsetzung (Folge-Loop ohne erneutes Weckwort) ----
+    _MAX_FOLLOWUPS = 6           # Sicherheitsnetz; natürliches Ende ist Stille
+    _FOLLOWUP_SETTLE_S = 0.35    # kurz warten, bis das Lautsprecher-Echo abklingt
+    # Nach diesen Intents ergibt freihändiges Weiterreden keinen Sinn / ist unerwünscht.
+    # 'greet' bewusst NICHT drin: nach einer Begrüßung («Ja?» / Start-Gruß) SOLL AEGIS auf
+    # die Antwort warten (genau der gewünschte Gesprächseinstieg ohne erneutes Weckwort).
+    _STOP_INTENTS = frozenset({"restart", "tts_mute", "close", "close_app"})
+
+    def _conversation_on(self) -> bool:
+        try:
+            from aegis2.shared.db import get_db
+            return bool(get_db().get_setting("conversation_followup", True))
+        except Exception:  # noqa: BLE001
+            return True
+
+    @staticmethod
+    def _tts_on() -> bool:
+        try:
+            from aegis2.shared.db import get_db
+            return bool(get_db().get_setting("tts_enabled", True))
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _is_followup_worthy(self, res) -> bool:
+        return bool(res and res.get("ok")
+                    and res.get("intent") not in self._STOP_INTENTS)
+
+    def _voice_converse(self, res) -> None:
+        """Spricht die erste Antwort und führt — falls Gesprächsmodus an — danach einen
+        freihändigen Folge-Loop: kurzes Lausch-Fenster OHNE erneutes «Hey Jarvis», bei
+        Sprache weiter, bei Stille (oder Stop/«sei ruhig») sauber raus. speak_text blockiert
+        bis fertig -> beim Re-Öffnen des Mikros ist der Lautsprecher still (kein Selbst-Trigger)."""
+        self._voice_feedback(res)
+        if not self._conversation_on():
+            return
+        turns = 0
+        while turns < self._MAX_FOLLOWUPS:
+            # Beenden, wenn Sprachausgabe inzwischen aus ist («sei ruhig») oder die letzte
+            # Antwort kein Weiterreden nahelegt (Neustart, App geschlossen, …).
+            if not self._tts_on() or not self._is_followup_worthy(res):
+                break
+            turns += 1
+            time.sleep(self._FOLLOWUP_SETTLE_S)
+            try:
+                res = self._voice().listen_once(
+                    on_stage=lambda st: self.voiceState.emit("state", st), follow_up=True)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Folge-Lauschen: %s", e)
+                break
+            # Nichts gesagt -> Gespräch still beenden (kein Fehlertext vorlesen).
+            if res.get("follow_up_end") or (not res.get("ok") and res.get("stage") == "record"):
+                break
+            self._voice_feedback(res)
+        self.voiceState.emit("state", "idle")
+
     @pyqtSlot(str)
     def voiceText(self, text):
         text = (text or "").strip()
@@ -148,7 +206,7 @@ class AegisBridge(QObject):
             try:
                 res = self._voice().listen_once(
                     on_stage=lambda st: self.voiceState.emit("state", st))
-                self._voice_feedback(res)
+                self._voice_converse(res)
             except Exception as e:  # noqa: BLE001
                 self.voiceState.emit("state", "idle")
                 self.voiceState.emit("reply", "Fehler: " + str(e))
@@ -162,7 +220,7 @@ class AegisBridge(QObject):
             self.voiceState.emit("wake", "detected")
             res = self._voice().listen_once(
                 on_stage=lambda st: self.voiceState.emit("state", st))
-            self._voice_feedback(res)
+            self._voice_converse(res)
         except Exception as e:  # noqa: BLE001
             self.voiceState.emit("state", "idle")
             log.warning("Weckwort on_wake: %s", e)
@@ -200,6 +258,20 @@ class AegisBridge(QObject):
         except Exception:  # noqa: BLE001
             return False
 
+    @pyqtSlot(bool)
+    def setConversationMode(self, on):
+        """Settings-Toggle: nach einer Sprach-Antwort kurz weiterhören (Folgefrage ohne
+        Weckwort). Persistiert; wirkt sofort beim nächsten Sprach-Turn."""
+        try:
+            from aegis2.shared.db import get_db
+            get_db().set_setting("conversation_followup", bool(on))
+        except Exception:  # noqa: BLE001
+            pass
+
+    @pyqtSlot(result=bool)
+    def conversationModeOn(self):
+        return self._conversation_on()
+
     @pyqtSlot()
     def initWake(self):
         """Beim App-Start: Weckwort-Lauscher starten, falls eingeschaltet (idempotent)."""
@@ -223,15 +295,21 @@ class AegisBridge(QObject):
 
     @pyqtSlot()
     def greet(self):
-        """Proaktive Begruessung beim Start — AEGIS meldet sich SELBST (Chat-Bubble +
-        Sprache, sofern Sprachausgabe AN), ohne dass man erst einen Knopf druecken muss.
-        Genau EINMAL pro App-Start (idempotent)."""
+        """Proaktive Begruessung beim Start — AEGIS meldet sich SELBST: begruesst, fasst den
+        aktuellen Sicherheits-Stand KURZ zusammen und HOERT DANN freihaendig auf eine Antwort
+        (Gespraechsmodus, kein Weckwort noetig). Genau EINMAL pro App-Start (idempotent).
+        Startet ERST DANACH den Weckwort-Lauscher (keine Mikro-Kollision, kein Selbst-Trigger)."""
         if getattr(self, "_greeted", False):
             return
         self._greeted = True
 
         def _work():
             try:
+                try:                       # STT (GPU) im Hintergrund vorwaermen -> 1. Sprachbefehl schnell
+                    from aegis2.voice import stt as _stt
+                    _stt.prewarm()
+                except Exception:  # noqa: BLE001
+                    pass
                 try:
                     from aegis2.shared import user_memory
                     name = user_memory.get_address()
@@ -242,17 +320,47 @@ class AegisBridge(QObject):
                 tg = ("Guten Morgen" if 5 <= h < 11 else "Guten Tag" if 11 <= h < 18
                       else "Guten Abend" if 18 <= h < 23 else "Hallo")
                 who = (" " + name) if name else ""
-                greeting = (f"{tg}{who}. AEGIS ist bereit und schützt dich im Hintergrund. "
-                            "Wie kann ich helfen?")
-                self.voiceState.emit("reply", greeting)
-                self.voiceState.emit("state", "speaking")
+                # Sicherheits-Stand NUR erwähnen, wenn es wirklich etwas zu melden gibt — KEIN
+                # belangloser Füllsatz ("ich wache im Hintergrund über dein System" ist offen-
+                # sichtlich und nervt). Alles ruhig -> einfach knapp + persönlich begrüßen.
+                s = self._last_stats or {}
                 try:
-                    from aegis2.voice.sir_speaker import speak_text
-                    speak_text(greeting)        # respektiert den Sprachausgabe-Toggle
+                    threats = int(s.get("threats_24h", 0) or 0)
+                    quar = int(s.get("quarantine_pending", 0) or 0)
                 except Exception:  # noqa: BLE001
-                    pass
+                    threats, quar = 0, 0
+                state = ""
+                if threats > 0:
+                    state = (f" Kurz vorweg: {threats} {'Bedrohungen' if threats != 1 else 'Bedrohung'} "
+                             f"in den letzten 24 Stunden, {quar} in Quarantäne.")
+                elif quar > 0:
+                    state = (f" {quar} {'Objekte' if quar != 1 else 'Objekt'} "
+                             f"warten noch in der Quarantäne auf dich.")
+                # Vertrautheit: je mehr wir schon miteinander gemacht haben, desto lockerer der Ton.
+                try:
+                    from aegis2.shared import user_memory as _um2
+                    fam = sum((_um2._load().get("command_counts") or {}).values())
+                except Exception:  # noqa: BLE001
+                    fam = 0
+                import random as _rnd
+                closers = (["Wie kann ich dir helfen?", "Was steht an?", "Womit kann ich helfen?"]
+                           if fam < 25 else
+                           ["Was brauchst du?", "Leg los.", "Was kann ich für dich tun?",
+                            "Ich bin da — was steht an?", "Schieß los."])
+                greeting = f"{tg}{who}.{state} {_rnd.choice(closers)}"
+                # Sprechen + (bei Gespraechsmodus) freihaendig auf die Antwort warten — exakt
+                # der normale Voice-Turn-Ablauf (TTS blockiert -> Mikro danach frei).
+                self._voice_converse(
+                    {"ok": True, "msg": greeting, "intent": "greet", "transcript": ""})
+            except Exception as e:  # noqa: BLE001
+                log.warning("greet: %s", e)
             finally:
                 self.voiceState.emit("state", "idle")
+                # Weckwort-Lauscher ERST JETZT starten (nach der Begruessung + erster Antwort).
+                try:
+                    self.initWake()
+                except Exception:  # noqa: BLE001
+                    pass
         threading.Thread(target=_work, daemon=True).start()
 
     # ---- Ollama-Auto-Install (lokale KI, kein manueller Download) ----
@@ -281,6 +389,25 @@ class AegisBridge(QObject):
             })
         except Exception as e:  # noqa: BLE001
             return json.dumps({"error": str(e)})
+
+    @pyqtSlot(result=str)
+    def brainGet(self):
+        """AEGIS-Brain laden (Identität/Prioritäten/Stimme/Regeln) — die Datei, die JARVIS
+        bei jeder Antwort liest. Legt beim ersten Mal die Vorlage an."""
+        try:
+            from aegis2.shared import brain
+            return brain.load()
+        except Exception as e:  # noqa: BLE001
+            return "# Fehler beim Laden des Brain: " + str(e)
+
+    @pyqtSlot(str, result=bool)
+    def brainSave(self, text):
+        """AEGIS-Brain speichern (wirkt sofort beim nächsten Gespräch, kein Neustart nötig)."""
+        try:
+            from aegis2.shared import brain
+            return bool(brain.save(text or ""))
+        except Exception:  # noqa: BLE001
+            return False
 
     @pyqtSlot()
     def ollamaInstall(self):

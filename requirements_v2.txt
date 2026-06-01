@@ -21,3 +21,19 @@ pywin32>=311; sys_platform == 'win32'
 # aber ONLINE). Fehlt das Paket, fiele JEDE Stimme still auf eine einzige SAPI-
 # Stimme zurueck (Bug "Stimme passt nicht zur Auswahl"). Offline-Fallback = SAPI.
 edge-tts>=7.0
+
+# ── Bildschirm sehen (Vision) ────────────────────────────────────────────
+# Screenshot (mss) + Encoding/Resize (Pillow) -> lokales Vision-Modell (Ollama, z.B.
+# llama3.2-vision oder gemma3) erkennt den Bildschirm auf «was ist das?». Offline, auf Zuruf.
+mss>=9.0
+Pillow>=10.0
+
+# ── App-genaue Mediensteuerung (Windows) ─────────────────────────────────
+# pycaw: Lautstaerke EINER App (Spotify leiser != System-Sound). winrt (SMTC): echter
+# Wiedergabe-Status (laeuft/pausiert) + Transport fuer jedes Programm. winsdk baut NICHT
+# auf Python 3.14 -> stattdessen die winrt-Namespace-Pakete.
+pycaw>=20240210; sys_platform == 'win32'
+comtypes>=1.2; sys_platform == 'win32'
+winrt-Windows.Media.Control; sys_platform == 'win32'
+winrt-Windows.Foundation; sys_platform == 'win32'
+winrt-runtime; sys_platform == 'win32'

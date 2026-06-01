@@ -10,7 +10,7 @@ an die AEGIS-Desktop-App:
 
 Chrome/Brave/Edge Native-Messaging-Protokoll (stdin/stdout, 4-byte length + JSON).
 """
-import sys, os, json, struct, time
+import sys, os, json, struct, time, threading
 from pathlib import Path
 
 # Konsolenfenster verstecken (windowless host)
@@ -26,6 +26,17 @@ sys.path.insert(0, ROOT)
 PIPE_NAME = r"\\.\pipe\aegis-v2-bus"
 TOKEN_PATH = Path.home() / ".aegis" / "ipc_token"
 
+# ----- Browser-Control: datei-basierte Bruecke Desktop-App <-> Host <-> Extension -----
+# Die Desktop-App SCHREIBT Steuer-Befehle in BROWSER_CMD_FILE; dieser Host POLLT die Datei
+# und schiebt neue Befehle an die Extension. Ergebnisse der Extension schreibt der Host nach
+# BROWSER_RESULT_FILE (die App liest sie dort). HEARTBEAT zeigt der App, dass die Bruecke lebt.
+_AEGIS_DIR = Path.home() / ".aegis"
+BROWSER_CMD_FILE = _AEGIS_DIR / "browser_cmd.jsonl"
+BROWSER_RESULT_FILE = _AEGIS_DIR / "browser_result.jsonl"
+HEARTBEAT_FILE = _AEGIS_DIR / "browser_bridge_alive"
+
+_send_lock = threading.Lock()      # send_msg aus mehreren Threads serialisieren
+
 
 # ----- Native-Messaging-Protokoll -----
 def read_msg():
@@ -38,9 +49,63 @@ def read_msg():
 
 def send_msg(obj):
     data = json.dumps(obj).encode("utf-8")
-    sys.stdout.buffer.write(struct.pack("<I", len(data)))
-    sys.stdout.buffer.write(data)
-    sys.stdout.buffer.flush()
+    with _send_lock:                # zwei Threads (main + cmd-pump) schreiben sonst verschraenkt
+        sys.stdout.buffer.write(struct.pack("<I", len(data)))
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
+
+
+# ----- Browser-Control: Befehls-Queue der App pollen + an Extension weiterreichen -----
+def _browser_cmd_pump(stop_evt):
+    """Tail't BROWSER_CMD_FILE (append-only JSONL) und schickt neue Steuer-Befehle an die
+    Extension. Aktualisiert die Heartbeat-Datei, damit die App weiss, dass die Bruecke lebt.
+    Best-effort, schweigt bei Fehlern (der Host darf nie crashen)."""
+    seek = 0
+    try:
+        if BROWSER_CMD_FILE.exists():
+            seek = BROWSER_CMD_FILE.stat().st_size      # nur NEUE Befehle ab jetzt
+    except Exception:
+        seek = 0
+    while not stop_evt.is_set():
+        try:
+            HEARTBEAT_FILE.write_text(str(int(time.time())), encoding="utf-8")
+        except Exception:
+            pass
+        try:
+            if BROWSER_CMD_FILE.exists():
+                size = BROWSER_CMD_FILE.stat().st_size
+                if size < seek:
+                    seek = 0                            # Datei wurde rotiert/geleert
+                if size > seek:
+                    with open(BROWSER_CMD_FILE, "rb") as f:
+                        f.seek(seek)
+                        chunk = f.read()
+                    nl = chunk.rfind(b"\n")
+                    if nl != -1:
+                        seek += nl + 1
+                        for line in chunk[:nl + 1].split(b"\n"):
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                cmd = json.loads(line.decode("utf-8", "replace"))
+                            except Exception:
+                                continue
+                            if isinstance(cmd, dict) and cmd.get("cmd"):
+                                send_msg(cmd)            # -> Extension (handleBrowserCmd)
+        except Exception:
+            pass
+        stop_evt.wait(0.4)                               # ~400 ms Poll-Intervall
+
+
+def _write_browser_result(obj):
+    """Ergebnis der Extension fuer die Desktop-App ablegen (append-only, von der App getailt)."""
+    try:
+        _AEGIS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(BROWSER_RESULT_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 
 # ----- Event an den laufenden Service injizieren (Live-Stream) -----
@@ -106,6 +171,13 @@ def main():
     except Exception:
         blocklist = []
 
+    # Browser-Control: App->Extension-Befehls-Pump als Hintergrund-Thread starten.
+    _stop = threading.Event()
+    try:
+        threading.Thread(target=_browser_cmd_pump, args=(_stop,), daemon=True).start()
+    except Exception:
+        pass
+
     while True:
         msg = read_msg()
         if msg is None:
@@ -115,6 +187,8 @@ def main():
             send_msg({"blocklist": blocklist, "service_online": service_online()})
         elif t == "ping":
             send_msg({"t": "pong", "service_online": service_online()})
+        elif t == "cmd_result":
+            _write_browser_result(msg)               # Browser-Control-Ergebnis -> fuer die App
         elif t == "blocked_nav":
             host = msg.get("host", "?")
             report("WARN", "URL", f"Browser: Risiko-Navigation blockiert ({host})", msg)

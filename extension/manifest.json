@@ -31,7 +31,8 @@
     "declarativeNetRequest",
     "scripting",
     "nativeMessaging",
-    "alarms"
+    "alarms",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"

@@ -24,11 +24,11 @@
 ">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta name="referrer" content="no-referrer">
-<link rel="stylesheet" href="style.css?v=250">
+<link rel="stylesheet" href="style.css?v=271">
 <link rel="stylesheet" href="mobile_fix.css?v=2">
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
-<body>
+<body class="mode-orb">
 
 <div id="app">
 
@@ -46,16 +46,16 @@
       </div>
     </div>
 
-    <nav class="tabs" role="tablist">
-      <button class="tab is-active" data-tab="dashboard">Dashboard</button>
-      <button class="tab" data-tab="threats">Threats</button>
-      <button class="tab" data-tab="scan">Scan</button>
-      <button class="tab" data-tab="quarantine">Quarantine</button>
-      <button class="tab" data-tab="network">Network</button>
-      <button class="tab" data-tab="sentinel">Sentinel</button>
-      <button class="tab" data-tab="voice">Assistent</button>
-      <button class="tab" data-tab="memory">Memory</button>
-      <button class="tab" data-tab="settings">Settings</button>
+    <nav class="tabs dock" role="tablist">
+      <button class="tab is-active" data-tab="voice" title="Assistent — Orb-Heimansicht">◎ Assistent</button>
+      <button class="tab" data-tab="dashboard" title="Dashboard & Vitals">▤ Dashboard</button>
+      <button class="tab" data-tab="threats" title="Bedrohungen">⚠ Threats</button>
+      <button class="tab" data-tab="scan" title="System-Scan">◴ Scan</button>
+      <button class="tab" data-tab="quarantine" title="Quarantäne">⛓ Quarantine</button>
+      <button class="tab" data-tab="network" title="Netzwerk">⇄ Network</button>
+      <button class="tab" data-tab="sentinel" title="USB / Sentinel">⛨ Sentinel</button>
+      <button class="tab" data-tab="memory" title="Gedächtnis">◈ Memory</button>
+      <button class="tab" data-tab="settings" title="Einstellungen">⚙ Settings</button>
     </nav>
 
     <div class="status-cluster">
@@ -69,7 +69,30 @@
   <main class="views">
 
     <!-- Dashboard -->
-    <section class="view is-active" data-view="dashboard">
+    <section class="view" data-view="dashboard">
+      <div class="hud-hero">
+        <div class="reactor" aria-hidden="true"><i class="r3"></i><i class="r1"></i><i class="r2"></i><i class="core"></i></div>
+        <div class="hud-hero-text">
+          <div class="hud-hero-title">SYSTEM <span class="hud-on">ONLINE</span></div>
+          <div class="hud-hero-sub">AEGIS · Autonomous Endpoint Guardian — Echtzeit-Schutz aktiv, KI bereit</div>
+          <div class="hud-bar"><span></span></div>
+        </div>
+        <div class="hud-clock" aria-hidden="true">
+          <div class="hud-time mono" id="hud-time">--:--:--</div>
+          <div class="hud-date mono" id="hud-date">—</div>
+          <div class="hud-meta mono">⛨ SECURE · 🔒 ENCRYPTED</div>
+        </div>
+      </div>
+      <div class="card vitals-card">
+        <div class="card-head"><h2>System Vitals</h2><span class="muted mono">● live</span></div>
+        <div class="vitals">
+          <div class="vital" data-vital="schutz"><span class="vital-label">Schutz-Kern</span><span class="vital-bar"><i></i></span><span class="vital-val mono">—</span></div>
+          <div class="vital" data-vital="wacht"><span class="vital-label">Wachsamkeit</span><span class="vital-bar"><i></i></span><span class="vital-val mono">—</span></div>
+          <div class="vital" data-vital="wissen"><span class="vital-label">Wissens-Index</span><span class="vital-bar"><i></i></span><span class="vital-val mono">—</span></div>
+          <div class="vital" data-vital="netz"><span class="vital-label">Netz-Aktivität</span><span class="vital-bar"><i></i></span><span class="vital-val mono">—</span></div>
+          <div class="vital" data-vital="bedrohung"><span class="vital-label">Bedrohungslage</span><span class="vital-bar"><i></i></span><span class="vital-val mono">—</span></div>
+        </div>
+      </div>
       <div class="stat-grid">
         <div class="stat-tile">
           <div class="stat-label">Events / 24h</div>
@@ -332,24 +355,27 @@
       </div>
     </section>
 
-    <!-- Voice / Cognition -->
-    <section class="view" data-view="voice">
+    <!-- Voice / Cognition — Orb-Heimansicht (Single-Screen-Default) -->
+    <section class="view is-active" data-view="voice">
       <div class="card cognition-hero">
         <div class="brain-stage" id="brain-stage">
           <canvas id="brain-canvas" aria-label="AEGIS Cognition Sphere"></canvas>
+          <span class="orb-ticks" aria-hidden="true"></span>
+          <span class="orb-ring r-dash" aria-hidden="true"></span>
+          <span class="orb-ring r-seg" aria-hidden="true"></span>
+          <span class="orb-ring r-seg2" aria-hidden="true"></span>
           <div class="brain-overlay" id="brain-overlay">
             <span class="brain-overlay-label">COGNITION</span>
           </div>
         </div>
         <div class="voice-state">
           <h2 id="voice-status">Idle</h2>
-          <p class="muted">Sage <strong>"AEGIS"</strong>, dann eine Anweisung. Oder tippe unten.</p>
+          <p class="muted">Sag <strong>„Hey Jarvis"</strong> — oder tippe unten.</p>
           <div class="voice-history" id="voice-history"></div>
           <div class="voice-transcript" id="voice-transcript">—</div>
           <div class="voice-input">
             <input id="voice-text" placeholder="Frage AEGIS direkt…">
             <button class="btn" id="voice-send">Senden</button>
-            <button class="btn" id="voice-mic" title="Push-to-Talk — lokal, kein Key">🎤 Sprechen</button>
             <button class="btn" id="voice-stop" title="Sprachausgabe abbrechen" style="display:none;">⏹</button>
             <button class="btn" id="chat-copy-all" title="Ganzen Chat kopieren">⧉ Chat</button>
           </div>
@@ -400,6 +426,51 @@
         </div>
         <p class="muted" style="margin:0 0 12px;">Dauerhaftes, lokales Gedächtnis — bleibt über Neustarts erhalten und verlässt deinen PC nie. Ändern per Sprache: „nenn mich …", „hör ab jetzt auf …", „merk dir, dass …", „vergiss alles".</p>
         <div id="mem-body" class="mem-body">lädt …</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>AEGIS-Brain — Identität &amp; Regeln</h2>
+          <span class="muted">wird bei jeder Antwort gelesen</span>
+        </div>
+        <p class="muted" style="margin:0 0 12px;">Dein „Brain": Identität, Prioritäten, Stimme und Regeln, die JARVIS bei <strong>jeder</strong> Antwort als Persönlichkeits-Vorgabe liest — so startet er nie bei null. Frei editierbar (Markdown). Die fest verdrahteten Sicherheitsregeln bleiben übergeordnet.</p>
+        <textarea id="brain-text" class="brain-text" spellcheck="false" placeholder="lädt …"></textarea>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:12px;">
+          <button class="btn" id="brain-save">Brain speichern</button>
+          <span id="brain-status" class="muted"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fähigkeiten-/Gedächtnis-Embed: "was kannst du" -->
+    <section class="view" data-view="capabilities">
+      <div class="card">
+        <div class="card-head"><h2>Was AEGIS kann</h2></div>
+        <div class="arch" style="grid-template-areas:none;grid-template-columns:1fr 1fr">
+          <div class="arch-box"><b>🛡️ Sicherheit</b><span>System-Scan · Bedrohungen · Quarantäne · Echtzeit-Watcher (Prozess/Datei/Netzwerk) · Domain-Blocklist</span></div>
+          <div class="arch-box"><b>👁️ Bildschirm sehen</b><span>«was ist das» / «was siehst du» — Screenshot erkennen + bei echter Gefahr warnen</span></div>
+          <div class="arch-box"><b>🎙️ Stimme</b><span>«Hey Jarvis» · freihändig · Deutsch (Whisper auf GPU) · spricht zurück</span></div>
+          <div class="arch-box"><b>🎵 Medien</b><span>Spotify/YouTube steuern · app-genaue Lautstärke · echter Play/Pause-Status</span></div>
+          <div class="arch-box"><b>🌐 Browser</b><span>Tabs öffnen/fokussieren · «was läuft» · Risiko-Links blockieren</span></div>
+          <div class="arch-box"><b>🧠 Wissen & Lernen</b><span>«lerne …» · «was ist …» · merkt sich Fakten · Auto-Research im Hintergrund</span></div>
+          <div class="arch-box"><b>⚙️ System</b><span>Apps öffnen/schließen · Systeminfo · Embeds · Neustart</span></div>
+          <div class="arch-box" style="border-color:var(--acc)"><b>📊 Mein Gedächtnis</b><span id="cap-mem">frag «was hast du gelernt» für Details.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architektur-Embed: "wie bist du aufgebaut" -->
+    <section class="view" data-view="architecture">
+      <div class="card">
+        <div class="card-head"><h2>Wie AEGIS aufgebaut ist</h2></div>
+        <div class="arch">
+          <div class="arch-box arch-percept"><b>Wahrnehmung · Echtzeit</b><span>Prozess-, Datei- &amp; Netzwerk-Watcher · USB-Sentinel — sieht neue Dateien &amp; Prozesse sofort</span></div>
+          <div class="arch-box arch-observe"><b>Beobachtbarkeit</b><span>Live-Ereignisse · Status / Lagebericht · Protokolle</span></div>
+          <div class="arch-box arch-protect"><b>Schutz · Guardrails</b><span>Blocklist · Quarantäne · Self-Protect · Capability-Gate</span></div>
+          <div class="arch-box arch-voice"><b>Stimme &amp; Interaktion</b><span>Whisper-STT (GPU) · edge-TTS · Weckwort · Intent-Router</span></div>
+          <div class="arch-core"><span class="arch-core-l">AEGIS</span><span class="arch-core-s">Agentic Core</span></div>
+          <div class="arch-box arch-tools"><b>KI &amp; Werkzeuge</b><span>Ollama · Gemma 3 · Browser-Control · Media-Steuerung (SMTC)</span></div>
+          <div class="arch-box arch-memory"><b>Gedächtnis &amp; Wissen</b><span>RAG-Wissensbasis · Fakten-Memory · Brain (Persona) · Auto-Research</span></div>
+        </div>
+        <p class="muted" style="margin-top:14px;font-size:11.5px">Lokal auf deinem PC · komplementär zu Windows Defender. Dieses Embed kannst du ziehen &amp; skalieren — und es leuchtet, wenn ich spreche.</p>
       </div>
     </section>
 
@@ -452,6 +523,10 @@
           <input type="checkbox" id="wake-jarvis">
         </div>
         <div class="form-row">
+          <label>Gesprächsmodus — nach einer Antwort kurz weiterhören (Folgefrage ohne „Hey Jarvis")</label>
+          <input type="checkbox" id="conv-followup" checked>
+        </div>
+        <div class="form-row">
           <label>AEGIS-Stimme (neuronal &amp; gratis, online — „System-Stimme" läuft offline)</label>
           <select id="tts-voice">
             <option value="de-DE-ConradNeural">Conrad — männlich, ruhig</option>
@@ -460,6 +535,10 @@
             <option value="de-DE-KatjaNeural">Katja — weiblich, klar</option>
             <option value="de-DE-AmalaNeural">Amala — weiblich, warm</option>
             <option value="de-DE-KillianNeural">Killian — männlich, jung</option>
+            <option value="de-AT-JonasNeural">Jonas — männlich, österreichisch</option>
+            <option value="de-AT-IngridNeural">Ingrid — weiblich, österreichisch</option>
+            <option value="de-CH-JanNeural">Jan — männlich, schweizerisch</option>
+            <option value="de-CH-LeniNeural">Leni — weiblich, schweizerisch</option>
             <option value="sapi">System-Stimme (offline, ohne edge-tts)</option>
           </select>
         </div>
@@ -469,12 +548,14 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><h2>KI-Modell / Backend</h2></div>
-        <p class="muted" style="margin:0 0 12px;">
-          Standard: lokales <strong>Ollama</strong>. Du kannst aber jedes OpenAI-kompatible
-          Ziel nutzen — <strong>LM Studio, llama.cpp, vLLM, Jan, LocalAI</strong> … oder eine
-          Cloud-API. Nur Adresse + Modellname (+ ggf. Schlüssel) eintragen.
+      <details class="card">
+        <summary class="card-head" style="cursor:pointer;list-style:none;user-select:none">
+          <h2>KI-Modell / Backend <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">— erweitert, optional</span></h2></summary>
+        <p class="muted" style="margin:10px 0 12px;">
+          AEGIS wählt automatisch das beste verfügbare lokale Modell — normalerweise musst du hier
+          nichts einstellen. Nur ändern, wenn du bewusst ein anderes Backend nutzen willst:
+          <strong>LM Studio, llama.cpp, vLLM, Jan, LocalAI</strong> … oder eine Cloud-API
+          (Adresse + Modellname, ggf. Schlüssel).
         </p>
         <div class="form-row">
           <label>Backend</label>
@@ -499,7 +580,7 @@
           <label>&nbsp;</label>
           <button class="btn btn-sm" id="llm-save">Backend speichern</button>
         </div>
-      </div>
+      </details>
 
       <div class="card">
         <div class="card-head"><h2>Handy-Ansicht (live vom Smartphone)</h2></div>
@@ -696,12 +777,13 @@
 </div>
 
 <script src="three.min.js"></script>
-<script src="brain-gl.js?v=251"></script>
+<script src="brain-gl.js?v=253"></script>
 <script src="brain.js?v=251"></script>
-<script src="app.js?v=243"></script>
+<script src="app.js?v=244"></script>
 <script src="updater.js?v=251"></script>
 <script src="sentinel.js?v=250"></script>
-    <script src="dashboard.js?v=243"></script>
-    <script src="panels.js?v=251"></script>
+    <script src="dashboard.js?v=244"></script>
+    <script src="panels.js?v=259"></script>
+    <script src="embeds.js?v=2"></script>
 </body>
 </html>

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import sys
 import threading
@@ -185,11 +186,33 @@ def _speak_via_edge(text: str, voice: str, rate: str = NEURAL_RATE) -> bool:
             pass
 
 
+_SPEAK_URL_RE = re.compile(r"https?://(?:www\.)?([a-z0-9.\-]+)(?:/\S*)?", re.I)
+
+
+def _strip_for_speech(text: str) -> str:
+    """URLs/Windows-Pfade NICHT vorlesen (klingt schlecht, buchstabiert ewig). URL -> reiner
+    Domain-Name (bzw. 'die Seite'), Pfad -> 'die Datei'. Der Chat-Text (Bubble) behaelt die
+    volle URL/den Pfad — nur die GESPROCHENE Fassung wird gekuerzt."""
+    if not text:
+        return text
+
+    def _u(m):
+        host = (m.group(1) or "").lower().strip(".")
+        parts = [p for p in host.split(".") if p]
+        # Second-Level-Domain sprechen (open.spotify.com -> spotify, youtube.com -> youtube)
+        name = parts[-2] if len(parts) >= 2 else (parts[0] if parts else "")
+        return name if name and name != "www" else "die Seite"
+    t = _SPEAK_URL_RE.sub(_u, text)
+    t = re.sub(r"[A-Za-z]:\\[^\s]+", "die Datei", t)   # Windows-Pfade nicht buchstabieren
+    return t
+
+
 def speak_text(text: str, voice: Optional[str] = None) -> bool:
     """Zentrale Sprachausgabe: neuronale Stimme (edge-tts) bevorzugt, SAPI als Fallback.
     Stimme aus Setting 'tts_voice' (Default: ruhige Neural-Stimme)."""
     if not text:
         return False
+    text = _strip_for_speech(text)        # URLs/Pfade nicht vorlesen
     # Nutzer-Schalter: Sprachausgabe komplett deaktivierbar (Warnsound bleibt aktiv)
     try:
         from ..shared.db import get_db

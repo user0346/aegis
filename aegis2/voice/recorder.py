@@ -42,18 +42,23 @@ def _to_wav(frames: list[bytes]) -> bytes:
     return buf.getvalue()
 
 
-def record_until_silence(vad_aggressiveness: int = 2) -> Optional[bytes]:
+def record_until_silence(vad_aggressiveness: int = 2,
+                         max_wait_s: Optional[float] = None) -> Optional[bytes]:
     """Returns WAV-bytes (16-bit, mono, 16-kHz) oder None. Probiert sounddevice zuerst
-    (3.14-tauglich), dann pyaudio+webrtcvad. NIE ein harter Crash bei fehlendem Mikro."""
-    blob = _record_sounddevice()
+    (3.14-tauglich), dann pyaudio+webrtcvad. NIE ein harter Crash bei fehlendem Mikro.
+
+    max_wait_s: bricht das Warten auf SPRACHBEGINN nach so vielen Sekunden ab (für den
+    freihändigen Folge-Loop, damit das Mikro bei Stille nicht die vollen ~8s offen bleibt).
+    None = bis MAX_DURATION_S abwarten."""
+    blob = _record_sounddevice(max_wait_s)
     if blob is not None:
         return blob
     if HAS_PYAUDIO:
-        return _record_pyaudio(vad_aggressiveness)
+        return _record_pyaudio(vad_aggressiveness, max_wait_s)
     return None
 
 
-def _record_sounddevice() -> Optional[bytes]:
+def _record_sounddevice(max_wait_s: Optional[float] = None) -> Optional[bytes]:
     """sounddevice-Aufnahme mit energie-basierter (RMS) Stille-Erkennung. Adaptive Schwelle
     aus den ersten Frames (Umgebungsgeraeusch) -> robust gegen leise/laute Raeume."""
     try:
@@ -73,12 +78,13 @@ def _record_sounddevice() -> Optional[bytes]:
         voiced_started = False
         max_frames = int(MAX_DURATION_S * 1000 / FRAME_MS)
         silence_threshold = int(SILENCE_TAIL_S * 1000 / FRAME_MS)
+        wait_limit = int(max_wait_s * 1000 / FRAME_MS) if max_wait_s else 0
         ambient: list[float] = []
         thr: Optional[float] = None
 
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
                             blocksize=FRAME_SAMPLES) as stream:
-            for _ in range(max_frames):
+            for _i in range(max_frames):
                 data, _of = stream.read(FRAME_SAMPLES)
                 frame = np.asarray(data, dtype=np.int16).reshape(-1)
                 rms = float(np.sqrt(np.mean(frame.astype(np.float32) ** 2))) if frame.size else 0.0
@@ -86,7 +92,7 @@ def _record_sounddevice() -> Optional[bytes]:
                     ambient.append(rms)
                     if len(ambient) >= 9:
                         base = sorted(ambient)[len(ambient) // 2]
-                        thr = max(base * 3.0, 350.0)
+                        thr = max(base * 2.6, 280.0)   # etwas empfindlicher: leise/spaete Sprache nicht verpassen
                     is_speech = False
                 else:
                     is_speech = rms > thr
@@ -96,6 +102,8 @@ def _record_sounddevice() -> Optional[bytes]:
                     if is_speech:
                         voiced_started = True
                         voiced.extend(ring)
+                    elif wait_limit and _i >= wait_limit:
+                        break          # niemand hat gesprochen -> Folge-Fenster zu
                 else:
                     voiced.append(fb)
                     if is_speech:
@@ -109,7 +117,8 @@ def _record_sounddevice() -> Optional[bytes]:
         return None
 
 
-def _record_pyaudio(vad_aggressiveness: int = 2) -> Optional[bytes]:
+def _record_pyaudio(vad_aggressiveness: int = 2,
+                    max_wait_s: Optional[float] = None) -> Optional[bytes]:
     """Fallback: pyaudio + webrtcvad (z.B. Python 3.13)."""
     if not HAS_PYAUDIO:
         return None
@@ -134,8 +143,9 @@ def _record_pyaudio(vad_aggressiveness: int = 2) -> Optional[bytes]:
         voiced_started = False
         max_frames = int(MAX_DURATION_S * 1000 / FRAME_MS)
         silence_threshold = int(SILENCE_TAIL_S * 1000 / FRAME_MS)
+        wait_limit = int(max_wait_s * 1000 / FRAME_MS) if max_wait_s else 0
 
-        for _ in range(max_frames):
+        for _i in range(max_frames):
             frame = stream.read(FRAME_SAMPLES, exception_on_overflow=False)
             is_speech = vad.is_speech(frame, SAMPLE_RATE)
             if not voiced_started:
@@ -143,6 +153,8 @@ def _record_pyaudio(vad_aggressiveness: int = 2) -> Optional[bytes]:
                 if is_speech:
                     voiced_started = True
                     voiced.extend(ring)
+                elif wait_limit and _i >= wait_limit:
+                    break          # niemand hat gesprochen -> Folge-Fenster zu
             else:
                 voiced.append(frame)
                 if is_speech:

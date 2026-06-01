@@ -4,9 +4,32 @@ chrome.runtime.sendMessage({ kind: "stats" }, (s) => {
   if (chrome.runtime.lastError || !s) return;
   set("s-warned", s.warnedNav); set("s-dl", s.blockedDownloads);
 });
+// Blockliste + aktuelle Seite gegen die Liste pruefen (nutzt nur vorhandene tabs-Permission).
+function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
 chrome.runtime.sendMessage({ kind: "blocklist" }, (l) => {
-  if (chrome.runtime.lastError || !l) return;
-  set("s-block", l.length);
+  const list = (chrome.runtime.lastError || !l) ? [] : l;
+  set("s-block", list.length);
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError || !tabs || !tabs[0]) return;
+      const url = tabs[0].url || "", host = hostOf(url);
+      const wrap = document.getElementById("page-wrap");
+      if (!host || !/^https?:/i.test(url)) { wrap.style.display = "none"; return; }
+      wrap.style.display = "flex";
+      document.getElementById("page-host").textContent = host;
+      const bad = list.some((d) => host === d || host.endsWith("." + d));
+      const icon = document.getElementById("page-icon");
+      const note = document.getElementById("page-note");
+      const st = document.getElementById("page-state");
+      if (bad) {
+        icon.textContent = "⛔"; note.textContent = "steht auf der Blockliste";
+        st.textContent = "GEBLOCKT"; st.className = "pstate"; st.style.color = "var(--crit)";
+      } else {
+        icon.textContent = "🛡️"; note.textContent = "wird aktiv überwacht";
+        st.textContent = "GESCHÜTZT"; st.className = "pstate s-on";
+      }
+    });
+  } catch (e) { /* tabs evtl. nicht verfuegbar -> Zeile bleibt versteckt */ }
 });
 
 // ---- Live-Verbindungsstatus (Bruecke + Desktop-Service) ----
