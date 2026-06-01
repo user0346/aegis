@@ -68,7 +68,7 @@ header{padding:14px 16px;display:flex;align-items:center;gap:11px;position:stick
 .dot{width:13px;height:13px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);flex:none}
 .dot.warn{background:var(--warn);box-shadow:0 0 12px var(--warn)}.dot.crit{background:var(--crit);box-shadow:0 0 12px var(--crit)}
 h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.14em}.sub{color:var(--mut);font-size:12px}
-.wrap{padding:12px 12px calc(66px + env(safe-area-inset-bottom))}.hide{display:none}
+.wrap{padding:12px 12px calc(80px + env(safe-area-inset-bottom))}.hide{display:none!important}
 #tab-chat{padding-bottom:calc(122px + env(safe-area-inset-bottom))}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
@@ -95,6 +95,7 @@ nav a.on{color:var(--acc)}
 .mod{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px}
 .md{width:9px;height:9px;border-radius:50%;background:#46506b;flex:none}.md.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
 .mod .mn{font-size:13.5px}
+#scanstat.run{color:var(--acc);font-weight:600}
 </style></head><body>
 <header><span class=dot id=dot></span><div><h1>A E G I S</h1><div class=sub id=sub>verbinde…</div></div></header>
 
@@ -169,14 +170,24 @@ function addBubble(who,txt){var d=document.createElement('div');d.className='bub
 async function sendMsg(){var i=document.getElementById('msg'),t=i.value.trim();if(!t)return;i.value='';addBubble('me',t);
  var th=document.createElement('div');th.className='bubble ae';th.textContent='…';document.getElementById('chatbox').appendChild(th);th.scrollIntoView();
  try{var r=await jpost('api/chat',{text:t});th.textContent=r.reply||'(keine Antwort)';}catch(e){th.textContent='Fehler.';}th.scrollIntoView();}
+async function pollScan(){
+ if(TAB!=='schutz')return;
+ try{var s=await jpost('api/cmd',{name:'scan.status'});var d=s.data||{},sm=d.summary||{};
+  var g=sm.items_total||0,f=(sm.items_block||0)+(sm.items_warn||0),u=sm.items_unknown||0;
+  var el=document.getElementById('scanstat');
+  if(d.running){el.textContent='läuft… '+g+' geprüft · '+f+' Funde';el.classList.add('run');clearTimeout(window._sp);window._sp=setTimeout(pollScan,1500);}
+  else if(sm.finished_at||g){el.classList.remove('run');el.textContent='fertig · '+g+' geprüft · '+f+' Funde'+(u?(' · '+u+' unbekannt'):'')+(sm.cancelled?' (abgebrochen)':'');}
+  else{el.classList.remove('run');el.textContent='kein Scan bisher';}
+ }catch(e){}
+}
 async function loadSchutz(){
- try{var s=await jpost('api/cmd',{name:'scan.status'});document.getElementById('scanstat').textContent=s.data?(s.data.running?('läuft… '+(s.data.scanned||0)+' geprüft, '+(s.data.findings||0)+' Funde'):(s.data.last?('zuletzt: '+(s.data.findings||0)+' Funde'):'kein Scan bisher')):'—';}catch(e){}
+ pollScan();
  try{var q=await jpost('api/cmd',{name:'quarantine.list'});var items=(q.data&&(q.data.items||q.data))||[];if(!Array.isArray(items))items=[];
   document.getElementById('quar').innerHTML=items.length?items.slice(0,30).map(function(x){return '<div class=evt><div class=m>'+esc(x.path||x.name||x.ident||JSON.stringify(x).slice(0,80))+'</div><div class=meta>'+esc(x.verdict||x.reason||'')+'</div></div>'}).join(''):'<div class=muted>Quarantäne ist leer.</div>';}catch(e){document.getElementById('quar').innerHTML='<div class=muted>—</div>';}
 }
 document.getElementById('send').onclick=sendMsg;
 document.getElementById('msg').addEventListener('keydown',function(e){if(e.key==='Enter')sendMsg()});
-document.getElementById('scanbtn').onclick=async function(){this.textContent='Starte…';try{await jpost('api/cmd',{name:'scan.start'});}catch(e){}setTimeout(loadSchutz,1200);this.textContent='▶ Vollständigen Scan starten';};
+document.getElementById('scanbtn').onclick=async function(){var b=this;b.textContent='Starte…';b.disabled=true;try{await jpost('api/cmd',{name:'scan.start'});}catch(e){}b.disabled=false;b.textContent='▶ Vollständigen Scan starten';setTimeout(pollScan,500);};
 tick();setInterval(tick,3000);
 </script></body></html>"""
 
