@@ -82,6 +82,17 @@ class Orchestrator:
             except Exception:  # noqa: BLE001
                 log.exception("CognitionReasoner konnte nicht geladen werden")
 
+        # AutoResearch — autonome Hintergrund-Recherche: AEGIS schlaegt von SELBST unbekannte
+        # Sicherheits-/Technik-Themen nach (Wikipedia) + verdichtet sie ins durchsuchbare Wissen
+        # -> waechst stetig. Modul laeuft immer, recherchiert aber NUR bei 'auto_research_enabled'
+        # (opt-in) + erlaubter Web-Suche. Sehr gedrosselt (ein Thema / 20 Min).
+        if self.db.get_setting("enable_auto_research", True):
+            try:
+                from ..cognition.auto_research import AutoResearch
+                self.modules.append(AutoResearch(self.bus, self.db))
+            except Exception:  # noqa: BLE001
+                log.exception("AutoResearch konnte nicht geladen werden")
+
         # BehaviorAnomaly — statistische Ausreisser-Erkennung (Vorfilter fuer Reasoner)
         if self.db.get_setting("enable_anomaly", True):
             try:
