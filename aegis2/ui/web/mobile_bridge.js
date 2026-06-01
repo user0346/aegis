@@ -31,8 +31,15 @@
       var d; try { d = JSON.parse(jsonStr); } catch (e) { d = {}; }
       var ref = Math.random().toString(36).slice(2, 10);
       postJSON("/api/exec", { name: d.name, args: d.args || {} }).then(function (res) {
-        // Ergebnis als Event einspeisen — Format wie der Service-Push am PC: {ok,name,data,ref}
-        try { S.eventReceived.emit(JSON.stringify({ ok: res.ok !== false, name: res.name || d.name, data: res.data, ref: ref })); } catch (e) {}
+        // Ergebnis als Event einspeisen — EXAKT wie der PC-Service: { t:"cmd_result", ok, name,
+        // data, ref }. Das 't:"cmd_result"' ist Pflicht: panels.js' onEvent verarbeitet sonst
+        // settings.get/scan.status/autonomy.* etc. gar nicht (Einstellungen wurden nicht gemerkt).
+        try {
+          S.eventReceived.emit(JSON.stringify({
+            t: "cmd_result", ok: res.ok !== false,
+            name: res.name || d.name, data: res.data, ref: ref
+          }));
+        } catch (e) {}
       }).catch(function () {});
       if (cb) cb(JSON.stringify({ ok: true, ref: ref }));
       return JSON.stringify({ ok: true, ref: ref });
