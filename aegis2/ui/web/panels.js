@@ -183,6 +183,10 @@
     { const row=$("mobile-url-row"), u=$("mobile-url");
       if(u&&d.mobile_view_url) u.value=d.mobile_view_url;
       if(row) row.style.display=(d.mobile_view_enabled&&d.mobile_view_url)?"":"none"; }
+    { const e=$("mobile-remote"); if(e) e.checked=!!d.mobile_remote_enabled; }
+    { const row=$("mobile-remote-url-row"), u=$("mobile-remote-url");
+      if(u&&d.mobile_remote_url) u.value=d.mobile_remote_url;
+      if(row) row.style.display=(d.mobile_remote_enabled&&d.mobile_remote_url)?"":"none"; }
   }
   function saveSettings(){
     const c=(id)=>{const e=$(id); return e?!!e.checked:false;}; const v=(id)=>{const e=$(id); return e?e.value.trim():"";};
@@ -541,6 +545,11 @@
     if(mvT) mvT.addEventListener("change",function(){
       sendCmd("settings.save",{mobile_view_enabled:mvT.checked});
       setTimeout(loadSettings,1500); setTimeout(loadSettings,4000);  // URL erscheint, sobald der Server laeuft
+    });
+    const mrT=$("mobile-remote");
+    if(mrT) mrT.addEventListener("change",function(){
+      sendCmd("settings.save",{mobile_remote_enabled:mrT.checked});
+      setTimeout(loadSettings,3000); setTimeout(loadSettings,9000);  // Tunnel-URL erscheint nach ~10s
     });
     const ss=$("scan-start"); if(ss) ss.addEventListener("click",scanStart);
     const cc=$("scan-cancel"); if(cc) cc.addEventListener("click",scanCancel);

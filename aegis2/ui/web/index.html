@@ -503,17 +503,25 @@
       <div class="card">
         <div class="card-head"><h2>Handy-Ansicht (live vom Smartphone)</h2></div>
         <p class="muted" style="margin:0 0 12px;">
-          Sieh live vom Handy — im <strong>gleichen WLAN</strong> — was AEGIS macht: Status
-          und letzte Ereignisse. <strong>Nur Ansicht</strong> (keine Steuerung), per geheimem
-          Token gesichert. Standardmäßig aus.
+          Sieh und <strong>steuere</strong> AEGIS vom Handy: Status, Ereignisse, Chat und
+          sichere Befehle (Scan/Quarantäne). Per geheimem Token gesichert, gefährliche Aktionen
+          gesperrt. Standardmäßig aus.
         </p>
         <div class="form-row">
-          <label>Handy-Ansicht aktivieren</label>
+          <label>Handy-Ansicht aktivieren (gleiches WLAN)</label>
           <input type="checkbox" id="mobile-view">
         </div>
         <div class="form-row" id="mobile-url-row" style="display:none">
-          <label>Diese Adresse am Handy öffnen (antippen = markieren)</label>
+          <label>Adresse fürs WLAN (antippen = markieren)</label>
           <input type="text" id="mobile-url" readonly onclick="this.select()" style="font-size:12px" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label>Von überall erreichbar (mobile Daten / fremdes WLAN — sicherer Tunnel)</label>
+          <input type="checkbox" id="mobile-remote">
+        </div>
+        <div class="form-row" id="mobile-remote-url-row" style="display:none">
+          <label>Öffentliche Adresse — von überall (ändert sich bei jedem Neustart)</label>
+          <input type="text" id="mobile-remote-url" readonly onclick="this.select()" style="font-size:12px" spellcheck="false">
         </div>
       </div>
 

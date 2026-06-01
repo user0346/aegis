@@ -50,6 +50,7 @@ COMMAND_SPECS: dict[str, dict[str, tuple[Callable[[Any], bool], bool]]] = {
         "llm_model":    (lambda v: _is_str(v, 120), False),
         "llm_api_key":  (_is_str, False),
         "mobile_view_enabled": (_is_bool, False),
+        "mobile_remote_enabled": (_is_bool, False),
     },
     "settings.get": {},
     "vt.status": {"vt_api_key": (_is_str, False)},

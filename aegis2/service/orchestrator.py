@@ -413,7 +413,8 @@ class Orchestrator:
                 saved.append(sec_key)
         for _tk in ("auto_quarantine", "wake_active", "cloud_stt",
                     "allow_websearch", "allow_shell", "allow_learning",
-                    "enable_active_response", "tts_enabled", "mobile_view_enabled"):
+                    "enable_active_response", "tts_enabled", "mobile_view_enabled",
+                    "mobile_remote_enabled"):
             if _tk in args:
                 self.db.set_setting(_tk, bool(args[_tk]))
         if "consent_ttl_min" in args:
@@ -453,6 +454,8 @@ class Orchestrator:
             "llm_key_set": _has("llm_api_key"),
             "mobile_view_enabled": bool(self.db.get_setting("mobile_view_enabled", False)),
             "mobile_view_url": self.db.get_setting("mobile_view_url", ""),
+            "mobile_remote_enabled": bool(self.db.get_setting("mobile_remote_enabled", False)),
+            "mobile_remote_url": self.db.get_setting("mobile_remote_url", ""),
         }
 
     def _cmd_vt_status(self, args: dict) -> dict:
