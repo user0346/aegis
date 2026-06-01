@@ -42,7 +42,7 @@
 
   /* ---------- custom toggles (settings checkboxes) ---------- */
   function buildToggles(){
-    ["auto-q","wake-active","cloud-stt","tts-enabled","allow-websearch","allow-shell","allow-learning"].forEach(function(id){
+    ["auto-q","wake-active","cloud-stt","tts-enabled","wake-jarvis","allow-websearch","allow-shell","allow-learning"].forEach(function(id){
       const cb=$(id); if(!cb||cb.dataset.tgl) return; cb.dataset.tgl="1";
       const lbl=document.createElement("label"); lbl.className="tgl";
       const track=document.createElement("span"); track.className="track";
@@ -517,6 +517,12 @@
     if(ttsSel) ttsSel.addEventListener("change",()=>{ sendCmd("settings.save",{tts_voice:ttsSel.value}); });
     const ttsEn=$("tts-enabled");
     if(ttsEn) ttsEn.addEventListener("change",()=>{ sendCmd("settings.save",{tts_enabled:ttsEn.checked}); });
+    const wj=$("wake-jarvis");
+    if(wj){
+      // Weckwort 'Hey Jarvis' laeuft im UI-Prozess (Bridge), nicht ueber settings.save.
+      if(window.aegis&&window.aegis.wakeWordOn){ try{ window.aegis.wakeWordOn(function(on){ wj.checked=!!on; }); }catch(e){} }
+      wj.addEventListener("change",()=>{ if(window.aegis&&window.aegis.setWakeWord){ try{ window.aegis.setWakeWord(wj.checked); }catch(e){} } });
+    }
     const ttsTest=$("tts-test");
     if(ttsTest) ttsTest.addEventListener("click",()=>{
       const v=ttsSel?ttsSel.value:""; if(v) sendCmd("settings.save",{tts_voice:v});

@@ -1,10 +1,19 @@
-# AEGIS V2 — Voice Extras (optional, für Phase 3)
+# AEGIS V2 — Voice Extras (optional, fuer freihaendiges "Hey Jarvis" + Sprache)
 # Installation:
 #   pip install -r requirements_v2_voice.txt
 #
-# WICHTIG: webrtcvad-wheels statt webrtcvad —
-# das hat pre-built Binaries und braucht KEINEN MSVC-Compiler.
+# Alles LOKAL/OFFLINE, kein API-Key. Audio-Capture ueber sounddevice (hat Wheels inkl.
+# PortAudio auch fuer Python 3.14 — pyaudio/webrtcvad bauen dort NICHT). pyaudio bleibt
+# optionaler Fallback fuer aeltere Pythons.
 
-pvporcupine>=4.0.2          # Wake-Word
-PyAudio>=0.2.14           # Audio-Capture
-webrtcvad-wheels>=2.0.14  # VAD mit pre-built wheels (kein build needed)
+# ── Spracheingabe: Aufnahme + Erkennung (STT) ───────────────────────────────
+sounddevice>=0.5            # Mikro-Aufnahme (PortAudio gebundelt; 3.14-tauglich)
+faster-whisper>=1.2         # lokale Spracherkennung (offline, kein Key)
+
+# ── Weckwort "Hey Jarvis" (freihaendig, offline) ────────────────────────────
+openwakeword>=0.6           # Apache-2.0-Code; vortrainiertes 'hey_jarvis'-Modell
+onnxruntime>=1.20           # Inferenz-Backend fuer openWakeWord (Windows: onnx)
+
+# ── Optionaler Fallback (aeltere Pythons, z.B. 3.13) ────────────────────────
+PyAudio>=0.2.14            # Audio-Capture-Fallback (braucht ggf. PortAudio/MSVC)
+webrtcvad-wheels>=2.0.14   # VAD fuer den pyaudio-Pfad (pre-built wheels)

@@ -180,6 +180,14 @@ class AegisWindow(QMainWindow):
                     QTimer.singleShot(1800, self.bridge.greet)
             except Exception:  # noqa: BLE001
                 log.exception("greet scheduling failed (non-fatal)")
+            # Weckwort 'Hey Jarvis' starten, falls eingeschaltet (opt-in). Nach der
+            # Begruessung, damit diese den Lauscher nicht selbst triggert.
+            try:
+                if not getattr(self, "_wake_scheduled", False):
+                    self._wake_scheduled = True
+                    QTimer.singleShot(3200, self.bridge.initWake)
+            except Exception:  # noqa: BLE001
+                log.exception("wake init scheduling failed (non-fatal)")
         else:
             self._fallback.setText(
                 "<div style='color:#f97373'>"

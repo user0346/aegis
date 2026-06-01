@@ -37,6 +37,7 @@ class AegisBridge(QObject):
                               topics=["events", "stats"])
         self._pending: dict[str, list] = {}   # ref -> [resolve, reject]
         self._vc = None                        # VoiceController (lazy)
+        self._wake = None                      # AlwaysListen (Weckwort, lazy + opt-in)
         self._last_stats = {}                  # fuer Voice-Lagemeldung
         self._ipc.start()
         # IpcClient often connects in milliseconds, BEFORE the WebChannel is
@@ -134,6 +135,62 @@ class AegisBridge(QObject):
                 self.voiceState.emit("state", "idle")
                 self.voiceState.emit("reply", "Fehler: " + str(e))
         threading.Thread(target=_work, daemon=True).start()
+
+    # ---- Weckwort 'Hey Jarvis' (freihaendig reden ohne Knopf, opt-in) ----
+    def _on_wake(self):
+        """Weckwort erkannt -> exakt der Knopf-Sprachfluss (aufnehmen -> STT -> Assistent ->
+        sprechen). Laeuft im AlwaysListen-Thread; dessen Mikro-Stream ist hier bereits zu."""
+        try:
+            self.voiceState.emit("wake", "detected")
+            res = self._voice().listen_once(
+                on_stage=lambda st: self.voiceState.emit("state", st))
+            self._voice_feedback(res)
+        except Exception as e:  # noqa: BLE001
+            self.voiceState.emit("state", "idle")
+            log.warning("Weckwort on_wake: %s", e)
+
+    def _apply_wake(self, on: bool) -> None:
+        if on:
+            if self._wake is None:
+                try:
+                    from aegis2.voice.always_listen import AlwaysListen
+                    self._wake = AlwaysListen(
+                        on_wake=self._on_wake,
+                        on_state=lambda s: self.voiceState.emit("state", "listening"))
+                except Exception as e:  # noqa: BLE001
+                    log.warning("Weckwort nicht ladbar: %s", e)
+                    return
+            self._wake.start()
+        elif self._wake is not None:
+            self._wake.stop()
+
+    @pyqtSlot(bool)
+    def setWakeWord(self, on):
+        """Settings-Toggle: freihaendiges 'Hey Jarvis' an/aus (persistiert + sofort aktiv)."""
+        try:
+            from aegis2.shared.db import get_db
+            get_db().set_setting("wake_word_enabled", bool(on))
+        except Exception:  # noqa: BLE001
+            pass
+        self._apply_wake(bool(on))
+
+    @pyqtSlot(result=bool)
+    def wakeWordOn(self):
+        try:
+            from aegis2.shared.db import get_db
+            return bool(get_db().get_setting("wake_word_enabled", False))
+        except Exception:  # noqa: BLE001
+            return False
+
+    @pyqtSlot()
+    def initWake(self):
+        """Beim App-Start: Weckwort-Lauscher starten, falls eingeschaltet (idempotent)."""
+        try:
+            from aegis2.shared.db import get_db
+            if bool(get_db().get_setting("wake_word_enabled", False)):
+                self._apply_wake(True)
+        except Exception:  # noqa: BLE001
+            pass
 
     @pyqtSlot(str)
     def ttsPreview(self, voice):
