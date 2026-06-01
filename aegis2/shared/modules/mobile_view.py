@@ -25,6 +25,21 @@ from ..events import Severity, Category
 
 
 def _lan_ip() -> str:
+    """Bevorzugt die echte Heim-WLAN/LAN-IP. WICHTIG: die Route zu 8.8.8.8 liefert bei
+    aktivem VPN (z.B. NordVPN/NordLynx) die VPN-IP (10.x) zurueck — dorthin kommt das
+    Handy NICHT. Daher ALLE IPv4 sammeln und 192.168.x > 172.16-31 > 10.x bevorzugen."""
+    cands = []
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if ip and not ip.startswith("127."):
+                cands.append(ip)
+    except Exception:  # noqa: BLE001
+        pass
+    for pref in ("192.168.", "172.", "10."):
+        for ip in cands:
+            if ip.startswith(pref):
+                return ip
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
