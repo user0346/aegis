@@ -3,6 +3,12 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## v2.4.9
+- Mehr als Ollama: du kannst AEGIS jetzt mit JEDEM KI-Backend verbinden — Ollama (Standard), LM Studio, llama.cpp, vLLM, Jan oder eine Cloud-API. Einfach in Einstellungen → „KI-Modell/Backend" Adresse + Modell eintragen
+- Handy-Live-Ansicht: sieh vom Smartphone (gleiches WLAN) live, was AEGIS macht — Status + letzte Ereignisse. Nur Ansicht, per geheimem Token gesichert, standardmäßig aus (Einstellungen → „Handy-Ansicht")
+- Updates aus dem Quellcode funktionieren jetzt zuverlässig (kein hängender Datei-Tausch mehr) und holen danach auch dein Fenster zurück
+- Bessere Modell-Empfehlung: für schönes Deutsch eignet sich Gemma 3 besonders, für Logik/Agenten Qwen3 — AEGIS wählt automatisch das Beste, was du installiert hast (Hintergrund: docs/MODELLE_2026.md)
+
 ## v2.4.8
 - AEGIS begrüßt dich jetzt von selbst beim Start — mit Text UND Sprache, ohne dass du erst einen Knopf drücken musst
 - Sprachausgabe robuster: thread-sichere Tonerzeugung und ein Protokoll-Eintrag pro Ausgabe (so lässt sich „kein Ton" eindeutig auf Lautstärke/Audio-Gerät statt auf die App zurückführen)
