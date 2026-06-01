@@ -34,6 +34,27 @@ _CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/d
 _CREATE_NO_WINDOW = 0x08000000
 _TRYCF_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
+# Echte PC-Web-UI (1:1 aufs Handy). aegis2/ui/web/ — von hier: ../../ui/web
+WEB_DIR = Path(__file__).resolve().parents[2] / "ui" / "web"
+_CTYPES = {".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+           ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8",
+           ".map": "application/json", ".png": "image/png", ".jpg": "image/jpeg",
+           ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml",
+           ".webp": "image/webp", ".ico": "image/x-icon", ".woff": "font/woff",
+           ".woff2": "font/woff2", ".ttf": "font/ttf", ".mp3": "audio/mpeg", ".wav": "audio/wav"}
+
+
+def _adapted_index() -> "str | None":
+    """Die ECHTE PC-index.html — aber die Qt-QWebChannel-Bridge (qrc://, nur in Qt verfuegbar)
+    wird durch unsere HTTP-Mobile-Bridge ersetzt, damit die Oberflaeche 1:1 im Handy-Browser
+    laeuft."""
+    try:
+        html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return None
+    return html.replace('<script src="qrc:///qtwebchannel/qwebchannel.js"></script>',
+                        '<script src="mobile_bridge.js?v=2"></script>')
+
 
 # Nur diese Befehle darf das Handy ausloesen (sicher: lesen/scannen/Quarantaene verwalten).
 _MOBILE_CMDS = {
@@ -279,6 +300,42 @@ class MobileView(Module):
         except Exception as e:  # noqa: BLE001
             return f"Fehler: {type(e).__name__}"
 
+    def _exec(self, name: str, args: dict):
+        """VOLLER Befehlszugriff (1:1 wie Desktop) — JEDER Orchestrator-Befehl, Schema-validiert.
+        Bewusste Nutzer-Entscheidung (Handy = PC). Token schuetzt den Zugang."""
+        if self.orch is None:
+            return {"ok": False, "error": "no orch"}
+        try:
+            from ..command_schema import validate_command
+            ok, why = validate_command(name, args or {})
+            if not ok:
+                return {"ok": False, "name": name, "error": f"validation: {why}"}
+        except Exception:  # noqa: BLE001
+            pass
+        h = getattr(self.orch, "_cmd_" + name.replace(".", "_"), None)
+        if not h:
+            return {"ok": False, "name": name, "error": "unknown"}
+        try:
+            return {"ok": True, "name": name, "data": h(args or {})}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "name": name, "error": f"{type(e).__name__}: {e}"}
+
+    def _memory(self) -> dict:
+        try:
+            from .. import user_memory as um, knowledge_base as kb
+            return {"address": um.get_address(), "wake_word": um.get_wake_word(),
+                    "notes": um.get_notes(), "aliases": um.get_aliases(),
+                    "top_cmds": um.top_commands(5), "knowledge_count": kb.count()}
+        except Exception as e:  # noqa: BLE001
+            return {"error": str(e)}
+
+    def _ollama_status(self) -> dict:
+        try:
+            from ...voice.ollama_setup import status
+            return status()
+        except Exception as e:  # noqa: BLE001
+            return {"installed": True, "running": True, "error": str(e)}
+
     # ---- Fernzugriff "von ueberall" via Cloudflare Quick Tunnel (opt-in) ----
     def _cloudflared_path(self) -> Path:
         return Path.home() / ".aegis" / "bin" / "cloudflared.exe"
@@ -418,11 +475,20 @@ class MobileView(Module):
                 u = urlparse(self.path)
                 q = parse_qs(u.query)
                 path = (u.path or "/").rstrip("/") or "/"
+                # Statische UI-Assets (JS/CSS/Bilder) UNGATED ausliefern — nur Client-Code, keine
+                # Daten. Token schuetzt die Seite (/) und ALLE /api/* (Daten + Befehle).
+                if path != "/" and not path.startswith("/api"):
+                    if self._serve_static(path):
+                        return
                 if not self._ok_token(q):
                     self._send(403, "<h2>AEGIS</h2><p>Zugriff verweigert — Token falsch.</p>",
                                "text/html; charset=utf-8")
                     return
                 if path == "/":
+                    # 1:1: die ECHTE PC-Oberflaeche (mit Mobile-Bridge). Fallback: schlanke Seite.
+                    self._send(200, _adapted_index() or _PAGE, "text/html; charset=utf-8")
+                    return
+                if path == "/lite":
                     self._send(200, _PAGE, "text/html; charset=utf-8")
                     return
                 if path == "/api/status":
@@ -476,15 +542,36 @@ class MobileView(Module):
                     return
                 if path == "/api/events":
                     try:
-                        rows = db.recent_events(limit=40)
-                        evs = [{"severity": r["severity"], "category": r["category"],
+                        rows = db.recent_events(limit=60)
+                        evs = [{"ts": r["ts"], "severity": r["severity"], "category": r["category"],
                                 "source": r["source"], "message": (r["message"] or "")[:220],
                                 "ago": _ago(r["ts"])} for r in rows]
                     except Exception:  # noqa: BLE001
                         evs = []
                     self._send(200, json.dumps({"events": evs}))
                     return
+                if path == "/api/memory":
+                    self._send(200, json.dumps(outer._memory()))
+                    return
+                if path == "/api/ollama":
+                    self._send(200, json.dumps(outer._ollama_status()))
+                    return
                 self._send(404, "{}")
+
+            def _serve_static(self, path):
+                """Flache UI-Datei aus WEB_DIR ausliefern (kein Pfad-Traversal). True bei Erfolg."""
+                name = (path.lstrip("/").split("?")[0] or "").strip()
+                if not name or "/" in name or "\\" in name or ".." in name:
+                    return False
+                f = WEB_DIR / name
+                try:
+                    if not f.is_file():
+                        return False
+                    data = f.read_bytes()
+                except Exception:  # noqa: BLE001
+                    return False
+                self._send(200, data, _CTYPES.get(f.suffix.lower(), "application/octet-stream"))
+                return True
 
             def do_POST(self):
                 u = urlparse(self.path)
@@ -500,6 +587,12 @@ class MobileView(Module):
                     return
                 if path == "/api/cmd":
                     res = outer._cmd(str(data.get("name", "")), data.get("args", {}) or {})
+                    self._send(200, json.dumps(res))
+                    return
+                if path == "/api/exec":
+                    # VOLLZUGRIFF (1:1 wie PC, vom Nutzer bewusst gewaehlt): jeder Befehl, mit
+                    # Schema-Validierung. Token schuetzt den Zugang.
+                    res = outer._exec(str(data.get("name", "")), data.get("args", {}) or {})
                     self._send(200, json.dumps(res))
                     return
                 self._send(404, json.dumps({"ok": False}))
