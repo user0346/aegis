@@ -115,6 +115,14 @@ class Orchestrator:
         if self.db.get_setting("enable_keylog_watch", True):
             self.modules.append(KeylogWatcher(self.bus, self.db))
 
+        # Handy-Live-Ansicht (opt-in, token-gesichert, READ-ONLY) — vom Smartphone im
+        # gleichen WLAN live sehen, was AEGIS macht. Self-gated (laeuft nur bei AN).
+        try:
+            from ..shared.modules.mobile_view import MobileView
+            self.modules.append(MobileView(self.bus, self.db))
+        except Exception:  # noqa: BLE001
+            pass
+
         # Persistente Signaturen laden (encrypted memory -> in-memory DB)
         try:
             from ..shared.encrypted_memory import load_signatures
@@ -400,7 +408,7 @@ class Orchestrator:
                 saved.append(sec_key)
         for _tk in ("auto_quarantine", "wake_active", "cloud_stt",
                     "allow_websearch", "allow_shell", "allow_learning",
-                    "enable_active_response", "tts_enabled"):
+                    "enable_active_response", "tts_enabled", "mobile_view_enabled"):
             if _tk in args:
                 self.db.set_setting(_tk, bool(args[_tk]))
         if "consent_ttl_min" in args:
@@ -438,6 +446,8 @@ class Orchestrator:
             "llm_base_url": self.db.get_setting("llm_base_url", ""),
             "llm_model": self.db.get_setting("llm_model", ""),
             "llm_key_set": _has("llm_api_key"),
+            "mobile_view_enabled": bool(self.db.get_setting("mobile_view_enabled", False)),
+            "mobile_view_url": self.db.get_setting("mobile_view_url", ""),
         }
 
     def _cmd_vt_status(self, args: dict) -> dict:

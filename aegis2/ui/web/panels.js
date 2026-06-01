@@ -179,6 +179,10 @@
     { const e=$("llm-base-url"); if(e) e.value=d.llm_base_url||""; }
     { const e=$("llm-model"); if(e) e.value=d.llm_model||""; }
     ph("llm-key", d.llm_key_set);
+    { const e=$("mobile-view"); if(e) e.checked=!!d.mobile_view_enabled; }
+    { const row=$("mobile-url-row"), u=$("mobile-url");
+      if(u&&d.mobile_view_url) u.value=d.mobile_view_url;
+      if(row) row.style.display=(d.mobile_view_enabled&&d.mobile_view_url)?"":"none"; }
   }
   function saveSettings(){
     const c=(id)=>{const e=$(id); return e?!!e.checked:false;}; const v=(id)=>{const e=$(id); return e?e.value.trim():"";};
@@ -526,6 +530,11 @@
       sendCmd("settings.save",a);
       const ke=$("llm-key"); if(ke) ke.value="";
       llmSave.textContent="Gespeichert ✓"; setTimeout(function(){ llmSave.textContent="Backend speichern"; },1500);
+    });
+    const mvT=$("mobile-view");
+    if(mvT) mvT.addEventListener("change",function(){
+      sendCmd("settings.save",{mobile_view_enabled:mvT.checked});
+      setTimeout(loadSettings,1500); setTimeout(loadSettings,4000);  // URL erscheint, sobald der Server laeuft
     });
     const ss=$("scan-start"); if(ss) ss.addEventListener("click",scanStart);
     const cc=$("scan-cancel"); if(cc) cc.addEventListener("click",scanCancel);

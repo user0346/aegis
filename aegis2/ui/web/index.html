@@ -497,6 +497,23 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>Handy-Ansicht (live vom Smartphone)</h2></div>
+        <p class="muted" style="margin:0 0 12px;">
+          Sieh live vom Handy — im <strong>gleichen WLAN</strong> — was AEGIS macht: Status
+          und letzte Ereignisse. <strong>Nur Ansicht</strong> (keine Steuerung), per geheimem
+          Token gesichert. Standardmäßig aus.
+        </p>
+        <div class="form-row">
+          <label>Handy-Ansicht aktivieren</label>
+          <input type="checkbox" id="mobile-view">
+        </div>
+        <div class="form-row" id="mobile-url-row" style="display:none">
+          <label>Diese Adresse am Handy öffnen (antippen = markieren)</label>
+          <input type="text" id="mobile-url" readonly onclick="this.select()" style="font-size:12px" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>Autonome Aktionen</h2></div>
         <p class="muted" style="margin:0 0 12px;">
           Jede dieser Aktionen verlangt deine explizite Zustimmung in der
