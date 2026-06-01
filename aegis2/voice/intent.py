@@ -309,7 +309,9 @@ _COMMAND_PATTERNS.insert(0, ("capabilities", re.compile(
     r"^\s*was\s+kannst\s+du(?:\s+alles)?\s*[?.!]*$"
     r"|\b(?:deine?|welche)\s+f[äa]higkeit\w*\b"
     r"|\bzeig\w*\s+(?:mir\s+)?(?:was\s+du\s+(?:alles\s+)?kannst|deine?\s+f[äa]higkeit\w*|deine?\s+skills)\b"
-    r"|\bwozu\s+bist\s+du\s+(?:alles\s+)?f[äa]hig\b", re.I)))
+    r"|\bwozu\s+bist\s+du\s+(?:alles\s+)?f[äa]hig\b"
+    r"|^\s*(?:commands?|kommandos?|befehle?|befehlsliste|skills?)\s*[?.!]*$"
+    r"|\b(?:command\w*|befehl\w*|kommando\w*)[\s-]+(?:liste|embed|übersicht)\b", re.I)))
 # «schließe/blende den Chat aus» -> Chat-Panel ausblenden (NICHT close_app «chat läuft nicht»,
 # NICHT Status). «zeig den Chat» holt es zurück. insert(0) -> schlägt close_app/status.
 _COMMAND_PATTERNS.insert(0, ("show_chat", re.compile(

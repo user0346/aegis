@@ -97,6 +97,16 @@ def _exe() -> str:
     return str(_OLLAMA_EXE) if _OLLAMA_EXE.exists() else "ollama"
 
 
+def _has_model_named(name: str) -> bool:
+    """True, wenn `name` (z.B. llama3.2-vision) lokal in Ollama vorhanden ist."""
+    try:
+        out = subprocess.run([_exe(), "list"], capture_output=True, text=True,
+                             timeout=15, creationflags=_NO_WINDOW).stdout or ""
+        return name.split(":")[0].lower() in out.lower()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def is_installed() -> bool:
     if _OLLAMA_EXE.exists():
         return True
@@ -327,6 +337,35 @@ def install(progress: Optional[Callable[[str, int], None]] = None) -> dict:
                 return {"ok": False, "msg": f"Modell-Download fehlgeschlagen: {type(e).__name__}"}
         if not has_model():
             return {"ok": False, "msg": "Modell nach Download nicht gefunden"}
+
+    # 4) AEGIS-Defaults wie auf dem Referenz-System setzen + genaues Bildschirm-Modell ziehen:
+    #    gemma3:4b fürs Gespräch (oben gezogen) + llama3.2-vision für GENAUE Bildschirm-Erkennung.
+    try:
+        from ..shared.db import get_db
+        _db = get_db()
+        if not (_db.get_setting("llm_model", "") or "").strip():
+            _db.set_setting("llm_model", model)
+    except Exception:  # noqa: BLE001
+        pass
+    if not _has_model_named("llama3.2-vision"):
+        _p("Lade Bildschirm-Modell llama3.2-vision (einmalig) …", 82)
+        if server_up:
+            try:
+                _pull_via_api(_p, "llama3.2-vision")
+            except Exception:  # noqa: BLE001
+                pass
+        if not _has_model_named("llama3.2-vision"):
+            try:
+                subprocess.run([_exe(), "pull", "llama3.2-vision"], timeout=7200,
+                               creationflags=_NO_WINDOW)
+            except Exception:  # noqa: BLE001
+                pass
+    if _has_model_named("llama3.2-vision"):
+        try:
+            from ..shared.db import get_db as _g
+            _g().set_setting("vision_model", "llama3.2-vision")
+        except Exception:  # noqa: BLE001
+            pass
 
     _p("Fertig — lokale KI aktiv.", 100)
     return {"ok": True, "msg": f"Lokale KI (Ollama, {model}) installiert + bereit."}

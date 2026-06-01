@@ -46,6 +46,9 @@ EMBED_TABS = {
     "struktur": "architecture",
     "capabilities": "capabilities", "fähigkeiten": "capabilities", "faehigkeiten": "capabilities",
     "können": "capabilities", "koennen": "capabilities", "skills": "capabilities",
+    "command": "capabilities", "commands": "capabilities", "kommando": "capabilities",
+    "kommandos": "capabilities", "befehl": "capabilities", "befehle": "capabilities",
+    "vision": "vision", "bildschirm": "vision", "screen": "vision",
 }
 _EMBED_NAMES = {"settings": "Settings", "scan": "Scan", "threats": "Threats",
                 "dashboard": "Dashboard", "quarantine": "Quarantäne", "network": "Network",
@@ -241,6 +244,12 @@ class ActionRouter:
         if screen_vision is None or not screen_vision.available():
             return {"ok": False, "msg": ("Um auf deinen Bildschirm zu schauen, fehlen mir die Module "
                                          "(mss/Pillow). Sag mir sonst den Text/Namen, dann helfe ich so.")}
+        try:                              # Live-Anzeige: dem Nutzer ZEIGEN, was AEGIS gerade sieht
+            _b64 = screen_vision.capture_b64()
+            if _b64:
+                self.ui_cmd({"action": "show_vision", "img": _b64})
+        except Exception:  # noqa: BLE001
+            pass
         ans = screen_vision.analyze((args.get("text") or "").strip())
         if not ans:
             return {"ok": False, "msg": ("Ich konnte den Bildschirm gerade nicht erfassen oder das "

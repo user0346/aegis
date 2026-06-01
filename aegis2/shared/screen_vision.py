@@ -53,6 +53,13 @@ def _to_b64(img) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
+def capture_b64() -> str:
+    """Aktuellen Bildschirm als base64-PNG für die LIVE-Anzeige im UI (zeigt dem Nutzer, WAS
+    AEGIS gerade sieht). '' bei Fehler."""
+    img = _capture()
+    return _to_b64(img) if img is not None else ""
+
+
 def _model() -> str:
     try:
         from .db import get_db

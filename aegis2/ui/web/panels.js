@@ -603,6 +603,7 @@
           else if(kind==="status"){ setTxt("voice-status",payload||"Bereit"); }
           else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
           else if(kind==="ui"){ if(payload==="hide_chat") document.body.classList.add("chat-hidden"); else if(payload==="show_chat") document.body.classList.remove("chat-hidden"); }
+          else if(kind==="vision"){ var vi=$("vision-img"); if(vi&&payload){ vi.src="data:image/png;base64,"+payload; if(window.AegisApp&&window.AegisApp.activateTab){ try{ window.AegisApp.activateTab("vision"); }catch(e){} } } }
         });
         return;
       }
