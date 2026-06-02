@@ -134,6 +134,40 @@ class ActionRouter:
         self._pending_action = {"intent": intent, "args": args or {}}
         return {"ok": True, "msg": question, "pending": intent}
 
+    def _emotion_hint(self, text: str) -> str:
+        """Schnelles, deterministisches Stimmungs-Signal aus der Nutzer-Nachricht (KEIN LLM-Call,
+        keine Latenz). Gibt eine kurze Lage-Beschreibung zurueck, die _do_query dem Modell mitgibt,
+        damit es VERLAESSLICH einfuehlsam + passend reagiert (statt darauf zu hoffen, dass das
+        kleine Modell die Stimmung selbst bemerkt). '' = neutral, kein Hinweis noetig."""
+        t = (text or "").strip()
+        if len(t) < 2:
+            return ""
+        tl = t.lower()
+        letters = [c for c in t if c.isalpha()]
+        caps_ratio = (sum(1 for c in letters if c.isupper()) / len(letters)) if letters else 0.0
+        shouting = len(letters) >= 5 and caps_ratio > 0.6          # GROSSBUCHSTABEN-Schreien
+        swears = re.search(r"\b(schei[sß]e?\w*|verdammt|kacke|fuck\w*|fick\w*|digger|hurensohn|wtf|"
+                           r"arsch\w*|\bmist\b|bescheuert|spast\w*|idiot\w*|verfickt\w*)\b", tl)
+        frust = re.search(r"\bnervt\b|\bgenervt\b|\bendlich\b|immer\s*noch|schon\s*wieder|kein\s*sinn|"
+                          r"macht\s*kein|\bbl[öo]d\w*|\bdumm\w*|ätzend|aufh[öo]ren|\breicht\b|kotzt|frust", tl)
+        sad = re.search(r"\btraurig\b|niedergeschlagen|deprimiert|keine\s*lust|\bm[üu]de\b|einsam|"
+                        r"\ballein\w*|hoffnungslos|[üu]berfordert|am\s*ende\b|mies\s*drauf|"
+                        r"geht.{0,16}schlecht|f[üu]hl\w*\s*mich\s*\w{0,8}\s*schlecht|mir\s*ist\s*schlecht", tl)
+        confused = re.search(r"versteh\w*\s*(?:ich\s*)?(?:das\s*)?nicht|kapier\w*\s*(?:das\s*)?nicht|"
+                             r"raff\w*\s*(?:das\s*)?nicht|was\s*meinst\s*du|\bh[äa]h?\b|keine\s*ahnung|verwirr\w*", tl)
+        happy = re.search(r"\bsuper\b|\bgeil\b|\bperfekt\b|\bmega\b|\bnice\b|freu\w*\s*mich|\bhammer\b|"
+                          r"\bspitze\b|liebe\s*es|\bgenial\b|\bendlich!\b|sehr\s*gut|\bdanke\w*", tl)
+        bangs = t.count("!") >= 2 or "??" in t or t.count("?") >= 3
+        if swears or shouting or (frust and bangs) or frust:
+            return "wirkt frustriert/genervt, evtl. wütend"
+        if sad:
+            return "wirkt niedergeschlagen oder gestresst"
+        if confused:
+            return "wirkt verwirrt/unsicher"
+        if happy or bangs:
+            return "wirkt gut gelaunt/zufrieden"
+        return ""
+
     def dispatch(self, intent: dict) -> dict:
         name = intent.get("intent", "unknown")
         args = intent.get("args", {})
@@ -2817,6 +2851,16 @@ class ActionRouter:
                     sys_ctx += (f"\n\nAktuelles Datum (Systemzeit, maßgeblich – NICHT dein "
                                 f"Trainingswissen): {_WD[_n.weekday()]}, {_n.day}. "
                                 f"{_MON[_n.month - 1]} {_n.year}, {_n.hour:02d}:{_n.minute:02d} Uhr.")
+                except Exception:  # noqa: BLE001
+                    pass
+                try:                            # WAHRGENOMMENE STIMMUNG -> verlaessliche Empathie
+                    _mood = self._emotion_hint(text)
+                    if _mood:
+                        sys_ctx += ("\n\nWAHRGENOMMENE STIMMUNG des Nutzers GERADE: er " + _mood +
+                                    ". Geh ZUERST kurz und echt darauf ein (passend, nicht kitschig), "
+                                    "DANN zur Sache. Bei Frust/Wut bleib ruhig, freundlich und auf "
+                                    "seiner Seite — nie gereizt zurueck; bei Niedergeschlagenheit warm "
+                                    "und unterstuetzend; bei guter Laune teil die Freude kurz.")
                 except Exception:  # noqa: BLE001
                     pass
                 # GESPRAECHSFUEHRUNG: locker mitreden + Folge-Antworten aus dem Verlauf verstehen.
