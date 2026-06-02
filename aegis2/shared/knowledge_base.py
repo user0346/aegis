@@ -110,21 +110,45 @@ def _ensure_seeded() -> None:
 
 
 def _doc_chunks() -> list:
-    """Liest Dokumente (*.txt/*.md) aus ~/.aegis/knowledge/ in Absatz-Chunks."""
-    _ensure_seeded()
+    """Dokument-Absaetze fuers Retrieval aus ZWEI Quellen:
+      (1) mitgeliefertes Grundwissen DIREKT aus dem Paket-Ordner knowledge_seed/ — immer die
+          aktuelle Version. Bringt ein UPDATE neues/erweitertes Grundwissen mit, steht es
+          bestehenden Nutzern sofort bereit (kommt also DAZU), ohne dass je etwas
+          ueberschrieben wird.
+      (2) die EIGENEN Dokumente des Nutzers aus ~/.aegis/knowledge/.
+    Die gelernte Nutzer-Wissensbasis (~/.aegis/knowledge.json) bleibt voellig unberuehrt —
+    Updates ergaenzen nur, loeschen/ueberschreiben nie. Frueher nach ~/.aegis/knowledge/
+    kopierte Seed-Dateien werden NICHT doppelt gelesen (die Paket-Version ist massgeblich)."""
+    _ensure_seeded()       # legt mitgelieferte Seed-Dateien fuer neue Nutzer sichtbar ab
     out = []
+    seen: set = set()      # exakt gleiche Absaetze nur EINMAL (ehrlicher Wissens-Index)
+    import re as _re
+
+    def _add(files):
+        for f in files:
+            try:
+                txt = f.read_text(encoding="utf-8", errors="ignore")
+            except Exception:  # noqa: BLE001
+                continue
+            for para in _re.split(r"\n\s*\n", txt):
+                para = para.strip()[:1000]
+                if len(para) >= 20 and para not in seen:
+                    seen.add(para)
+                    out.append({"text": para, "src": f.name})
+
+    seed_names: set = set()
+    try:
+        if _SEED.is_dir():
+            seed_files = sorted(_SEED.glob("*.md")) + sorted(_SEED.glob("*.txt"))
+            seed_names = {f.name.lower() for f in seed_files}
+            _add(seed_files)                       # (1) Grundwissen DIREKT aus dem Paket
+    except Exception:  # noqa: BLE001
+        pass
     try:
         if _DOCS.is_dir():
-            import re as _re
-            for f in sorted(_DOCS.glob("*.txt")) + sorted(_DOCS.glob("*.md")):
-                try:
-                    txt = f.read_text(encoding="utf-8", errors="ignore")
-                except Exception:  # noqa: BLE001
-                    continue
-                for para in _re.split(r"\n\s*\n", txt):
-                    para = para.strip()
-                    if len(para) >= 20:
-                        out.append({"text": para[:1000], "src": f.name})
+            user_files = [f for f in (sorted(_DOCS.glob("*.txt")) + sorted(_DOCS.glob("*.md")))
+                          if f.name.lower() not in seed_names]
+            _add(user_files)                       # (2) eigene Dokumente des Nutzers
     except Exception:  # noqa: BLE001
         pass
     return out
