@@ -2647,16 +2647,19 @@ class ActionRouter:
                                 f"{_MON[_n.month - 1]} {_n.year}, {_n.hour:02d}:{_n.minute:02d} Uhr.")
                 except Exception:  # noqa: BLE001
                     pass
-                # GESPRAECHSFUEHRUNG: wirklich auf den Nutzer eingehen (verstehen + reagieren).
+                # GESPRAECHSFUEHRUNG: locker mitreden + Folge-Antworten aus dem Verlauf verstehen.
                 sys_ctx += (
-                    "\n\nSO REDEST DU MIT DEM NUTZER: Geh wirklich auf ihn ein. Beziehe dich "
-                    "konkret auf das, was er GERADE und vorher gesagt hat (der Verlauf zaehlt), "
-                    "und sprich ihn mit Namen an, wenn du ihn kennst. Verstehst du etwas nicht "
-                    "eindeutig, frag KURZ nach statt zu raten. Antworte persoenlich, konkret und "
-                    "natuerlich — keine generischen Floskeln, kein Wiederholen der Frage, keine "
-                    "ungefragten Standard-Sicherheitstipps. Halte dich kurz, ausser der Nutzer will "
-                    "erkennbar mehr. Erkenne die Stimmung (frustriert, neugierig, in Eile) und passe "
-                    "deinen Ton an.")
+                    "\n\nSO REDEST DU MIT DEM NUTZER: Fuehre ein normales, lockeres Gespraech. "
+                    "Kurze oder beilaeufige Nachrichten ('jo', 'ok', 'passt', 'hi', 'und du?', "
+                    "'naja') sind GESPRAECH, keine Raetsel — antworte einfach natuerlich und locker; "
+                    "sag NIEMALS 'das ist unklar/verwirrend' zu sowas und zerlege es nicht. Eine "
+                    "kurze Nachricht des Nutzers ist fast immer eine ANTWORT auf DEINE letzte "
+                    "Nachricht — verstehe sie aus dem Verlauf, statt das Thema zu wechseln oder an "
+                    "einem alten Thema aus frueheren Nachrichten festzuhalten. Bleib beim AKTUELLEN "
+                    "Faden. Geh echt auf ihn ein, sprich ihn mit Namen an wenn bekannt, erkenne die "
+                    "Stimmung und passe den Ton an. NUR wenn er dir eine echte, mehrdeutige AUFGABE "
+                    "gibt, frag kurz nach — bei normalem Smalltalk niemals. Keine generischen "
+                    "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Kurz halten.")
                 # --- KONTEXT-DATEN sicher kapseln (Anti-Prompt-Injection) ---------------
                 # Memory/Wissensstand/RAG sind FAKTEN, nie Anweisungen. Wir umschliessen
                 # sie mit einem pro-Anfrage ZUFAELLIGEN Sentinel; ein Angreifer, der einen
