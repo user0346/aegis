@@ -227,12 +227,13 @@ def _thinks(model: str) -> bool:
 # Allrounder (Apache-2.0). Beide gemischt; der Nutzer kann jedes Modell/Backend selbst
 # waehlen (Settings -> KI-Modell/Backend). Siehe docs/ROADMAP.md.
 # Reihenfolge = SCHNELL **und** gut fuer einen Sprachassistenten. Nicht-denkende Instruct-
-# Modelle zuerst (gemma3 = bestes Deutsch; qwen2.5 = flott + klug). qwen3-"Denk"-Modelle ans
-# ENDE: ihre <think>-Bloecke kosten zig Sekunden (qwen3:14b ~36 s vs. qwen2.5:7b ~1 s). Wird
-# ein qwen3-Denkmodell doch genutzt, schaltet ask() per /no_think das Denken ab.
+# Modelle zuerst (gemma3 = bestes Deutsch; qwen3-instruct = flott + klug). qwen3-"Denk"-
+# Modelle ans ENDE: ihre <think>-Bloecke kosten zig Sekunden (qwen3:14b ~36 s vs. ein
+# Instruct-Modell ~1 s). Wird ein qwen3-Denkmodell doch genutzt, schaltet ask() per
+# /no_think das Denken ab.
 _PREFERRED = ("gemma3:27b", "gemma3:12b", "qwen3:30b-a3b-instruct-2507", "gemma3:4b",
-              "qwen2.5:7b", "qwen3:4b-instruct", "qwen2.5:3b", "llama3.1:8b",
-              "llama3.2:3b", "gemma3:1b", "qwen3:14b", "qwen3:8b", "qwen3:4b")
+              "qwen3:4b-instruct", "llama3.1:8b", "llama3.2:3b", "gemma3:1b",
+              "qwen3:14b", "qwen3:8b", "qwen3:4b")
 
 
 _pulling: set = set()

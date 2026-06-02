@@ -10,7 +10,7 @@ Windows endpoint security companion. Complements Windows Defender.
 
 ## Installation
 
-**Voraussetzung:** [Python 3.11+](https://www.python.org/downloads/) — beim Setup
+**Voraussetzung:** [Python 3.11+](https://www.python.org/downloads/) (empfohlen 3.13+) — beim Setup
 **„Add python.exe to PATH"** anhaken.
 
 1. **[→ Neuestes Release öffnen](https://github.com/user0346/aegis/releases/latest)**

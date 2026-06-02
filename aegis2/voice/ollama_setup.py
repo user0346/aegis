@@ -133,7 +133,7 @@ def status() -> dict:
     """UI-Status — schnell via HTTP, kein blockierendes subprocess bei laufendem Server.
 
     'active_model' = das tatsaechlich genutzte Modell (fuer die UI-Anzeige
-    'aktiv ✓ · qwen2.5:7b' statt nur 'aktiv ✓')."""
+    'aktiv ✓ · gemma3:4b' statt nur 'aktiv ✓')."""
     running = False
     model = False
     active = ""
@@ -238,7 +238,7 @@ def _pull_via_api(progress, model: str) -> bool:
 
 def pull_with_progress(model: str) -> bool:
     """Modell ziehen mit LIVE-Fortschritt (REST-API-Stream) -> aktualisiert _PULL
-    fuer die UI-Anzeige ('lädt qwen2.5:7b · 45%'). Returns True bei Erfolg.
+    fuer die UI-Anzeige ('lädt gemma3:4b · 45%'). Returns True bei Erfolg.
     Blockierend -> nur im Hintergrund-Thread aufrufen."""
     global _PULL
     _PULL = {"model": model, "pct": 0, "active": True, "stage": "Start"}

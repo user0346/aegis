@@ -2533,7 +2533,7 @@ class ActionRouter:
                 return {"ok": True,
                         "msg": f"Ich laufe gerade auf dem lokalen Modell «{_m}» — über Ollama, komplett auf deinem PC."}
             return {"ok": True,
-                    "msg": "Gerade läuft kein lokales Modell. Sag «ollama pull qwen2.5:7b», dann nutze ich es."}
+                    "msg": "Gerade läuft kein lokales Modell. Sag «ollama pull gemma3:4b», dann nutze ich es."}
         # "welche/wie viele Domains blockst du?" + "ist X.com geblockt?" -> echte Blockliste
         # abfragen, statt das Modell raten zu lassen.
         _tlq = text.lower()

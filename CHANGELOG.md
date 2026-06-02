@@ -23,6 +23,7 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 
 ### 🔒 Sicherheit
 - Der Handy-Zugang ist gegen die häufigsten Web-Fehler gehärtet: geheimes Token auf jeder Anfrage, keine offenen Schnittstellen, keine internen Fehlermeldungen nach außen
+- Zusätzliche Härtung des Handy-Zugangs: Anfragen mit überdimensionierter Datenmenge werden abgewiesen (Schutz vor Speicher-Erschöpfung)
 - Web-Suche läuft über DuckDuckGo statt Google — privater, ohne Tracking
 
 ## v2.5.0

@@ -33,6 +33,9 @@ _CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/d
                     "cloudflared-windows-amd64.exe")
 _CREATE_NO_WINDOW = 0x08000000
 _TRYCF_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+# POST-Body deckeln: die einzigen Bodies sind {text<=500} bzw. {name,args} — 1 MB ist
+# reichlich. Schuetzt vor dem Content-Length-OOM-Trick (riesiger Header -> Speicher-Allok).
+_MAX_BODY = 1024 * 1024
 
 # Echte PC-Web-UI (1:1 aufs Handy). aegis2/ui/web/ — von hier: ../../ui/web
 WEB_DIR = Path(__file__).resolve().parents[2] / "ui" / "web"
@@ -477,7 +480,9 @@ class MobileView(Module):
             def _body(self):
                 try:
                     n = int(self.headers.get("Content-Length", 0) or 0)
-                    raw = self.rfile.read(n) if n > 0 else b""
+                    if n > _MAX_BODY:        # ueberdimensionierter Body -> nicht lesen (OOM-Schutz)
+                        return {}
+                    raw = self.rfile.read(min(n, _MAX_BODY)) if n > 0 else b""
                     return json.loads(raw.decode("utf-8")) if raw else {}
                 except Exception:  # noqa: BLE001
                     return {}
