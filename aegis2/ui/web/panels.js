@@ -731,7 +731,13 @@
     else if(ph==="applying"){ label="Spiele Update "+ver+" ein …"; }
     else if(ph==="restarting"){ label="Starte mit "+ver+" neu …"; }
     else if(ph==="error"){ label="Update-Problem: "+(p.detail||"unbekannt"); }
-    else if(ph==="uptodate"){ label="✓ Auf dem neuesten Stand ("+ver+")"; }
+    else if(ph==="uptodate"){
+      // „Auf dem neuesten Stand" NUR als kurze Quittung direkt nach einer aktiven Aktion
+      // (Check/Download/Verify/Apply) zeigen — danach ausblenden. Reine Status-Polls im
+      // Leerlauf zeigen KEINE Dauerleiste (_updActive hält hier noch den vorigen Render-Stand).
+      if(_updActive){ label="✓ Auf dem neuesten Stand ("+ver+")"; }
+      else { show=false; }
+    }
     else if(d.staged||ph==="ready"){ label="Update "+ver+" bereit"; showBtn=!!d.staged; }
     else { show=false; }
     if(bar) bar.style.width=(ph==="downloading"?pct:(show?100:0))+"%";
@@ -739,7 +745,7 @@
     if(btn){ btn.hidden=!showBtn; if(showBtn) _updVer=ver; }
     b.hidden=!show;
     _updActive=(ph==="checking"||ph==="downloading"||ph==="verifying"||ph==="applying");
-    if(ph==="uptodate"){ clearTimeout(window._updHide); window._updHide=setTimeout(function(){ const x=$("update-banner"); if(x) x.hidden=true; },6000); }
+    if(ph==="uptodate" && show){ clearTimeout(window._updHide); window._updHide=setTimeout(function(){ const x=$("update-banner"); if(x) x.hidden=true; },5000); }
   }
   function wireUpdateApply(){
     const btn=$("update-apply"); if(!btn||btn._wired) return; btn._wired=true;
