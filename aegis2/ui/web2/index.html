@@ -6,80 +6,136 @@
 <title>AEGIS</title>
 <link rel="stylesheet" href="hud.css">
 <style>
-  /* Boot-Screen — eigenes Layout */
-  .boot { position: relative; z-index: 1; height: 100vh; display: grid; place-items: center; padding: 24px; }
-  .boot .col { width: 100%; max-width: 440px; }
-  .boot .hero { text-align: center; margin-bottom: 38px; }
-  .boot .crest {
-    width: 66px; height: 66px; margin: 0 auto 18px; display: grid; place-items: center;
-    color: var(--accent); background: var(--accent-soft);
-    border: 1px solid var(--accent-line); border-radius: var(--r-2xl);
-    box-shadow: 0 0 28px var(--accent-glow);
+  /* ---- sidebar internas ---- */
+  .nav .ico { width: 18px; height: 18px; flex: 0 0 18px; }
+  .sb-foot { margin-top: auto; padding-top: 10px; }
+  .model-badge {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 11px; border-radius: var(--r-lg); border: 1px solid var(--border);
+    background: var(--bg-2); color: var(--text-2); font-size: 12.5px; cursor: pointer;
+    transition: border-color .15s, color .15s;
   }
-  .boot h1 { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: .06em; }
-  .boot .sub { font-size: 13.5px; color: var(--text-2); margin-top: 6px; }
-  .boot .cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 26px; }
-  .boot .progress { display: flex; align-items: center; gap: 12px; }
-  .boot .progress .pct { font-family: var(--font-hud); font-size: 12px; color: var(--text-2); min-width: 34px; text-align: right; }
+  .model-badge:hover { border-color: var(--accent-line); color: var(--text); }
+  .model-badge .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--good); box-shadow: 0 0 8px var(--good); margin-left: auto; }
+  .kbd { font-family: var(--font-hud); font-size: 10px; color: var(--text-3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
+
+  /* ---- main / assistant ---- */
+  .asst { height: 100vh; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 22px; border-bottom: 1px solid var(--border-soft); }
+  .topbar .heartbeat { width: 7px; height: 7px; border-radius: 99px; background: var(--accent); box-shadow: 0 0 0 0 var(--accent-glow); animation: hb 1.8s ease-out infinite; }
+  @keyframes hb { 0% { box-shadow: 0 0 0 0 var(--accent-glow); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .topbar .ttl { font-family: var(--font-display); font-size: 13px; letter-spacing: .08em; color: var(--text-2); }
+  .topbar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .pill { font-family: var(--font-hud); font-size: 11px; color: var(--text-2); border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; }
+
+  .stage { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+  .thread { width: 100%; max-width: 720px; padding: 26px 22px 8px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* Orb */
+  .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 20px; }
+  .orb { width: 200px; height: 200px; position: relative; display: grid; place-items: center; }
+  .orb .glow { position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%, rgba(116,236,255,.55), rgba(42,212,238,.18) 42%, transparent 68%);
+    filter: blur(2px); animation: breathe 4s ease-in-out infinite; }
+  .orb .core { width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle at 42% 38%, #eafdff, #4fd9ff 38%, #0c8ea8 75%, #073947);
+    box-shadow: 0 0 40px var(--accent-glow), inset 0 0 24px rgba(255,255,255,.35); }
+  .orb .ring { position: absolute; border-radius: 50%; border: 1px solid var(--accent-line); }
+  .orb .r1 { inset: 6px; border-style: dashed; animation: spin 14s linear infinite; opacity: .7; }
+  .orb .r2 { inset: 26px; border-color: rgba(116,236,255,.14); animation: spin 22s linear infinite reverse; }
+  @keyframes breathe { 0%,100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
+  .hero .state { font-family: var(--font-display); font-size: 22px; letter-spacing: .04em; margin-top: 22px; }
+  .hero .hint { font-size: 13px; color: var(--text-2); margin-top: 7px; }
+  .hero .hint b { color: var(--accent); font-weight: 600; }
+
+  /* chat */
+  .msg-user { align-self: flex-end; max-width: 84%; background: var(--accent-soft); border: 1px solid var(--accent-line);
+    color: var(--text); padding: 9px 14px; font-size: 13.5px; border-radius: var(--r-xl) var(--r-xl) var(--r-sm) var(--r-xl); }
+  .msg-ai { align-self: flex-start; max-width: 92%; font-size: 13.5px; line-height: 1.6; color: var(--text); }
+  .msg-ai .who { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .msg-ai .who .mini { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #eafdff, #2ad4ee 60%, #0c8ea8); box-shadow: 0 0 8px var(--accent-glow); }
+  .msg-ai .who .nm { font-family: var(--font-display); font-size: 11px; letter-spacing: .06em; color: var(--text-3); }
+
+  /* tool-call card */
+  .toolcard { align-self: flex-start; max-width: 92%; display: flex; align-items: center; gap: 10px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 8px 12px; font-family: var(--font-hud); font-size: 12px; }
+  .toolcard .ok { color: var(--good); display: grid; place-items: center; }
+  .toolcard .nm { color: var(--text); }
+  .toolcard .arg { color: var(--text-3); }
+  .toolcard .lat { margin-left: auto; color: var(--text-2); }
+
+  /* input */
+  .composer { width: 100%; max-width: 720px; margin: 0 auto; padding: 12px 22px 22px; }
+  .inbar { display: flex; align-items: center; gap: 8px; background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: var(--r-xl); padding: 7px 8px 7px 16px; transition: border-color .15s, box-shadow .15s; }
+  .inbar:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .inbar input { flex: 1; background: transparent; border: 0; outline: none; color: var(--text); font-size: 14px; font-family: var(--font); }
+  .inbar input::placeholder { color: var(--text-3); }
+  .iconbtn { width: 34px; height: 34px; border-radius: var(--r-lg); display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: var(--text-2); }
+  .iconbtn:hover { background: var(--bg-3); color: var(--text); }
+  .sendbtn { background: var(--accent); color: var(--on-accent); }
+  .sendbtn:hover { background: var(--accent-hi); box-shadow: 0 0 16px var(--accent-glow); }
 </style>
 </head>
 <body>
   <div class="hud-backdrop"></div>
-  <div class="system-pulse" data-state="busy"></div>
+  <div class="system-pulse" data-state="idle"></div>
 
-  <main class="boot">
-    <div class="col">
-      <div class="hero">
-        <div class="crest">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3l7 3v5.5c0 4.6-3 7.8-7 9-4-1.2-7-4.4-7-9V6l7-3z"/>
-            <path d="M9 12l2 2 4-4"/>
-          </svg>
-        </div>
-        <h1>AEGIS</h1>
-        <div class="sub">Richte deinen lokalen Schutz ein …</div>
+  <div class="shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.6-3 7.8-7 9-4-1.2-7-4.4-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div class="name">AEGIS</div>
       </div>
+      <nav class="nav">
+        <a class="active" href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 00-4 4v1a3 3 0 00-2 5 3 3 0 002 5 4 4 0 008 0 3 3 0 002-5 3 3 0 00-2-5V7a4 4 0 00-4-4z"/></svg> Assistent</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg> Dashboard</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4v6c0 5-4 8.5-9 10-5-1.5-9-5-9-10V7l9-4z"/><path d="M12 8v4M12 16h.01"/></svg> Bedrohungen</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg> Quarantäne</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg> Sentinel</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 00-4 4 3 3 0 00-1 5.8V17a3 3 0 005 2 3 3 0 005-2v-4.2A3 3 0 0016 7a4 4 0 00-4-4z"/></svg> Gedächtnis</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Brain</a>
+        <a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7.7 1.6 1.6 0 01-3.2 0 1.6 1.6 0 00-2.7-.7l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.6 1.6 0 004 15a1.6 1.6 0 00-1.5-1H2.3a2 2 0 010-4h.1A1.6 1.6 0 004 9a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1A1.6 1.6 0 009 4.6a1.6 1.6 0 011.4-2.6h.2a2 2 0 010 4h-.1"/></svg> Einstellungen</a>
+      </nav>
+      <div class="sb-foot">
+        <button class="model-badge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> qwen3:8b <span class="kbd">⌘K</span><span class="dot"></span></button>
+      </div>
+    </aside>
 
-      <div class="cards">
-        <!-- fertig -->
-        <div class="status-card" data-state="done">
-          <div class="well">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
-          </div>
-          <div class="meta"><div class="t">Sicherheits-Engine</div><div class="d">Aktiv · überwacht im Hintergrund</div></div>
-          <div class="ind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.2 2.2 4.8-4.8"/></svg></div>
-        </div>
-        <!-- fertig -->
-        <div class="status-card" data-state="done">
-          <div class="well">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
-          </div>
-          <div class="meta"><div class="t">Bedrohungs-Modell</div><div class="d">Baseline geladen · 1.742 Programme gelernt</div></div>
-          <div class="ind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.2 2.2 4.8-4.8"/></svg></div>
-        </div>
-        <!-- aktiv -->
-        <div class="status-card" data-state="active">
-          <div class="well">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 00-4 4v1a3 3 0 00-2 5 3 3 0 002 5 4 4 0 008 0 3 3 0 002-5 3 3 0 00-2-5V7a4 4 0 00-4-4z"/><path d="M12 8v8"/></svg>
-          </div>
-          <div class="meta"><div class="t">Lokale KI</div><div class="d">Lade qwen3:8b …</div></div>
-          <div class="ind"><svg class="spin" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a9 9 0 109 9" opacity=".9"/></svg></div>
-        </div>
-        <!-- wartet -->
-        <div class="status-card" data-state="waiting">
-          <div class="well">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
-          </div>
-          <div class="meta"><div class="t">Sprache</div><div class="d">Wartet …</div></div>
-          <div class="ind"><div class="ring"></div></div>
+    <!-- Main: Assistent -->
+    <main class="main asst">
+      <div class="topbar">
+        <span class="heartbeat"></span>
+        <span class="ttl">ASSISTENT</span>
+        <div class="right">
+          <span class="pill">überwacht</span>
+          <span class="pill">0 Bedrohungen</span>
         </div>
       </div>
 
-      <div class="progress">
-        <div class="bar" style="flex:1"><i style="width:55%"></i></div>
-        <div class="pct">55%</div>
+      <div class="stage">
+        <div class="thread">
+          <div class="hero">
+            <div class="orb"><div class="glow"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div>
+            <div class="state">Bereit</div>
+            <div class="hint">Sag <b>„Hey Jarvis"</b> — oder tippe unten</div>
+          </div>
+
+          <div class="msg-user">verschiebe Spotify auf den Hauptbildschirm</div>
+          <div class="toolcard"><span class="ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></svg></span><span class="nm">fenster.verschieben</span><span class="arg">· spotify → monitor 1</span><span class="lat">0.3s</span></div>
+          <div class="msg-ai"><div class="who"><span class="mini"></span><span class="nm">AEGIS</span></div>Erledigt — Spotify ist jetzt auf dem Hauptbildschirm. Sonst noch was?</div>
+        </div>
       </div>
-    </div>
-  </main>
+
+      <div class="composer">
+        <div class="inbar">
+          <input placeholder="Frag AEGIS direkt …">
+          <button class="iconbtn" title="Sprechen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></button>
+          <button class="iconbtn sendbtn" title="Senden"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </main>
+  </div>
 </body>
 </html>
