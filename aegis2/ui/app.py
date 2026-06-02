@@ -156,6 +156,13 @@ def run() -> int:
         window = AegisWindow(bridge)
         app._aegis_window = window   # fuer Single-Instance "show"-Signal
         log.info("Window constructed")
+
+        # Sprachbefehl «minimiere dich» -> natives Minimieren (queued in den GUI-Thread).
+        try:
+            bridge.windowAction.connect(window.on_window_action)
+            log.info("windowAction verdrahtet")
+        except Exception:  # noqa: BLE001
+            log.exception("windowAction-Verdrahtung fehlgeschlagen (optional)")
         window.show()
         log.info("Window.show() returned")
 

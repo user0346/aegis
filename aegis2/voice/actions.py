@@ -1738,6 +1738,13 @@ class ActionRouter:
                 pass
         return 0
 
+    def _do_minimize_window(self, args) -> dict:
+        """«minimiere dich» / «mach dich klein» -> AEGIS-Fenster in die Taskleiste minimieren
+        (nativ über die Bridge -> windowAction-Signal -> AegisWindow.showMinimized im GUI-Thread).
+        NICHT verwechseln mit Status oder App-Beenden: der Schutz läuft normal weiter."""
+        self.ui_cmd({"action": "minimize"})
+        return {"ok": True, "msg": "Ich mach mich klein — über das Taskleisten-Symbol bin ich sofort wieder da."}
+
     def _do_close(self, args) -> dict:
         self.ui_cmd({"action": "hide_window"})
         return {"ok": True, "msg": "Fenster versteckt"}

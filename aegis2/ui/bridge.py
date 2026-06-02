@@ -30,6 +30,7 @@ class AegisBridge(QObject):
     criticalAlert = pyqtSignal(str, str, str)  # (category, message, status) — Popup bei CRITICAL
     ollamaProgress = pyqtSignal(str, int)  # (stage, pct) — Ollama-Auto-Install (pct=100 fertig, -1 Fehler)
     fileSearchAsk = pyqtSignal(str, str)   # (query, kind) — Datei-Suche braucht Nutzer-Bestaetigung
+    windowAction = pyqtSignal(str)         # ("minimize"|"restore") — natives Fenster-Steuern (GUI-Thread)
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -109,6 +110,8 @@ class AegisBridge(QObject):
             self.voiceState.emit("vision", c.get("img", "") or "")   # Screenshot ins Vision-Embed
         elif a == "hide_window":
             self.voiceState.emit("hide", "")
+        elif a in ("minimize", "restore"):
+            self.windowAction.emit(a)                  # nativ -> AegisWindow (GUI-Thread, queued)
         elif a == "confirm_file_search":
             self.fileSearchAsk.emit(c.get("query", "") or "", c.get("kind", "") or "")
         elif a == "assistant_notify":

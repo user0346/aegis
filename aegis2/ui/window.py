@@ -16,7 +16,7 @@ import logging
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QUrl, QTimer
+from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSlot
 from PyQt6.QtWidgets import QMainWindow, QLabel
 
 
@@ -99,6 +99,19 @@ class AegisWindow(QMainWindow):
             except Exception:
                 pass
             self._tray_hint_shown = True
+
+    @pyqtSlot(str)
+    def on_window_action(self, act):
+        """Natives Fenster-Steuern auf Sprachbefehl («minimiere dich»). Wird vom Bridge-
+        Signal windowAction aufgerufen — da AegisWindow im GUI-Thread lebt und das Signal
+        aus dem Voice-Worker-Thread kommt, liefert Qt es als QueuedConnection sicher hier ab."""
+        try:
+            if act == "minimize":
+                self.showMinimized()
+            elif act == "restore":
+                self.showNormal(); self.raise_(); self.activateWindow()
+        except Exception:  # noqa: BLE001
+            log.exception("on_window_action(%s) fehlgeschlagen", act)
 
     def showEvent(self, event):
         super().showEvent(event)

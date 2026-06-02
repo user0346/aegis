@@ -369,6 +369,12 @@ _COMMAND_PATTERNS.insert(0, ("list_favorites", re.compile(
     r"^\s*(?:zeig\w*|nenn\w*|liste?\w*|welche|was\s+sind)\s+(?:mir\s+|meine\s+|sind\s+|du\s+)*"
     r"(?:lieblings(?:song|titel|lied|musik)\w*|favorit\w*)\b"
     r"|^\s*meine\s+(?:lieblings(?:song|titel|lied|musik)\w*|favorit\w*)\b", re.I)))
+# «minimiere dich» / «mach dich klein» -> Fenster in die Taskleiste. Vorher hat der
+# Modell-Router das kurze Kommando auf «status» gezogen -> deterministisch abfangen.
+_COMMAND_PATTERNS.insert(0, ("minimize_window", re.compile(
+    r"^\s*minimier\w*(?:\s+(?:dich|mich|das\s+fenster|dein\s+fenster|aegis))?\s*[.!]?\s*$"
+    r"|^\s*(?:mach\s+dich\s+klein|verkleiner\w*\s+dich)\b"
+    r"|^\s*(?:geh|ab)\s+in\s+die\s+taskleiste\b", re.I)))
 
 
 def _match(t: str, patterns: list, conf: float):
