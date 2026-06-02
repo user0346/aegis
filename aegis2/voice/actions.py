@@ -1421,20 +1421,28 @@ class ActionRouter:
             from pathlib import Path
             cl = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
             txt = cl.read_text(encoding="utf-8")
-            m = re.search(r"^##\s*(.+?)\s*$(.*?)(?=^##\s|\Z)", txt, re.M | re.S)
+            # Nur Top-Level-Abschnitt (## …), die ###-Kategorien GEHOEREN dazu (bleiben drin).
+            m = re.search(r"^##(?!#)\s*(.+?)\s*$(.*?)(?=^##(?!#)|\Z)", txt, re.M | re.S)
             if m:
                 ver = m.group(1).strip()
-                items = [ln.strip(" -*\t").strip() for ln in m.group(2).splitlines()
-                         if ln.strip().startswith(("-", "*"))]
-                if items:
-                    body = " ".join((it if it.endswith((".", "!")) else it + ".")
-                                    for it in items[:8])
-                    return {"ok": True, "msg": f"Neu in {ver}: {body}"}
+                out = []
+                for ln in m.group(2).splitlines():
+                    s = ln.strip()
+                    if not s:
+                        continue
+                    if s.startswith("###"):                    # Kategorie-Ueberschrift behalten
+                        out.append(("" if not out else "\n") + s.lstrip("# ").strip())
+                    elif s.startswith(("-", "*")):              # Stichpunkt sauber einruecken
+                        out.append("  • " + s.lstrip("-*•  \t").strip())
+                if out:
+                    return {"ok": True,
+                            "msg": "✨ Das ist neu in " + ver + ":\n" + "\n".join(out[:32])}
         except Exception:  # noqa: BLE001
             pass
         return {"ok": True,
-                "msg": "Aktuelle Neuerungen: bessere Befehls-Erkennung, eigenes Gedächtnis, "
-                       "Auto-Wissen, Medien-Steuerung und Modell-Verwaltung."}
+                "msg": "Aktuelle Neuerungen: AEGIS aufs Handy (Tailscale, verschlüsselt), ein "
+                       "Mehrschritt-Agent, echtes Spotify-Login, neue Fenster-Befehle und ein "
+                       "sauberer Modell-Lade-Start."}
 
     def _do_knowledge(self, args) -> dict:
         """Wissensfrage: erst Fakten nachschlagen (Wikipedia, sicher), dann das LLM

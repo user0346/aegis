@@ -3,6 +3,28 @@
 Der jeweils oberste Abschnitt ist „neu in dieser Version". AEGIS liest ihn live,
 wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergänzen.
 
+## AEGIS 2.6
+
+### 📱 AEGIS auf deinem Handy
+- Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)
+- Sprach- und Text-Befehle steuern die Oberfläche am Handy genauso wie am PC (Chat aus-/einblenden, Ansicht wechseln)
+
+### 🤖 Klüger & eigenständiger
+- Mehrschritt-Agent: sag „plane: …" oder „erledige folgendes …" — AEGIS plant mehrere Schritte, führt sie aus und fasst das Ergebnis zusammen. Aus Sicherheit laufen nur lesende Schritte automatisch; nichts Zerstörerisches ohne deine Bestätigung
+- AEGIS sieht auf Zuruf deinen Bildschirm („was siehst du") und warnt bei echter Gefahr — komplett offline, nur wenn du fragst
+
+### 🎵 Musik & Spotify
+- Echtes Spotify-Login (sicher per PKCE, AEGIS bekommt nie dein Passwort): „like den Song" speichert den laufenden Titel direkt in deine Spotify-Lieblingssongs
+- App-genaue Steuerung: „Spotify leiser" senkt NUR Spotify, „nächster Titel/pausieren" kennt den echten Wiedergabe-Status
+
+### 🪟 Bedienung & Start
+- Neue Befehle: „minimiere dich", „verschiebe Discord auf den Hauptmonitor", „hebe X hervor", „schließe den Chat"
+- Sauberer Erststart: AEGIS kündigt an, dass es seine Modelle lädt, zeigt den Fortschritt und startet dann frisch durch — du musst nichts tun
+
+### 🔒 Sicherheit
+- Der Handy-Zugang ist gegen die häufigsten Web-Fehler gehärtet: geheimes Token auf jeder Anfrage, keine offenen Schnittstellen, keine internen Fehlermeldungen nach außen
+- Web-Suche läuft über DuckDuckGo statt Google — privater, ohne Tracking
+
 ## v2.5.0
 - AEGIS sieht jetzt deinen Bildschirm: sag „was ist das" oder „was siehst du" — ein Screenshot wird lokal erkannt (Modell llama3.2-vision) und bei echter Gefahr (Phishing, gefälschte Warnung) gewarnt. Komplett offline, nur auf Zuruf
 - Bewegbare Embeds: jede Ansicht (Einstellungen, Scan, Architektur …) öffnet als verschiebbares, skalierbares Panel mit leuchtendem Rahmen. Sag „wie bist du aufgebaut" für ein Diagramm deiner Struktur oder „was kannst du" für die Fähigkeiten-Übersicht
