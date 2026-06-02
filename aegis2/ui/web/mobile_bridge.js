@@ -49,6 +49,17 @@
       postJSON("/api/chat", { text: text }).then(function (res) {
         S.voiceState.emit("transcript", text);
         S.voiceState.emit("reply", res.reply || "");
+        // UI-Aktionen vom Server nachspielen, damit Text-/Sprachbefehle die Oberflaeche am
+        // Handy genauso steuern wie am PC (hide_chat/show_chat/switch_tab/hide_vision/show_vision).
+        // Spiegelt die Zuordnung aus bridge.py:_voice_ui_cmd. Native PC-Aktionen
+        // (minimize/restore/hide_window) gibt es am Handy nicht -> werden ignoriert.
+        var ui = res.ui || [];
+        for (var i = 0; i < ui.length; i++) {
+          var a = ui[i] || {}, act = a.action;
+          if (act === "switch_tab") S.voiceState.emit("tab", a.tab || "");
+          else if (act === "hide_chat" || act === "show_chat" || act === "hide_vision") S.voiceState.emit("ui", act);
+          else if (act === "show_vision") S.voiceState.emit("vision", a.img || "");
+        }
         S.voiceState.emit("state", "idle");
       }).catch(function () { S.voiceState.emit("state", "idle"); });
     },

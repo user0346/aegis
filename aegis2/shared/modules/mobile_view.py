@@ -53,7 +53,7 @@ def _adapted_index() -> "str | None":
     except Exception:  # noqa: BLE001
         return None
     return html.replace('<script src="qrc:///qtwebchannel/qwebchannel.js"></script>',
-                        '<script src="mobile_bridge.js?v=2"></script>')
+                        '<script src="mobile_bridge.js?v=3"></script>')
 
 
 # Nur diese Befehle darf das Handy ausloesen (sicher: lesen/scannen/Quarantaene verwalten).
@@ -235,6 +235,15 @@ class MobileView(Module):
         self.port = port
         self._httpd = None
         self._vc = None
+        self._uitl = threading.local()   # sammelt ui_cmd-Aktionen pro /api/chat-Request (Thread-lokal)
+
+    def _collect_ui(self, c):
+        """ui_cmd-Hook des Mobile-Controllers: sammelt UI-Aktionen (hide_chat, switch_tab,
+        hide_vision …) des aktuellen Requests Thread-lokal, damit /api/chat sie ans Handy
+        zurueckgibt und die Mobile-Bridge sie wie am PC abspielt. Ausserhalb eines Requests No-Op."""
+        acts = getattr(self._uitl, "acts", None)
+        if acts is not None and c:
+            acts.append(c)
 
     def _token(self) -> str:
         t = (self.db.get_setting("mobile_view_token", "") or "").strip()
@@ -269,7 +278,7 @@ class MobileView(Module):
         try:
             return {"ok": True, "data": h(args or {})}
         except Exception as e:  # noqa: BLE001
-            return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+            return {"ok": False, "error": type(e).__name__}
 
     def _chat(self, text: str) -> str:
         """Vollwertiger Assistent (gleiche Gates wie am Desktop), Aktionen ueber den Orchestrator."""
@@ -292,7 +301,7 @@ class MobileView(Module):
                     pass
                 return None
 
-            self._vc = VoiceController(ui_cmd=lambda c: None, service_cmd=_svc,
+            self._vc = VoiceController(ui_cmd=self._collect_ui, service_cmd=_svc,
                                        status_cb=lambda: (self.db.stats() if hasattr(self.db, "stats") else {}))
         try:
             res = self._vc.handle_text(text)
@@ -584,8 +593,11 @@ class MobileView(Module):
                     return
                 data = self._body()
                 if path == "/api/chat":
+                    outer._uitl.acts = []                  # UI-Aktionen dieses Requests sammeln
                     reply = outer._chat(str(data.get("text", ""))[:500])
-                    self._send(200, json.dumps({"reply": reply}))
+                    ui = getattr(outer._uitl, "acts", None) or []
+                    outer._uitl.acts = None
+                    self._send(200, json.dumps({"reply": reply, "ui": ui}))
                     return
                 if path == "/api/cmd":
                     res = outer._cmd(str(data.get("name", "")), data.get("args", {}) or {})
