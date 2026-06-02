@@ -398,20 +398,14 @@
       <div class="card">
         <div class="card-head"><h2>Verfügbare Kommandos</h2></div>
         <ul class="cmd-list">
-          <li><kbd>"öffne youtube.com"</kbd> · <kbd>"öffne discord"</kbd> — Website/App öffnen oder nach vorne holen</li>
-          <li><kbd>"beende spotify"</kbd> — laufende App schließen</li>
-          <li><kbd>"spiele <i>…</i>"</kbd> — Spotify-Link/Song abspielen · <kbd>"stoppe die musik"</kbd> · <kbd>"nächster song"</kbd></li>
-          <li><kbd>"suche auf spotify <i>musik</i>"</kbd> — direkt in Spotify/YouTube suchen</li>
-          <li><kbd>"lerne: <i>…</i>"</kbd> — mit Wissen füttern · <kbd>"was ist <i>…</i>"</kbd> — schlägt selbst nach</li>
-          <li><kbd>"lerne von <i>https://…</i>"</kbd> — aus einem Link lernen (Quelle wird geprüft)</li>
-          <li><kbd>"speicher das als <i>name</i> <i>https://…</i>"</kbd> — Shortcut, später per <kbd>"spiele <i>name</i>"</kbd></li>
-          <li><kbd>"merk dir, dass <i>…</i>"</kbd> — Fakt merken · <kbd>"vergiss alles"</kbd></li>
-          <li><kbd>"was hast du gelernt"</kbd> — echte Erkenntnisse · <kbd>"was ist neu"</kbd> — Changelog</li>
-          <li><kbd>"wie spät ist es"</kbd> · <kbd>"welches datum"</kbd> — aus der Systemzeit</li>
-          <li><kbd>"wie viele CPU-Kerne"</kbd> · <kbd>"welche grafikkarte"</kbd> — Systeminfo</li>
-          <li><kbd>"hör ab jetzt auf <i>Jarvis</i>"</kbd> — Weckwort · <kbd>"nenn mich SIR"</kbd> — Anrede</li>
-          <li><kbd>"ollama pull qwen2.5:7b"</kbd> — Modell laden + aktivieren</li>
-          <li><kbd>"status"</kbd> · <kbd>"scan"</kbd> · <kbd>"ist der scan fertig?"</kbd> · <kbd>"zeig bedrohungen"</kbd> · <kbd>"quarantäne"</kbd></li>
+          <li><b>🛡️ Schutz:</b> <kbd>"status"</kbd> · <kbd>"scan"</kbd> · <kbd>"ist der scan fertig?"</kbd> · <kbd>"zeig bedrohungen"</kbd> · <kbd>"quarantäne"</kbd> · <kbd>"ist das sicher: <i>Link/Text</i>"</kbd></li>
+          <li><b>👁️ Bildschirm:</b> <kbd>"was siehst du"</kbd> · <kbd>"mache ein Screenshot"</kbd> — erkennt den Bildschirm + warnt bei echter Gefahr</li>
+          <li><b>🤖 Agent:</b> <kbd>"plane: <i>…</i>"</kbd> · <kbd>"erledige folgendes: <i>…</i>"</kbd> — plant mehrere Schritte, führt sichere automatisch aus</li>
+          <li><b>🎵 Musik & Spotify:</b> <kbd>"spiele <i>…</i>"</kbd> · <kbd>"nächster Song"</kbd> · <kbd>"Spotify leiser"</kbd> · <kbd>"like den Song"</kbd> · <kbd>"verbinde mein Spotify"</kbd> · <kbd>"zeig meine Lieblingssongs"</kbd></li>
+          <li><b>🪟 Fenster & Apps:</b> <kbd>"öffne discord"</kbd> · <kbd>"beende spotify"</kbd> · <kbd>"minimiere dich"</kbd> · <kbd>"verschiebe <i>X</i> auf den Hauptmonitor"</kbd> · <kbd>"hebe <i>X</i> hervor"</kbd> · <kbd>"schließe den Chat"</kbd></li>
+          <li><b>🧠 Wissen & Gedächtnis:</b> <kbd>"was ist <i>…</i>"</kbd> · <kbd>"lerne: <i>…</i>"</kbd> · <kbd>"lerne von <i>https://…</i>"</kbd> · <kbd>"merk dir, dass <i>…</i>"</kbd> · <kbd>"was hast du gelernt"</kbd> · <kbd>"vergiss alles"</kbd></li>
+          <li><b>🗣️ Stimme & Anrede:</b> <kbd>"nenn mich SIR"</kbd> · <kbd>"hör ab jetzt auf <i>Jarvis</i>"</kbd> · <kbd>"nutze die Microsoft-Stimme"</kbd> / <kbd>"…die neuronale Stimme"</kbd> · <kbd>"sei ruhig"</kbd> / <kbd>"sprich wieder"</kbd></li>
+          <li><b>⚙️ System & Info:</b> <kbd>"systeminfo"</kbd> · <kbd>"wie spät ist es"</kbd> · <kbd>"welches Modell"</kbd> · <kbd>"was ist neu"</kbd> · <kbd>"wie bist du aufgebaut"</kbd> · <kbd>"was kannst du"</kbd> · <kbd>"starte dich neu"</kbd></li>
         </ul>
       </div>
       <div class="card">
@@ -474,13 +468,14 @@
       <div class="card">
         <div class="card-head"><h2>Was AEGIS kann</h2></div>
         <div class="arch" style="grid-template-areas:none;grid-template-columns:1fr 1fr">
-          <div class="arch-box"><b>🛡️ Sicherheit</b><span>System-Scan · Bedrohungen · Quarantäne · Echtzeit-Watcher (Prozess/Datei/Netzwerk) · Domain-Blocklist</span></div>
-          <div class="arch-box"><b>👁️ Bildschirm sehen</b><span>«was ist das» / «was siehst du» — Screenshot erkennen + bei echter Gefahr warnen</span></div>
-          <div class="arch-box"><b>🎙️ Stimme</b><span>«Hey Jarvis» · freihändig · Deutsch (Whisper auf GPU) · spricht zurück</span></div>
-          <div class="arch-box"><b>🎵 Medien</b><span>Spotify/YouTube steuern · app-genaue Lautstärke · echter Play/Pause-Status</span></div>
-          <div class="arch-box"><b>🌐 Browser</b><span>Tabs öffnen/fokussieren · «was läuft» · Risiko-Links blockieren</span></div>
-          <div class="arch-box"><b>🧠 Wissen & Lernen</b><span>«lerne …» · «was ist …» · merkt sich Fakten · Auto-Research im Hintergrund</span></div>
-          <div class="arch-box"><b>⚙️ System</b><span>Apps öffnen/schließen · Systeminfo · Embeds · Neustart</span></div>
+          <div class="arch-box"><b>🛡️ Sicherheit</b><span>System-Scan · Bedrohungen · Quarantäne · Echtzeit-Watcher (Prozess/Datei/Netzwerk/USB) · Domain-Blocklist · «ist das sicher: …»</span></div>
+          <div class="arch-box"><b>👁️ Bildschirm sehen</b><span>«was siehst du» / «mache ein Screenshot» — erkennt den Bildschirm + warnt bei echter Gefahr</span></div>
+          <div class="arch-box"><b>🤖 Mehrschritt-Agent</b><span>«plane: …» / «erledige folgendes …» — plant mehrere Schritte und führt sichere automatisch aus</span></div>
+          <div class="arch-box"><b>📱 Auf dem Handy</b><span>Volle Oberfläche live übers Handy (Tailscale, verschlüsselt) — per VOICE auch sprechen</span></div>
+          <div class="arch-box"><b>🎙️ Stimme</b><span>«Hey Jarvis» · Deutsch (Whisper/GPU) · spricht zurück · «nutze die Microsoft-/neuronale Stimme»</span></div>
+          <div class="arch-box"><b>🎵 Medien & Spotify</b><span>Echtes Spotify-Login + «like den Song» · app-genaue Lautstärke · echter Play/Pause-Status</span></div>
+          <div class="arch-box"><b>🧠 Wissen & Lernen</b><span>«lerne …» · «was ist …» · merkt sich Fakten · lernt im Hintergrund (~1/Min) dazu</span></div>
+          <div class="arch-box"><b>🪟 Bedienung</b><span>Apps öffnen/schließen · «minimiere dich» · Fenster verschieben · Embeds · Neustart · Systeminfo</span></div>
           <div class="arch-box" style="border-color:var(--acc)"><b>📊 Mein Gedächtnis</b><span id="cap-mem">frag «was hast du gelernt» für Details.</span></div>
         </div>
       </div>
@@ -598,8 +593,8 @@
           <input type="text" id="llm-base-url" placeholder="http://localhost:1234" autocomplete="off" spellcheck="false">
         </div>
         <div class="form-row">
-          <label>Modell — z. B. qwen3:8b · llama-3.1-8b</label>
-          <input type="text" id="llm-model" placeholder="qwen3:8b" autocomplete="off" spellcheck="false">
+          <label>Modell — z. B. gemma3:4b (Standard) · llama3.1:8b</label>
+          <input type="text" id="llm-model" placeholder="gemma3:4b" autocomplete="off" spellcheck="false">
         </div>
         <div class="form-row">
           <label>API-Schlüssel (nur Cloud; lokal leer lassen)</label>

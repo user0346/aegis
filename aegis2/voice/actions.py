@@ -302,8 +302,9 @@ class ActionRouter:
             pass
         return {"ok": True, "msg": (
             "Ich öffne mein Fähigkeiten-Embed. Kurz: Ich schütze dein System (Scan, Echtzeit-"
-            "Watcher, Quarantäne), sehe auf Zuruf deinen Bildschirm, höre & spreche, steuere "
-            "Medien und Browser, lerne dazu und merke mir Fakten." + learned)}
+            "Watcher, Quarantäne), sehe auf Zuruf deinen Bildschirm, plane auf «plane: …» mehrere "
+            "Schritte, steuere Medien/Spotify (echtes Login) und Browser, höre & spreche — auch "
+            "live übers Handy — und lerne im Hintergrund laufend dazu." + learned)}
 
     def _do_hide_chat(self, args) -> dict:
         """«schließe/blende den Chat aus» -> das Chat-Verlauf-Panel ausblenden (kein App-Schließen,
