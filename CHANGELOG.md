@@ -5,6 +5,13 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 
 ## AEGIS 2.6
 
+### ✨ Klüger, einfühlsamer, lernfähiger
+- **AEGIS denkt jetzt wirklich nach**, wenn du eine echte Frage stellst („erklär…", „warum…", „vergleiche…") — durchdachtere Antworten. Bei Smalltalk und Befehlen bleibt es sofort schnell
+- **Keine Endlos-Schleifen mehr:** sagst du „ja" auf eine Rückfrage, wird die Sache *gemacht* statt nochmal gefragt — und AEGIS bietet keine Aktionen mehr an, auf die es gar nicht reagieren kann
+- **„Lerne `https://…`"** liest jetzt die **ganze Seite tief** (Volltext + Unterseiten), legt das Wissen durchsuchbar ab und zieht es später automatisch heran, wenn es passt — läuft im Hintergrund, du wartest nicht
+- **AEGIS versteht Stimmung:** klingst du gestresst, genervt oder gut gelaunt, geht es passend darauf ein, statt kühl abzuhandeln — und bleibt bei Frust ruhig auf deiner Seite
+- **AEGIS merkt sich von selbst, was dich ausmacht** (Interessen, woran du arbeitest, wie du angesprochen werden willst) — nur was du wirklich sagst, alles bleibt lokal auf deinem PC
+
 ### 🧠 Wissen von Anfang an
 - AEGIS bringt jetzt umfangreiches IT-Sicherheits- & Technik-Wissen direkt mit — neue Installationen sind sofort auskunftsfähig (Phishing, Verschlüsselung, Netzwerk, Malware, Datenschutz u. v. m.), statt sich alles erst selbst beibringen zu müssen
 - Deine persönlichen Daten bleiben dabei immer lokal auf deinem PC — nur allgemeines Wissen wird mitgeliefert
