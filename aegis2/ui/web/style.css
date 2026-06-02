@@ -576,3 +576,18 @@ body.aegis-speaking .embed-host.embed-active::after{animation:embed-pulse 1.8s e
   background:linear-gradient(90deg,#38bdf8,#818cf8); transition:width .35s ease}
 #boot-overlay .boot-pct{font-size:12px; color:#7fd1ff; font-variant-numeric:tabular-nums; min-height:16px}
 #boot-overlay .boot-hint{margin-top:14px; font-size:11.5px; line-height:1.5; color:#6b7d95}
+
+/* ===== Live-Update-Fortschritt (Banner oben, nur waehrend eines Updates) ===== */
+#update-banner{position:fixed; left:0; right:0; top:0; z-index:9998;
+  background:rgba(8,16,28,.97); border-bottom:1px solid rgba(56,189,248,.55);
+  box-shadow:0 6px 22px rgba(0,0,0,.55); padding:11px 16px 9px; -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px)}
+#update-banner[hidden]{display:none}
+#update-banner .update-bar{position:absolute; left:0; bottom:0; height:3px; width:0;
+  background:linear-gradient(90deg,#38bdf8,#818cf8); box-shadow:0 0 9px #38bdf8; transition:width .4s ease}
+#update-banner .update-row{display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap}
+#update-banner .update-ico{color:#7fd1ff; font-size:15px}
+#update-banner .update-text{color:#dbeafe; font-size:13.5px; letter-spacing:.3px; font-variant-numeric:tabular-nums}
+#update-banner .update-apply{background:linear-gradient(90deg,#38bdf8,#818cf8); color:#04121f; border:0;
+  border-radius:7px; padding:5px 13px; font-weight:600; font-size:12.5px; cursor:pointer}
+#update-banner .update-apply[hidden]{display:none}
+#update-banner .update-apply:hover{filter:brightness(1.08)}

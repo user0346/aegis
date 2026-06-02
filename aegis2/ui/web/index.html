@@ -24,7 +24,7 @@
 ">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta name="referrer" content="no-referrer">
-<link rel="stylesheet" href="style.css?v=273">
+<link rel="stylesheet" href="style.css?v=274">
 <link rel="stylesheet" href="mobile_fix.css?v=5">
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
@@ -44,6 +44,16 @@
 </div>
 
 <div id="app">
+
+  <!-- ===== Live-Update-Fortschritt — erscheint NUR waehrend eines Updates ===== -->
+  <div id="update-banner" class="update-banner" hidden role="status" aria-live="polite">
+    <div id="update-bar" class="update-bar"></div>
+    <div class="update-row">
+      <span class="update-ico" aria-hidden="true">⬆</span>
+      <span id="update-text" class="update-text">Update …</span>
+      <button id="update-apply" class="update-apply" hidden>Jetzt installieren</button>
+    </div>
+  </div>
 
   <!-- ===== Header ===== -->
   <header class="topbar">
@@ -807,7 +817,7 @@
 <script src="updater.js?v=251"></script>
 <script src="sentinel.js?v=250"></script>
     <script src="dashboard.js?v=244"></script>
-    <script src="panels.js?v=265"></script>
+    <script src="panels.js?v=266"></script>
     <script src="embeds.js?v=2"></script>
 </body>
 </html>

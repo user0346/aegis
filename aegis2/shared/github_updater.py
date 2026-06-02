@@ -52,6 +52,33 @@ STAGED_ZIP = UPDATE_DIR / "staged.zip"
 STAGED_META = UPDATE_DIR / "staged.json"
 
 
+# Live-Fortschritt eines laufenden Updates fuer die UI — gleiches Muster wie
+# ollama_setup._PULL. phase: idle|checking|downloading|verifying|ready|applying|
+# restarting|error|uptodate ; pct 0..100. Wird von _cmd_update_status mitgeliefert,
+# damit Dashboard + Handy live sehen, wie weit ein Update ist.
+_PROGRESS = {"phase": "idle", "version": "", "pct": 0, "detail": "", "ts": 0.0}
+
+
+def progress() -> dict:
+    """Aktueller Update-Fortschritt (Kopie) fuer die Live-Anzeige."""
+    return dict(_PROGRESS)
+
+
+def set_progress(phase: str, version: str = "", pct: Optional[int] = None,
+                 detail: str = "") -> None:
+    """Aktualisiert den globalen Update-Fortschritt (thread-arm: einzelne dict-Writes
+    sind unter CPython atomar; die UI liest nur)."""
+    _PROGRESS["phase"] = phase
+    if version:
+        _PROGRESS["version"] = version
+    if phase in ("idle", "checking"):
+        _PROGRESS["pct"] = 0
+    elif pct is not None:
+        _PROGRESS["pct"] = max(0, min(100, int(pct)))
+    _PROGRESS["detail"] = detail
+    _PROGRESS["ts"] = time.time()
+
+
 def parse_version(v: str) -> tuple:
     try:
         base = v.lstrip("v").split("-", 1)[0]
@@ -78,19 +105,32 @@ def fetch_latest_release(repo: str, timeout: int = 12) -> Optional[dict]:
         return None
 
 
-def _download(url: str, dest: Path, timeout: int = 60) -> bool:
+def _download(url: str, dest: Path, timeout: int = 60, on_progress=None) -> bool:
+    """Laedt url nach dest. on_progress(done, total) wird (falls Content-Length
+    bekannt) pro Chunk aufgerufen — fuer die Live-Fortschrittsanzeige."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": f"AEGIS/{__version__}"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             if getattr(resp, "status", 200) != 200:
                 log.warning("Download HTTP %s for %s", getattr(resp, "status", "?"), url)
                 return False
+            try:
+                total = int(resp.headers.get("Content-Length", 0) or 0)
+            except (TypeError, ValueError):
+                total = 0
+            done = 0
             with open(dest, "wb") as f:
                 while True:
                     chunk = resp.read(65536)
                     if not chunk:
                         break
                     f.write(chunk)
+                    done += len(chunk)
+                    if on_progress and total:
+                        try:
+                            on_progress(done, total)
+                        except Exception:  # noqa: BLE001
+                            pass
         return True
     except Exception as e:  # noqa: BLE001
         log.warning("Download failed (%s): %s", url, e)
@@ -254,11 +294,17 @@ class GitHubUpdateChecker(Module):
 
     def _check_now(self) -> None:
         """Force an immediate check (called via IPC update.check)."""
+        set_progress("checking", detail="suche nach Updates …")
         try:
             self._check_once()
             self._last_check = time.time()
         except Exception as e:  # noqa: BLE001
+            set_progress("error", detail=type(e).__name__)
             log.warning("forced check failed: %s", e)
+            return
+        # nichts Neues gefunden -> phase blieb 'checking' -> 'uptodate' melden
+        if _PROGRESS.get("phase") == "checking":
+            set_progress("uptodate", version=__version__, detail="auf dem neuesten Stand")
 
     def _check_once(self) -> None:
         repo = self.db.get_setting("update_github_repo", "") or DEFAULT_REPO
@@ -303,11 +349,20 @@ class GitHubUpdateChecker(Module):
             return
 
         UPDATE_DIR.mkdir(parents=True, exist_ok=True)
-        if not _download(zip_asset["browser_download_url"], STAGED_ZIP):
+        set_progress("downloading", version=tag, pct=0)
+
+        def _dlprog(done: int, total: int) -> None:
+            mb = 1024 * 1024
+            set_progress("downloading", version=tag, pct=int(100 * done / total),
+                         detail=f"{done // mb} / {total // mb} MB")
+
+        if not _download(zip_asset["browser_download_url"], STAGED_ZIP, on_progress=_dlprog):
+            set_progress("error", version=tag, detail="Download fehlgeschlagen")
             return
         zip_sha = sha256_of_file(STAGED_ZIP)
 
         # Sigstore verification (best-effort)
+        set_progress("verifying", version=tag, pct=100, detail="prüfe Signatur …")
         sig_ok = None
         sig_reason = "no signature provided"
         if sig_asset and cert_asset:
@@ -332,6 +387,8 @@ class GitHubUpdateChecker(Module):
         }
         STAGED_META.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         self._last_notified_version = tag
+        set_progress("ready", version=tag, pct=100,
+                     detail="bereit" if sig_ok else "bereit (Signatur ungeprüft)")
 
         severity = Severity.INFO if sig_ok else Severity.WARN
         self.emit(severity, Category.SYSTEM,

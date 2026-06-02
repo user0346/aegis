@@ -10,6 +10,9 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - Deine persönlichen Daten bleiben dabei immer lokal auf deinem PC — nur allgemeines Wissen wird mitgeliefert
 - Updates ergänzen nur: bringt eine neue Version mehr Grundwissen mit, kommt es zu deinem dazu — was AEGIS bei dir gelernt hat, wird **nie überschrieben oder gelöscht**
 
+### 🔄 Updates transparent
+- Wenn sich AEGIS aktualisiert, siehst du jetzt **live, wie weit es ist** — Download-Fortschritt in Prozent, Signatur-Prüfung, Einspielen und Neustart als Banner oben (am PC und am Handy), statt dass es einfach im Hintergrund passiert
+
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)
 - Sprach- und Text-Befehle steuern die Oberfläche am Handy genauso wie am PC (Chat aus-/einblenden, Ansicht wechseln)

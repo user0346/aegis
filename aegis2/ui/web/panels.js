@@ -489,6 +489,7 @@
       else if(ev.name==="autonomy.end_session") loadAutonomy();
       else if(ev.name==="vt.status") renderVtStatus(ev.data);
       else if(ev.name==="integrity.status") updateIntegrityPill(ev.data);
+      else if(ev.name==="update.status") renderUpdate(ev.data);
       else if(ev.name==="learning.stats") updateDevelopment(ev.data);
       else if(ev.name==="system.repin"){ const _e=$("system-hint"); if(_e){ _e.textContent="✓ Integrität neu gepinnt — fertig"+((ev.data&&ev.data.detail)?(" ("+ev.data.detail+")"):"")+". Safe-Mode aufgehoben. Falls die Autonomie durch den Vorfall heruntergestuft wurde, im Autonomie-Panel mit PIN wieder anheben."; _e.style.color="var(--ok,#37d39a)"; } updateIntegrityPill({frozen:true,verified:true}); }
       else if(ev.name==="system.setup"){ const _e=$("system-hint"); if(_e){ _e.textContent="✓ Einrichtung/Reparatur fertig."; _e.style.color="var(--ok,#37d39a)"; } }
@@ -713,12 +714,45 @@
     }
   }
 
+  /* ---------- Live-Update-Fortschritt (Banner oben — erscheint nur waehrend eines Updates) ---------- */
+  let _updActive=false, _updVer="";
+  function renderUpdate(d){
+    const b=$("update-banner"); if(!b) return;
+    d=d||{}; const p=d.progress||{};
+    const ph=p.phase||"idle";
+    const ver=p.version||d.version||"";
+    const pct=Math.max(0,Math.min(100,parseInt(p.pct,10)||0));
+    const bar=$("update-bar"), txt=$("update-text"), btn=$("update-apply");
+    let label="", show=true, showBtn=false;
+    if(ph==="checking"){ label="Suche nach Updates …"; }
+    else if(ph==="downloading"){ label="Lade Update "+ver+" · "+pct+"%"+(p.detail?(" ("+p.detail+")"):""); }
+    else if(ph==="verifying"){ label="Update "+ver+": prüfe Signatur …"; }
+    else if(ph==="applying"){ label="Spiele Update "+ver+" ein …"; }
+    else if(ph==="restarting"){ label="Starte mit "+ver+" neu …"; }
+    else if(ph==="error"){ label="Update-Problem: "+(p.detail||"unbekannt"); }
+    else if(ph==="uptodate"){ label="✓ Auf dem neuesten Stand ("+ver+")"; }
+    else if(d.staged||ph==="ready"){ label="Update "+ver+" bereit"; showBtn=!!d.staged; }
+    else { show=false; }
+    if(bar) bar.style.width=(ph==="downloading"?pct:(show?100:0))+"%";
+    if(txt) txt.textContent=label;
+    if(btn){ btn.hidden=!showBtn; if(showBtn) _updVer=ver; }
+    b.hidden=!show;
+    _updActive=(ph==="checking"||ph==="downloading"||ph==="verifying"||ph==="applying");
+    if(ph==="uptodate"){ clearTimeout(window._updHide); window._updHide=setTimeout(function(){ const x=$("update-banner"); if(x) x.hidden=true; },6000); }
+  }
+  function wireUpdateApply(){
+    const btn=$("update-apply"); if(!btn||btn._wired) return; btn._wired=true;
+    btn.addEventListener("click",function(){ btn.disabled=true; btn.textContent="installiere …";
+      try{ sendCmd("update.install", _updVer?{version:_updVer}:{}); }catch(e){} });
+  }
+
   function attach(){
     if(!window.aegis||!window.aegis.eventReceived||!window.aegis.eventReceived.connect){ setTimeout(attach,150); return; }
     window.aegis.eventReceived.connect(function(json){ let ev; try{ev=JSON.parse(json);}catch(_){return;} try{onEvent(ev);}catch(_){} });
-    loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama();
-    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
-    setTimeout(function(){ sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); }, 1500);   // frueh: Badge + Lernstand
+    loadSettings(); pollQuar(); pollConsent(); loadAutonomy(); loadOllama(); wireUpdateApply();
+    setInterval(function(){ pollQuar(); pollConsent(); loadMemory(); sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); sendCmd("update.status",{}); if(!_ollamaOK || _pullActive) loadOllama(); },5000);
+    setInterval(function(){ if(_updActive) sendCmd("update.status",{}); },1500);   // schneller Takt waehrend eines aktiven Updates
+    setTimeout(function(){ sendCmd("integrity.status",{}); sendCmd("learning.stats",{}); sendCmd("update.status",{}); }, 1500);   // frueh: Badge + Lernstand + Update
     setInterval(renderNet,1000);
   }
 

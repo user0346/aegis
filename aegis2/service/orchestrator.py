@@ -763,18 +763,24 @@ class Orchestrator:
     #  Phase 7 — Update flow
     # ============================================================
     def _cmd_update_status(self, args):
-        """Returns staged-update metadata if anything is downloaded."""
+        """Returns staged-update metadata + LIVE progress (phase/pct) for the UI."""
         from pathlib import Path
         import json as _json
+        try:
+            from ..shared.github_updater import progress as _uprog
+            prog = _uprog()
+        except Exception:  # noqa: BLE001
+            prog = {"phase": "idle", "pct": 0, "version": "", "detail": ""}
         meta_path = Path.home() / ".aegis" / "updates" / "staged.json"
         if not meta_path.exists():
-            return {"staged": False}
+            return {"staged": False, "progress": prog}
         try:
             data = _json.loads(meta_path.read_text(encoding="utf-8"))
             data["staged"] = True
+            data["progress"] = prog
             return data
         except Exception as e:
-            return {"staged": False, "error": str(e)}
+            return {"staged": False, "progress": prog, "error": str(e)}
 
     def _cmd_update_check(self, args):
         """Force an immediate update-check (normally runs every 24h)."""
@@ -811,6 +817,12 @@ class Orchestrator:
         if want_ver and have_ver and want_ver != have_ver:
             return {"ok": False,
                     "error": f"version mismatch: ui={want_ver} staged={have_ver}"}
+
+        try:
+            from ..shared.github_updater import set_progress as _setp
+            _setp("applying", version=have_ver, pct=100, detail="spiele Update ein …")
+        except Exception:  # noqa: BLE001
+            pass
 
         try:
             from ..shared.events import Event, Severity, Category
