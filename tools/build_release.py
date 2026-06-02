@@ -31,7 +31,7 @@ EXCLUDE_NAMES = {
 # Ausdruecklich ERLAUBTE Dateinamen — ueberschreiben den generischen Suffix-Ausschluss
 # (NICHT die Verzeichnis-/Secret-Ausschluesse). z.B. der legitime Quellcode-Installer,
 # der trotz ".cmd"-Regel ins Quell-Bundle gehoert.
-INCLUDE_NAMES = {"install.cmd"}
+INCLUDE_NAMES = {"install.cmd", "install.ps1"}
 
 # Suffixe, die NIE ins Release-ZIP gehoeren (State, Secrets, Build-Muell).
 EXCLUDE_SUFFIXES = (

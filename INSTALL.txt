@@ -1,8 +1,21 @@
 AEGIS — Installation
 =====================
 
-⚠ ZUERST LESEN — falls Windows die Installation blockiert
----------------------------------------------------------
+SCHNELLSTER WEG: ein Befehl, kein Windows-Block
+-----------------------------------------------
+PowerShell oeffnen, diese eine Zeile einfuegen, Enter druecken:
+
+    irm https://raw.githubusercontent.com/user0346/aegis/main/install.ps1 | iex
+
+Das holt die neueste Version, installiert die Pakete, richtet Autostart +
+Verknuepfung ein und startet AEGIS. Weil das Skript IM SPEICHER laeuft (keine
+heruntergeladene Datei auf der Platte), blockt Smart App Control / SmartScreen
+NICHT. Einzige Voraussetzung: Python 3.11+ (fehlt es, wird es per winget
+automatisch nachgeholt).
+
+
+⚠ Falls Windows blockiert (nur beim ZIP-/EXE-Weg unten)
+-------------------------------------------------------
 Windows 11 (Smart App Control / SmartScreen) markiert ALLES aus einem
 heruntergeladenen ZIP als "aus dem Internet" (Mark-of-the-Web) und blockiert
 dann unsignierte Dateien — auch install.cmd, oft sogar OHNE einen
