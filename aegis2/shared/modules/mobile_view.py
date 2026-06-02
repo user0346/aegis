@@ -314,9 +314,20 @@ class MobileView(Module):
 
     def _exec(self, name: str, args: dict):
         """VOLLER Befehlszugriff (1:1 wie Desktop) — JEDER Orchestrator-Befehl, Schema-validiert.
-        Bewusste Nutzer-Entscheidung (Handy = PC). Token schuetzt den Zugang."""
+        Sicherheits-relevante Aktionen (PIN/Autonomie/Einstellungen/Update/Neustart/Shell)
+        verlangen ueber das Netz ZUSAETZLICH die Owner-PIN (falls eine gesetzt ist); normale
+        Befehle (Status/Scan/Musik/Threats/...) bleiben reibungslos."""
         if self.orch is None:
             return {"ok": False, "error": "no orch"}
+        _nl = (name or "").lower()
+        if ("pin" in _nl or "exec" in _nl or "shell" in _nl or "run_command" in _nl
+                or _nl.startswith(("autonomy.", "settings.", "update.", "system.", "boot."))):
+            try:
+                from ...cognition.autonomy import has_owner_pin, verify_owner_pin
+                if has_owner_pin() and not verify_owner_pin(str((args or {}).get("pin") or "")):
+                    return {"ok": False, "name": name, "error": "pin_required"}
+            except Exception:  # noqa: BLE001
+                return {"ok": False, "name": name, "error": "pin_check_failed"}
         try:
             from ..command_schema import validate_command
             ok, why = validate_command(name, args or {})
@@ -460,8 +471,32 @@ class MobileView(Module):
                 pass
 
             def _ok_token(self, q):
-                got = (q.get("t", [""])[0] or "")
-                return bool(got) and hmac.compare_digest(got, token)
+                # Token aus dem Authorization-Header (bevorzugt -> landet NICHT in Server-/Proxy-
+                # Logs wie die URL-Query) oder X-AEGIS-Token; sonst aus der Query (Fallback fuers
+                # Oeffnen der Seite + Abwaertskompatibilitaet).
+                got = ""
+                _a = (self.headers.get("Authorization") or "")
+                if _a[:7].lower() == "bearer ":
+                    got = _a[7:].strip()
+                if not got:
+                    got = (self.headers.get("X-AEGIS-Token") or "").strip()
+                if not got:
+                    got = (q.get("t", [""])[0] or "")
+                _ip = (self.client_address[0] if self.client_address else "?")
+                _key = "mobile_token_" + _ip
+                try:                                  # Brute-Force-Sperre pro IP (wie beim PIN)
+                    from ...cognition import bruteforce
+                    if bruteforce.is_locked(_key)[0]:
+                        return False
+                except Exception:  # noqa: BLE001
+                    pass
+                ok = bool(got) and hmac.compare_digest(got, token)
+                try:
+                    from ...cognition import bruteforce
+                    bruteforce.record_attempt(_key, ok)   # zaehlt Fehlversuche -> sperrt nach N
+                except Exception:  # noqa: BLE001
+                    pass
+                return ok
 
             def _send(self, code, body, ctype="application/json; charset=utf-8"):
                 b = body.encode("utf-8") if isinstance(body, str) else body
