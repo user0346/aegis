@@ -5,6 +5,10 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 
 ## AEGIS 2.6
 
+### 🧠 Wissen von Anfang an
+- AEGIS bringt jetzt umfangreiches IT-Sicherheits- & Technik-Wissen direkt mit — neue Installationen sind sofort auskunftsfähig (Phishing, Verschlüsselung, Netzwerk, Malware, Datenschutz u. v. m.), statt sich alles erst selbst beibringen zu müssen
+- Deine persönlichen Daten bleiben dabei immer lokal auf deinem PC — nur allgemeines Wissen wird mitgeliefert
+
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)
 - Sprach- und Text-Befehle steuern die Oberfläche am Handy genauso wie am PC (Chat aus-/einblenden, Ansicht wechseln)

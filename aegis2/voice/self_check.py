@@ -64,8 +64,8 @@ def honest_note() -> str:
 def strip_leaked_context(text):
     """Reste aus dem System-Kontext entfernen, die das kleine LLM faelschlich in die ANTWORT
     uebernimmt: den pro-Anfrage-Daten-Sentinel ([DATA-xxxx]) und vor allem nachgestellte
-    Fakten-Dumps im 'Schluessel=Wert, …'-Format — z.B. '(Name=Pizet, Beruf=Programmierer,
-    mag=blau)'. So listet kein normaler deutscher Satz Daten auf -> sicher zu strippen.
+    Fakten-Dumps im 'Schluessel=Wert, …'-Format — z.B. '(Name=Max, Beruf=Lehrer,
+    mag=grün)'. So listet kein normaler deutscher Satz Daten auf -> sicher zu strippen.
     (Genau das hatte der Nutzer gesehen und 'lösche das da raus' verlangt.)"""
     if not text:
         return text

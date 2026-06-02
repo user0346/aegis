@@ -109,12 +109,12 @@ def _extract(user_text: str, answer: str) -> None:
         if not (k and v) or v.lower() in ("unbekannt", "keine", "n/a", "-", "null", "none"):
             continue
         # IDENTITAET (Name/Anrede) NIE automatisch raten -> nur per ausdruecklichem Befehl
-        # ("nenn mich ...", "merk dir ..."). Sonst landet erfundenes "Name=Pizet" im Profil.
+        # ("nenn mich ...", "merk dir ..."). Sonst landet ein frei erfundener Name im Profil.
         if k.lower() in _IDENTITY:
             continue
         # ANTI-HALLUZINATION: der Wert muss WIRKLICH im Nutzer-Text vorkommen (verbatim) —
         # sonst hat das kleine LLM ihn erfunden. So kann NICHTS gespeichert werden, was der
-        # Nutzer nie gesagt hat (Wurzel der falschen "Kaffee/Bello/blau"-Fakten).
+        # Nutzer nie gesagt hat (Wurzel frei erfundener Profil-Fakten).
         vl = v.lower()
         words = _re.findall(r"[a-zäöüß0-9]{4,}", vl)
         if (vl in ut) or (words and any(w in ut for w in words)):
