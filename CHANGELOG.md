@@ -13,7 +13,12 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 ### 🔄 Updates transparent
 - Wenn sich AEGIS aktualisiert, siehst du jetzt **live, wie weit es ist** — Download-Fortschritt in Prozent, Signatur-Prüfung, Einspielen und Neustart als Banner oben (am PC und am Handy), statt dass es einfach im Hintergrund passiert
 
+### ⬇️ Einfacher installieren
+- **Neu: Ein-Zeilen-Installer.** In PowerShell `irm https://raw.githubusercontent.com/user0346/aegis/main/install.ps1 | iex` — installiert AEGIS, richtet Autostart ein, startet es. Läuft im Speicher → **kein Smart-App-Control-/SmartScreen-Block**, ganz ohne Code-Signatur
+
 ### 🔧 Behoben
+- **„vergiss es" / „egal" löscht NICHTS mehr aus dem Gedächtnis.** Diese Abwimmel-Floskeln wurden fälschlich als Lösch-Befehl verstanden und haben den zuletzt gelernten Eintrag entfernt — jetzt brechen sie einfach ab. Gezielt löschen geht weiter mit „vergiss, dass …" oder „vergiss alles"
+- **Fenster verschieben versteht jetzt normale Sätze:** „zieh Spotify auf den Hauptbildschirm", „Spotify auf den ersten Screen verschieben", „verschieb das auf den Main-Screen" — in beliebiger Reihenfolge zieht AEGIS das Fenster auf den Hauptmonitor, statt es nur zu öffnen oder sich zu wiederholen
 - **Die „Auf dem neuesten Stand"-Leiste bleibt nicht mehr stehen:** die obere Update-Leiste zeigt sich nur noch während eines echten Updates (Download/Prüfung/Installation) und ganz kurz als Quittung danach — im normalen Betrieb ist sie ausgeblendet, statt dauerhaft „du bist aktuell" anzuzeigen
 - **Kein „Geister-Update" mehr:** AEGIS bot oben teils „Update v… bereit / Jetzt installieren" an, obwohl genau diese Version schon lief (ein heruntergeladenes Update wurde nach dem Einspielen nicht weggeräumt). Jetzt prüft AEGIS **vor dem Anzeigen und vor dem Installieren**, ob die Version wirklich neuer ist — sonst räumt es die Reste auf und meldet ehrlich „du bist aktuell"
 - **„Wie weit ist das Update?"** (und „Update-Status") beantwortet AEGIS jetzt direkt mit dem echten Stand, statt nur „soll ich nachsehen?" zu fragen und dann nichts zu liefern

@@ -125,7 +125,10 @@ _PATTERNS = [
     # Vergessen/Loeschen aus dem Gedaechtnis: "vergiss ..." ODER "lösche ... aus dem
     # memory/gedächtnis/notizen/wissen". NICHT "lösche discord" (kein Memory-Bezug ->
     # das ist Datei/Programm-Loeschung und wird NICHT hier behandelt).
-    ("forget", re.compile(r"\bvergiss\b|\b(?:lösche?|lösch|entferne?|streich\w*)\b[^.!?]*\b(?:memory|gedächtnis|gedaechtnis|erinnerung|notiz\w*|info\w*|gemerkt\w*|gelernt\w*|wissen|merkst|gespeichert\w*)\b", re.I)),
+    # WICHTIG: «vergiss es» / «egal vergiss es» / «vergiss das» sind Abwimmel-Floskeln,
+    # KEINE Lösch-Befehle (sie löschten früher über den _last_learned-Fallback fälschlich
+    # den zuletzt gelernten Eintrag). «vergiss» feuert nur mit echtem Objekt dahinter.
+    ("forget", re.compile(r"\bvergiss\b(?=\s+\S)(?!\s+(?:es|das|den|die|mal|jetzt|einfach|schon|halt|wieder|doch)\s*[.!?]*$)|\b(?:lösche?|lösch|entferne?|streich\w*)\b[^.!?]*\b(?:memory|gedächtnis|gedaechtnis|erinnerung|notiz\w*|info\w*|gemerkt\w*|gelernt\w*|wissen|merkst|gespeichert\w*)\b", re.I)),
     # Benannter Shortcut ("speicher das als lofi music … <url>") -> Alias name->Ziel.
     # VOR remember/learn/play: verlangt Verb (speicher/hinterleg/merk dir) UND "als".
     ("set_alias", re.compile(r"\b(?:speicher\w*|hinterleg\w*|merke?\s+dir)\b.*\bals\b\s+\S", re.I)),
@@ -362,10 +365,12 @@ _COMMAND_PATTERNS.insert(0, ("focus_window", re.compile(
     r"(?P<app2>[a-zäöü][\wäöü.\-]{1,30})\b", re.I)))
 # «verschiebe X auf den Hauptmonitor/main screen» -> Fenster auf den Primärmonitor ziehen.
 _COMMAND_PATTERNS.insert(0, ("move_window", re.compile(
-    r"^\s*(?:verschieb\w*|zieh\w*|beweg\w*|setz\w*|pack\w*|hol\w*)\s+"
-    r"(?:mir\s+|das\s+|die\s+|den\s+|mal\s+)*(?P<app>[a-zäöü][\wäöü.\-]{1,30})\s+"
-    r"(?:auf|zum|in|nach)\s+(?:den\s+|dem\s+|das\s+|der\s+|meinen\s+|mein\s+|m[ae]in\s+)*"
-    r"(?:haupt\w*|main|prim[äa]r\w*|erst\w*|monitor|bildschirm|screen)\b", re.I)))
+    # Greift, wenn ein Verschiebe-Verb UND ein Bildschirm-Ziel im Satz stehen -- egal in
+    # welcher Reihenfolge («verschieb Spotify auf den Main-Screen», «Spotify auf den
+    # ersten Bildschirm ziehen», «ja spotify verschieben auf dem main screen»). Die App
+    # schaelt der Handler aus dem Satz. Beide Bedingungen noetig -> kapert keinen Normalbefehl.
+    r"^(?=.*\b(?:verschieb\w*|zieh\w*|beweg\w*|r[üu]ber|setz\w*|pack\w*)\b)"
+    r"(?=.*\b(?:haupt\w*|main|prim[äa]r\w*|monitor|bildschirm|screen|display)\b).+", re.I)))
 # «verbinde mein Spotify» -> EHRLICHE Antwort. Vorher hat das Modell «Spotify: verbunden»
 # halluziniert (kein Handler, kein echtes Login). Deterministisch abfangen, damit nichts
 # vorgegaukelt wird (echtes Likes-Schreiben braucht OAuth -> eigenes Feature).
@@ -480,6 +485,7 @@ def _match(t: str, patterns: list, conf: float):
             args["target"] = (m.groupdict().get("app") or m.groupdict().get("app2") or "").strip()
         elif name == "move_window":
             args["target"] = (m.groupdict().get("app") or "").strip()
+            args["text"] = t
         elif name == "set_spotify_id":
             gd = m.groupdict()
             args["id"] = (gd.get("id") or gd.get("id2") or gd.get("id3") or "").strip()

@@ -449,7 +449,19 @@ class ActionRouter:
         """«verschiebe X auf den Hauptmonitor/main screen» -> Fenster auf den Primärmonitor ziehen."""
         target = (args.get("target") or "").strip().rstrip(".!?,;:")
         if not target:
-            return {"ok": False, "msg": "Welches Fenster soll ich verschieben?"}
+            # App aus dem ganzen Satz herausschälen: Verschiebe-Verb, Ziel-Phrase und
+            # Füllwörter raus -> übrig bleibt der App-Name («ja spotify verschieben auf dem
+            # main screen» -> «spotify»).
+            t = (args.get("text") or "").lower()
+            t = re.sub(r"\b(?:verschieb\w*|zieh\w*|beweg\w*|setz\w*|pack\w*|r[üu]ber)\b", " ", t)
+            t = re.sub(r"\b(?:auf|zum|zur|in|nach|den|dem|das|der|die|meinen|mein|m[ae]in|"
+                       r"haupt\w*|main|prim[äa]r\w*|erst\w*|zweit\w*|link\w*|recht\w*|"
+                       r"monitor|bildschirm|screen|display|\d+\.?)\b", " ", t)
+            t = re.sub(r"\b(?:ja|nein|bitte|mal|doch|du|sollst|kannst|soll|ich|will|m[öo]chte|"
+                       r"es|jetzt|gerade|mir|aegis|fenster|von|vom)\b", " ", t)
+            target = re.sub(r"\s+", " ", t).strip(" .,!?\"'«»")
+        if not target:
+            return {"ok": False, "msg": "Welches Fenster soll ich auf den Hauptmonitor ziehen? Sag z.B. «zieh Spotify auf den Hauptbildschirm»."}
         try:
             from . import app_index
             ok, info = app_index.move_to_primary(target)
@@ -1719,6 +1731,13 @@ class ActionRouter:
         text = (args.get("text") or "").strip()
         tl = text.lower()
         from ..shared import user_memory, knowledge_base
+        # «vergiss es» / «egal» / «vergiss das» = Abwimmeln, NICHT löschen. Bleibt nach Entfernen
+        # aller Floskeln kein echtes Objekt übrig, NICHTS anfassen — sonst löschte der
+        # _last_learned-Fallback weiter unten fälschlich den zuletzt gelernten Eintrag.
+        _rest = re.sub(r"\b(?:egal|vergiss|vergessen|lass|schon\s+gut|passt\s+schon|es|das|"
+                       r"den\s+kram|mal|jetzt|einfach|wieder|halt|doch|bitte|du)\b|[.!?,]", "", tl).strip()
+        if not _rest:
+            return {"ok": True, "msg": "Okay, vergessen wir's. (Zum gezielten Löschen: «vergiss, dass …» oder «vergiss alles».)"}
         if (re.search(r"\balles\b|\bgesamt\w*|\bkomplett\w*|\bmein\s+ganzes\b", tl)
                 or re.search(r"\b(?:deine?|dein|die|das)\s+(?:ganze\s+|gesamte\s+|komplette\s+)?"
                              r"(?:memory|gedächtnis|gedaechtnis|erinnerung\w*|notizen|wissen|"
