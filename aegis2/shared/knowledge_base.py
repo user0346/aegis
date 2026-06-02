@@ -185,6 +185,74 @@ def learn(text: str) -> bool:
         return True
 
 
+def _passages(text: str, size: int = 800) -> list:
+    """Langen Fliesstext in ~size-Zeichen-Absaetze schneiden (an Satz-/Wortgrenzen). Noetig, weil
+    der Doc-Chunker (_doc_chunks) an LEERZEILEN splittet und je [:1000] nimmt — kollabierter
+    Webtext (eine Zeile) wuerde sonst bis auf das erste Stueck verloren gehen."""
+    import re as _re
+    text = _re.sub(r"\s+", " ", text or "").strip()
+    out = []
+    while text:
+        if len(text) <= size:
+            out.append(text)
+            break
+        cut = text.rfind(". ", size // 2, size)
+        if cut < 0:
+            cut = text.rfind(" ", size // 2, size)
+        if cut < 0:
+            cut = size
+        out.append(text[:cut + 1].strip())
+        text = text[cut + 1:].strip()
+    return [p for p in out if len(p) >= 20]
+
+
+def _safe_name(s: str) -> str:
+    import re as _re
+    s = _re.sub(r"[^a-z0-9]+", "-", (s or "web").lower()).strip("-")
+    return (s or "web")[:40]
+
+
+def learn_document(text: str, source: str = "web", url: str = "", title: str = "") -> int:
+    """Einen GANZEN Text (z.B. eine ganze Webseite) als durchsuchbares Dokument ablegen — als
+    .md in ~/.aegis/knowledge/, in Absaetze zerlegt. NICHT der 200-Eintrag-Grenze unterworfen
+    (die gilt nur fuer knowledge.json); der Doc-Pfad chunkt/embedded/durchsucht es automatisch.
+    Returns Anzahl abgelegter Absaetze (Chunks)."""
+    paras = _passages(text)
+    if not paras:
+        return 0
+    try:
+        import hashlib as _h
+        _DOCS.mkdir(parents=True, exist_ok=True)
+        h = _h.sha1((url or source or title or "web").encode("utf-8", "ignore")).hexdigest()[:8]
+        fname = f"web-{_safe_name(source)}-{h}.md"
+        header = f"# Gelernt: {title or source}\n"
+        if url:
+            header += f"# Quelle: {url}\n"
+        body = header + "\n" + "\n\n".join(paras) + "\n"
+        tmp = (_DOCS / fname).with_suffix(".md.tmp")
+        tmp.write_text(body, encoding="utf-8")
+        tmp.replace(_DOCS / fname)
+        return len(paras)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def reindex_async() -> None:
+    """Stoesst den Embedding-Index im HINTERGRUND an: neu gelernte Dokumente werden so
+    eingebettet, BEVOR der Nutzer das naechste Mal fragt — statt traege (und unter _LOCK)
+    beim ersten search() nachzuziehen."""
+    def _w():
+        try:
+            with _LOCK:
+                _ensure_index()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        threading.Thread(target=_w, daemon=True, name="KBReindex").start()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # ----------------------------------------------------------------- Embeddings (lokal via Ollama)
 def _normalize(v: list) -> list:
     n = sum(x * x for x in v) ** 0.5

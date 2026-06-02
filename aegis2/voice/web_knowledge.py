@@ -81,9 +81,11 @@ def _is_public_host(host: str) -> bool:
         return False
 
 
-def fetch_url(url: str, timeout: float = 8.0, max_bytes: int = 600_000) -> dict | None:
+def fetch_url(url: str, timeout: float = 8.0, max_bytes: int = 600_000,
+              full: bool = False) -> dict | None:
     """Holt eine Webseite als bereinigten Text fuer das Lernen aus Links.
-    Returns {title, text, domain, trusted, url} oder {error: ...} oder None.
+    Returns {title, text, domain, trusted, url, links} oder {error: ...} oder None.
+    full=True: VOLLTEXT (statt 4000 Zeichen) + gleiche-Domain-Links sammeln (fuer fetch_site).
 
     SICHERHEIT: nur http(s); KEIN localhost/privates Netz (SSRF-Schutz); Groessen-
     limit + Timeout; gated durch das Web-Suche-Toggle. Der Text ist DATEN — der
@@ -114,12 +116,28 @@ def fetch_url(url: str, timeout: float = 8.0, max_bytes: int = 600_000) -> dict 
             ctype = (r.headers.get("Content-Type") or "").lower()
             if "html" not in ctype and "text" not in ctype:
                 return {"error": "not_text", "domain": dom, "trusted": trusted}
-            raw = r.read(max_bytes)
+            raw = r.read(max(max_bytes, 2_000_000) if full else max_bytes)
     except Exception:  # noqa: BLE001
         return None
     html = raw.decode("utf-8", errors="ignore")
     mt = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
     title = re.sub(r"\s+", " ", (mt.group(1) if mt else dom)).strip()[:120]
+    # Fuer TIEFES Lernen: gleiche-Domain-Links sammeln (VOR dem Tag-Strippen). Nur derselbe Host
+    # -> kein Abdriften auf fremde Domains; gedeckelt. fetch_site() crawlt damit die ganze Seite.
+    links: list = []
+    if full:
+        for _m in re.finditer(r'<a\s[^>]*href=["\']([^"\'#]+)', html, re.I):
+            try:
+                _ab = urllib.parse.urljoin(url, _m.group(1).strip())
+                _hp = urllib.parse.urlparse(_ab)
+                if _hp.scheme in ("http", "https") and _hp.hostname:
+                    _hh = _hp.hostname.lower()
+                    _hh = _hh[4:] if _hh.startswith("www.") else _hh
+                    if _hh == dom:
+                        links.append(_ab.split("#")[0])
+            except Exception:  # noqa: BLE001
+                pass
+        links = list(dict.fromkeys(links))[:80]
     html = re.sub(r"(?is)<(script|style|noscript|template|svg|head)[^>]*>.*?</\1>", " ", html)
     text = re.sub(r"(?s)<[^>]+>", " ", html)
     for a, b in (("&nbsp;", " "), ("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
@@ -128,4 +146,32 @@ def fetch_url(url: str, timeout: float = 8.0, max_bytes: int = 600_000) -> dict 
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) < 80:
         return {"error": "too_thin", "domain": dom, "trusted": trusted}
-    return {"title": title, "text": text[:4000], "domain": dom, "trusted": trusted, "url": url}
+    return {"title": title, "text": (text if full else text[:4000]), "domain": dom,
+            "trusted": trusted, "url": url, "links": links}
+
+
+def fetch_site(start_url: str, max_pages: int = 10, timeout: float = 8.0) -> object:
+    """Lernt eine GANZE Seite: folgt Links auf DERSELBEN Domain (Breitensuche), bis max_pages.
+    Gibt eine Liste [{url, title, text}] zurueck — ODER ein {error:...}-dict, falls schon die
+    Startseite scheitert. Alle Sicherheits-Gates aus fetch_url gelten pro Seite (SSRF, Toggle,
+    Content-Type). Konservativ gedeckelt, damit es nicht entgleist."""
+    first = fetch_url(start_url, timeout=timeout, full=True)
+    if not isinstance(first, dict) or first.get("error") or not first.get("text"):
+        return first if isinstance(first, dict) else None
+    def _key(u: str) -> str:
+        return (u or "").split("#")[0].rstrip("/")
+    pages = [{"url": start_url, "title": first.get("title"), "text": first.get("text")}]
+    visited = {_key(start_url)}
+    queue = list(first.get("links", []))
+    while queue and len(pages) < max_pages:
+        u = queue.pop(0)
+        if _key(u) in visited:
+            continue
+        visited.add(_key(u))
+        r = fetch_url(u, timeout=timeout, full=True)
+        if isinstance(r, dict) and not r.get("error") and r.get("text"):
+            pages.append({"url": u, "title": r.get("title"), "text": r.get("text")})
+            for l in r.get("links", []):
+                if _key(l) not in visited:
+                    queue.append(l)
+    return pages
