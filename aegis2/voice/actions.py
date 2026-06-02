@@ -1143,10 +1143,9 @@ class ActionRouter:
         return r
 
     def _do_favorite_song(self, args) -> dict:
-        """«füge diesen Song zu Favoriten hinzu» / «like den Song» -> den GERADE laufenden Titel
-        über die Windows-Mediensteuerung (SMTC) identifizieren (kein «welchen Song?» mehr) und
-        merken. Echtes Speichern in Spotifys Lieblingssongs braucht den Spotify-Login (API) —
-        das wird ehrlich gesagt und der Titel solange in der Merkliste gehalten."""
+        """«like den Song» -> den GERADE laufenden Titel (SMTC) holen und, falls Spotify verbunden
+        ist, ECHT in die Spotify-Lieblingssongs schreiben (Suche per Titel/Interpret -> PUT
+        /me/tracks). Zusaetzlich immer lokal merken. Ohne Login: lokale Liste + Hinweis."""
         title = artist = ""
         try:
             from ..shared import media_control as mc
@@ -1159,26 +1158,110 @@ class ActionRouter:
             return {"ok": False, "msg": ("Mir zeigt die Mediensteuerung gerade keinen laufenden "
                                          "Titel. Starte die Wiedergabe, dann markiere ich ihn.")}
         song = "«" + title + "»" + ((" von " + artist) if artist else "")
-        try:                                  # Titel merken, damit er nicht verloren geht
+        try:                                  # lokal merken (immer, geht nie verloren)
             from ..shared import user_memory
             user_memory.add_note("Lieblingssong (für Spotify vorgemerkt): " + title +
                                  ((" – " + artist) if artist else ""))
         except Exception:  # noqa: BLE001
             pass
+        tok = self._spotify_token()           # echtes Like, wenn verbunden
+        if tok:
+            try:
+                from ..shared import spotify_auth as sa
+                tid = sa.search_track_id(tok, title, artist)
+                if tid and sa.like_track(tok, tid):
+                    return {"ok": True, "msg": f"{song} ist jetzt in deinen Spotify-Lieblingssongs ♥"}
+                return {"ok": True, "msg": (f"{song} — in Spotify nicht eindeutig gefunden, aber in "
+                                            "deiner lokalen Liste gemerkt.")}
+            except Exception:  # noqa: BLE001
+                pass
         return {"ok": True, "msg": (
-            f"{song} — gespeichert in deiner Lieblingsliste. Sag «zeig meine Lieblingssongs», "
-            f"um sie zu sehen. (Direkt in Spotifys eigene Likes schreibe ich, sobald das "
-            f"Spotify-Login steht — das baue ich noch.)")}
+            f"{song} — in deiner Lieblingsliste gemerkt. Für echtes Speichern in deine "
+            "Spotify-Likes sag «verbinde mein Spotify».")}
+
+    def _spotify_token(self):
+        """Gueltiges Spotify-Access-Token (auto-Refresh kurz vor Ablauf). None wenn nicht
+        verbunden. Tokens liegen ausschliesslich lokal in der DB (~/.aegis)."""
+        import time as _t
+        try:
+            from ..shared.db import get_db
+            from ..shared import spotify_auth as sa
+            db = get_db()
+            tok = (db.get_setting("spotify_access_token", "") or "").strip()
+            if not tok:
+                return None
+            exp = int(db.get_setting("spotify_token_expiry", 0) or 0)
+            cid = (db.get_setting("spotify_client_id", "") or "").strip()
+            rft = (db.get_setting("spotify_refresh_token", "") or "").strip()
+            if _t.time() > exp - 30 and rft and cid:
+                t = sa.refresh(cid, rft) or {}
+                if t.get("access_token"):
+                    tok = t["access_token"]
+                    db.set_setting("spotify_access_token", tok)
+                    db.set_setting("spotify_token_expiry", int(_t.time()) + int(t.get("expires_in", 3600)))
+                    if t.get("refresh_token"):
+                        db.set_setting("spotify_refresh_token", t["refresh_token"])
+            return tok
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _do_set_spotify_id(self, args) -> dict:
+        """«Spotify Client-ID <ID>» -> die (oeffentliche) Client-ID der eigenen Spotify-App
+        speichern, damit der PKCE-Login laufen kann."""
+        import re as _re
+        cid = (args.get("id") or "").strip()
+        if not cid:
+            m = _re.search(r"\b([0-9a-fA-F]{32})\b", (args.get("text") or ""))
+            cid = m.group(1) if m else ""
+        if not cid or len(cid) < 20:
+            return {"ok": False, "msg": ("Sag oder tippe «Spotify Client-ID <deine 32-stellige ID>» "
+                                         "— die steht im Spotify-Developer-Dashboard deiner App.")}
+        from ..shared.db import get_db
+        get_db().set_setting("spotify_client_id", cid)
+        return {"ok": True, "msg": "Client-ID gespeichert. Sag jetzt «verbinde mein Spotify»."}
 
     def _do_connect_spotify(self, args) -> dict:
-        """«verbinde mein Spotify» -> EHRLICH bleiben statt «verbunden» vorzugaukeln. Echtes
-        Schreiben in Spotifys Likes braucht ein OAuth-Login (eigenes Feature, kommt). Bis dahin
-        werden Lieblingstitel lokal gesammelt und sind per «zeig meine Lieblingssongs» abrufbar."""
-        return {"ok": True, "msg": (
-            "Ehrlich gesagt: ein echtes Spotify-Login, das Titel direkt in deine Spotify-Likes "
-            "schreibt, braucht eine OAuth-Anmeldung — die baue ich dir als sauberes, eigenes "
-            "Feature. Bis dahin merke ich deine Lieblingssongs lokal; sag «zeig meine "
-            "Lieblingssongs», um deine Liste zu sehen.")}
+        """«verbinde mein Spotify» -> echter OAuth-Login (PKCE, KEIN Secret): Browser oeffnen,
+        lokalen Callback abfangen, Tokens lokal speichern. Fehlt die Client-ID, ehrliche
+        Schritt-Anleitung (einmalige, kostenlose Spotify-App-Registrierung)."""
+        import time as _t
+        import threading as _th
+        import secrets as _sec
+        from ..shared.db import get_db
+        from ..shared import spotify_auth as sa
+        db = get_db()
+        cid = (db.get_setting("spotify_client_id", "") or "").strip()
+        if not cid:
+            return {"ok": True, "msg": (
+                "Für ein echtes Spotify-Login brauche ich einmalig deine eigene (kostenlose) "
+                "Spotify-App:\n"
+                "1) Öffne developer.spotify.com/dashboard → «Create app».\n"
+                f"2) Trage als Redirect-URI EXAKT ein: {sa.REDIRECT_URI}\n"
+                "3) Kopier die «Client ID» und sag mir: «Spotify Client-ID <ID>».\n"
+                "Danach «verbinde mein Spotify» — und ich like laufende Titel direkt in Spotify.")}
+        verifier, challenge = sa.pkce_pair()
+        state = _sec.token_urlsafe(12)
+
+        def _on_code(code):
+            if not code:
+                return
+            try:
+                t = sa.exchange_code(cid, code, verifier) or {}
+                if t.get("access_token"):
+                    db.set_setting("spotify_access_token", t["access_token"])
+                    db.set_setting("spotify_refresh_token", t.get("refresh_token", ""))
+                    db.set_setting("spotify_token_expiry", int(_t.time()) + int(t.get("expires_in", 3600)))
+            except Exception:  # noqa: BLE001
+                pass
+
+        _th.Thread(target=lambda: sa.run_callback(state, _on_code, timeout=300), daemon=True).start()
+        _t.sleep(0.3)
+        try:
+            webbrowser.open(sa.auth_url(cid, state, challenge))
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "msg": ("Ich hab den Spotify-Login im Browser geöffnet — bitte einmal "
+                                    "autorisieren. Danach speichere ich Titel direkt in deine Spotify-Likes.")}
 
     def _do_list_favorites(self, args) -> dict:
         """«zeig meine Lieblingssongs / Favoriten» -> die lokal gemerkten Titel auflisten."""
@@ -1197,6 +1280,68 @@ class ActionRouter:
             return {"ok": True, "msg": ("Deine Lieblingsliste ist noch leer. Wenn ein Titel "
                                         "läuft, sag «füge das zu meinen Favoriten» — dann merke ich ihn.")}
         return {"ok": True, "msg": "Deine gemerkten Lieblingssongs:\n• " + "\n• ".join(songs[-12:])}
+
+    def _do_agent(self, args) -> dict:
+        """SICHERER Mehrschritt-Agent: zerlegt ein Ziel per lokalem LLM in 1-5 rein LESENDE Schritte
+        aus einem festen, ungefaehrlichen Katalog, fuehrt sie nacheinander aus und fasst zusammen.
+        ZERSTOERERISCHE Aktionen (Scan starten, Quarantaene, Befehle, Einstellungen) sind bewusst
+        NICHT im Katalog -> der Agent kann sie gar nicht selbst ausloesen (Sicherheits-Leitplanke).
+        Der Schema-Enum erzwingt das zusaetzlich auf LLM-Ebene, plus ein Whitelist-Recheck."""
+        import re as _re
+        safe = ("status", "sysinfo", "scan_status", "threats", "usb", "knowledge", "search",
+                "find_file", "check_safety", "capabilities", "architecture", "which_model",
+                "learnings", "development", "news", "whats_new", "datetime", "list_favorites",
+                "kb_status", "identity")
+        goal = (args.get("goal") or args.get("text") or "").strip()
+        goal = _re.sub(r"^\s*(?:plane?|agent\w*|erledige|mach(?:e)?\s+folgendes|mehrschritt\w*)"
+                       r"\s*(?:f[üu]r\s+mich)?\s*[:,\-]?\s*", "", goal, flags=_re.I).strip()
+        if not goal:
+            return {"ok": False, "msg": ("Was soll ich erledigen? Z.B. «plane: prüf mein System und "
+                                         "fass die Lage zusammen».")}
+        catalog = ("status=Sicherheitslage, sysinfo=CPU/RAM/Festplatte, scan_status=Scan-Fortschritt, "
+                   "threats=Bedrohungsliste, usb=USB-Geräte, knowledge=Begriff nachschlagen(args.term), "
+                   "search=Websuche(args.query), find_file=Datei finden(args.query), "
+                   "check_safety=Link/Text prüfen(args.text), news=Nachrichten, learnings=Gelerntes, "
+                   "development=Lernfortschritt, datetime=Uhrzeit, capabilities=Fähigkeiten, "
+                   "which_model=KI-Modell, whats_new=Neuerungen, identity=Herkunft, kb_status=Wissensbasis")
+        schema = {"type": "object", "properties": {"steps": {"type": "array", "items": {
+            "type": "object", "properties": {
+                "intent": {"type": "string", "enum": list(safe)},
+                "args": {"type": "object"}, "why": {"type": "string"}},
+            "required": ["intent"]}}}, "required": ["steps"]}
+        prompt = ("Du planst SICHERE, rein lesende Schritte für AEGIS. Wähle 1 bis 5 Schritte NUR aus "
+                  "diesem Katalog (nichts ausserhalb!):\n" + catalog + "\n\nNutzer-Ziel: " + goal +
+                  "\n\nAntworte NUR mit JSON: {\"steps\":[{\"intent\":..., \"args\":{...}, \"why\":...}]}. "
+                  "Wenn ein Schritt Argumente braucht (query/term/text), fülle sie sinnvoll aus dem Ziel.")
+        plan = None
+        try:
+            from . import llm
+            plan = llm.ask_json(prompt, schema=schema, num_predict=400)
+        except Exception:  # noqa: BLE001
+            plan = None
+        steps = [s for s in ((plan or {}).get("steps") or [])
+                 if isinstance(s, dict) and s.get("intent") in safe][:5]
+        if not steps:
+            return {"ok": False, "msg": ("Dafür finde ich keinen sicheren Mehrschritt-Plan — sag mir "
+                                         "den Schritt am besten direkt (z.B. «status» oder «scanne»).")}
+        out = ["🧭 Plan für: " + goal]
+        for i, s in enumerate(steps, 1):
+            intent = s.get("intent")
+            a = s.get("args") if isinstance(s.get("args"), dict) else {}
+            a.setdefault("text", goal)
+            try:                              # Fortschritt live in den Chat streamen
+                self.ui_cmd({"action": "reply", "text": f"▸ Schritt {i}/{len(steps)}: {intent} …"})
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                r = self.dispatch({"intent": intent, "args": a}) or {}
+                msg = (r.get("msg") or "").strip() or "(kein Ergebnis)"
+            except Exception as e:  # noqa: BLE001
+                msg = f"(Fehler: {type(e).__name__})"
+            out.append("\n▸ Schritt %d — %s:\n%s" % (i, intent, msg))
+        out.append("\n\nFertig. Zerstörerische Schritte (Scan starten, Quarantäne, Befehle) führe ich "
+                   "nie automatisch aus — sag die einzeln, dann mache ich sie auf Bestätigung.")
+        return {"ok": True, "msg": "\n".join(out)}
 
     def _do_tts_mute(self, args) -> dict:
         """'sei ruhig' -> Sprachausgabe (TTS) AUS. AEGIS antwortet weiter im Text, spricht nur nicht.

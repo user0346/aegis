@@ -375,6 +375,16 @@ _COMMAND_PATTERNS.insert(0, ("minimize_window", re.compile(
     r"^\s*minimier\w*(?:\s+(?:dich|mich|das\s+fenster|dein\s+fenster|aegis))?\s*[.!]?\s*$"
     r"|^\s*(?:mach\s+dich\s+klein|verkleiner\w*\s+dich)\b"
     r"|^\s*(?:geh|ab)\s+in\s+die\s+taskleiste\b", re.I)))
+# «Spotify Client-ID <32-hex>» -> oeffentliche Client-ID der eigenen Spotify-App speichern
+# (fuer den PKCE-Login). Muss VOR connect_spotify stehen, faengt aber nur, wenn eine ID dabei ist.
+_COMMAND_PATTERNS.insert(0, ("set_spotify_id", re.compile(
+    r"\bspotify\b.{0,40}?\b(?P<id>[0-9a-fA-F]{32})\b"
+    r"|\b(?P<id2>[0-9a-fA-F]{32})\b.{0,40}?\bspotify\b"
+    r"|\bspotify\b.{0,18}\b(?:client[\s-]?id|id|schl[üu]ssel|key)\b\s*[:=]?\s*(?P<id3>[0-9a-zA-Z]{20,40})", re.I)))
+# «plane: …» / «erledige …» / «agentenmodus …» -> sicherer Mehrschritt-Agent (nur lesende
+# Schritte laufen automatisch; zerstoererische werden NICHT geplant).
+_COMMAND_PATTERNS.insert(0, ("agent", re.compile(
+    r"^\s*(?:plane?|agent\w*|erledige|mach(?:e)?\s+folgendes|mehrschritt\w*)\b[:,]?\s+\S", re.I)))
 
 
 def _match(t: str, patterns: list, conf: float):
@@ -445,6 +455,13 @@ def _match(t: str, patterns: list, conf: float):
             args["target"] = (m.groupdict().get("app") or m.groupdict().get("app2") or "").strip()
         elif name == "move_window":
             args["target"] = (m.groupdict().get("app") or "").strip()
+        elif name == "set_spotify_id":
+            gd = m.groupdict()
+            args["id"] = (gd.get("id") or gd.get("id2") or gd.get("id3") or "").strip()
+            args["text"] = t
+        elif name == "agent":
+            args["goal"] = t
+            args["text"] = t
         return {"intent": name, "args": args, "confidence": conf}
     return None
 
