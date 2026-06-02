@@ -83,10 +83,14 @@ def _model() -> str:
             return m
     except Exception:  # noqa: BLE001
         pass
-    return _VISION_MODEL
+    try:                                  # kein Setting -> bestes Vision-Modell fuer die Hardware
+        from ..voice.ollama_setup import best_vision_model
+        return best_vision_model()
+    except Exception:  # noqa: BLE001
+        return _VISION_MODEL
 
 
-def analyze(question: str = "", timeout: float = 90.0, monitor: Optional[int] = None) -> Optional[str]:
+def analyze(question: str = "", timeout: float = 150.0, monitor: Optional[int] = None) -> Optional[str]:
     """Screenshot (Primär- oder gewähltem Monitor) machen und vom Vision-Modell zur Frage des
     Nutzers beschreiben/bewerten lassen. Returns die Antwort (deutsch) oder None."""
     img = _capture(monitor)

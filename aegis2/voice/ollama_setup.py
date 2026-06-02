@@ -81,6 +81,26 @@ def best_embed_model() -> str:
     if vram >= 20 or (vram == 0 and ram_gb >= 32):
         return "qwen3-embedding:4b"            # ~2.5 GB — nur mit reichlich Headroom
     return "qwen3-embedding:0.6b"              # ~640 MB — neueste Gen, passt ueberall
+
+
+def best_vision_model() -> str:
+    """Bestes lokales VISION-Modell (Bildschirm-Sehen) je nach Hardware. Ein DEDIZIERTES
+    Vision-Modell (llama3.2-vision) ist deutlich treffsicherer als das kleine multimodale
+    gemma3:4b und vermeidet dessen Fehlalarme — lohnt aber erst ab genug VRAM (laedt on-demand
+    und teilt sich den Speicher mit dem Chat-Modell, daher der VRAM-Gate)."""
+    vram = _gpu_vram_gb()
+    try:
+        import psutil
+        ram_gb = psutil.virtual_memory().total / (1024 ** 3)
+    except Exception:  # noqa: BLE001
+        ram_gb = 8.0
+    if vram >= 48:
+        return "llama3.2-vision:90b"            # Workstation-GPU -> das absolut Beste
+    if vram >= 10 or (vram == 0 and ram_gb >= 40):
+        return "llama3.2-vision"               # 12 GB+ (RTX 3060 12GB / 4070 …) -> treffsicher (11B)
+    return "gemma3:4b"                          # kleine GPU/CPU -> leichtes multimodales Fallback
+
+
 _OLLAMA_EXE = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"
 _NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 _MB = 1024 * 1024
