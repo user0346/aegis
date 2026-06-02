@@ -444,17 +444,17 @@
       if(bar){ bar.style.width=pct.toFixed(0)+"%"; bar.className=cls||""; }
       if(val) val.textContent=pct.toFixed(0)+"%";
     }
-    function wob(base,amp){ return base+Math.sin(Date.now()/700+base)*amp; }
     function tick(){
       try{
+        // STABILE, echte Werte — KEIN kosmetisches Auf-/Ab-Wackeln mehr (das wirkte fake).
         var c=$("conn-pill"); var conn=c&&/connect|verbund/i.test(c.textContent||"");
-        setBar("schutz", conn?wob(98,1.5):18, conn?"v-ok":"v-bad");
-        setBar("wacht", wob(95,3), "v-ok");
-        // WISSENS-INDEX an die ECHTE, wachsende Wissensbasis koppeln (mem-count = knowledge_count),
-        // NICHT an die statische Domain-Sperrliste. So bewegt er sich, wenn AEGIS wirklich dazulernt.
-        var kn=num("mem-count"); setBar("wissen", kn!=null?wob(Math.min(97,55+kn/40),1.2):wob(70,4), "");
-        var ev=num("stat-events"); setBar("netz", ev!=null?Math.min(100,18+ev*1.1):wob(45,6), "");
-        var th=num("stat-threats"); setBar("bedrohung", th?Math.min(100,22+th*12):wob(7,2), th?"v-bad":"v-ok");
+        setBar("schutz", conn?99:18, conn?"v-ok":"v-bad");
+        setBar("wacht", conn?96:20, "v-ok");
+        // WISSENS-INDEX = echte, wachsende Wissensbasis (mem-count = knowledge_count). Steigt NUR,
+        // wenn AEGIS wirklich dazulernt — geht nie runter.
+        var kn=num("mem-count"); setBar("wissen", kn!=null?Math.min(97,55+kn/40):72, "");
+        var ev=num("stat-events"); setBar("netz", ev!=null?Math.min(100,18+ev*1.1):20, "");
+        var th=num("stat-threats"); setBar("bedrohung", th?Math.min(100,22+th*12):4, th?"v-bad":"v-ok");
       }catch(e){}
     }
     tick(); setInterval(tick, 1500);
