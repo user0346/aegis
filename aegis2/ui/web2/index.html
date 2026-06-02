@@ -33,35 +33,50 @@
 
   /* Orb */
   .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 20px; }
-  .orb { width: 200px; height: 200px; position: relative; display: grid; place-items: center; }
-  .orb .glow { position: absolute; inset: 0; border-radius: 50%;
-    background: radial-gradient(circle at 50% 45%, rgba(116,236,255,.55), rgba(42,212,238,.18) 42%, transparent 68%);
-    filter: blur(2px); animation: breathe 4s ease-in-out infinite; }
-  .orb .core { width: 96px; height: 96px; border-radius: 50%;
-    background: radial-gradient(circle at 42% 38%, #eafdff, #4fd9ff 38%, #0c8ea8 75%, #073947);
-    box-shadow: 0 0 40px var(--accent-glow), inset 0 0 24px rgba(255,255,255,.35); }
-  .orb .ring { position: absolute; border-radius: 50%; border: 1px solid var(--accent-line); }
-  .orb .r1 { inset: 6px; border-style: dashed; animation: spin 14s linear infinite; opacity: .7; }
-  .orb .r2 { inset: 26px; border-color: rgba(116,236,255,.14); animation: spin 22s linear infinite reverse; }
-  @keyframes breathe { 0%,100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
+  /* Orb — Reticle/Scanner (drehender Ziel-Ring + Ticks + atmender Innenring + Sweep + kleiner Kern) */
+  .orb { width: 210px; height: 210px; position: relative; display: grid; place-items: center; }
+  .orb .halo { position: absolute; inset: 6%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(42,212,238,.20), transparent 66%); filter: blur(2px);
+    animation: orb-breathe 4.5s ease-in-out infinite; }
+  .orb .reticle { position: absolute; inset: 1%; border-radius: 50%; border: 1px dashed var(--accent-line);
+    animation: orb-spin 8s linear infinite, orb-fade 5s ease-in-out infinite; }
+  .orb .ticks { position: absolute; inset: 13%; border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg, var(--accent-line) 0 1.2deg, transparent 1.2deg 15deg);
+    -webkit-mask: radial-gradient(circle, transparent 85%, #000 87%); mask: radial-gradient(circle, transparent 85%, #000 87%);
+    opacity: .5; animation: orb-spin 44s linear infinite reverse; }
+  .orb .sweep { position: absolute; inset: 13%; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--accent-soft), rgba(42,212,238,.04) 42deg, transparent 72deg);
+    animation: orb-spin 4.6s linear infinite; opacity: .6; }
+  .orb .inner { position: absolute; inset: 30%; border-radius: 50%; border: 1px solid var(--accent-line);
+    animation: orb-pulse 3s ease-in-out infinite; }
+  .orb .ripple { position: absolute; inset: 13%; border-radius: 50%; border: 1px solid var(--accent-line); opacity: 0; }
+  .orb .center { width: 26px; height: 26px; border-radius: 50%;
+    background: radial-gradient(circle at 42% 38%, #eafdff, #3fd6f5 55%, #0c7d99 92%);
+    box-shadow: 0 0 22px var(--accent-glow), inset 0 0 8px rgba(255,255,255,.55);
+    animation: orb-pulse 3s ease-in-out infinite; }
+  @keyframes orb-spin { to { transform: rotate(360deg); } }
+  @keyframes orb-fade { 0%,100% { opacity: .4; } 50% { opacity: .85; } }
+  @keyframes orb-breathe { 0%,100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+  @keyframes orb-pulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
   .hero .state { font-family: var(--font-display); font-size: 22px; letter-spacing: .04em; margin-top: 22px; }
   .hero .hint { font-size: 13px; color: var(--text-2); margin-top: 7px; }
   .hero .hint b { color: var(--accent); font-weight: 600; }
-  /* ---- Orb: lebendige Zustaende (vom Voice-/Event-Status getrieben) ---- */
-  .orb .ripple { position: absolute; inset: 8px; border-radius: 50%; border: 1px solid var(--accent-line); opacity: 0; }
-  .orb[data-state="listening"] .ripple { animation: ripple 1.8s ease-out infinite; }
-  .orb[data-state="listening"] .ripple.d2 { animation-delay: .9s; }
-  @keyframes ripple { 0% { transform: scale(.55); opacity: .65; } 100% { transform: scale(1.3); opacity: 0; } }
-  .orb[data-state="listening"] .core { box-shadow: 0 0 60px var(--accent-glow), inset 0 0 24px rgba(255,255,255,.55); }
-  .orb[data-state="listening"] .r1 { animation-duration: 7s; }
-  .orb[data-state="thinking"] .glow { animation-duration: 1.3s; }
-  .orb[data-state="thinking"] .r1 { animation-duration: 3.5s; }
-  .orb[data-state="thinking"] .r2 { animation-duration: 6s; }
-  .orb[data-state="speaking"] .core { animation: talk .42s ease-in-out infinite; }
-  @keyframes talk { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
-  .orb[data-state="alert"] .core { background: radial-gradient(circle at 42% 38%, #ffe0e0, #ff6b6b 42%, #7a1320 82%); box-shadow: 0 0 46px rgba(255,107,107,.55), inset 0 0 24px rgba(255,255,255,.3); }
-  .orb[data-state="alert"] .glow { background: radial-gradient(circle at 50% 45%, rgba(255,107,107,.5), rgba(255,107,107,.16) 42%, transparent 68%); animation-duration: 1s; }
-  .orb[data-state="alert"] .ring { border-color: rgba(255,107,107,.4); }
+  /* ---- Orb-Zustaende (Voice-/Event-getrieben) ---- */
+  .orb[data-state="listening"] .ripple { animation: orb-ripple 1.9s ease-out infinite; }
+  .orb[data-state="listening"] .ripple.d2 { animation-delay: .95s; }
+  @keyframes orb-ripple { 0% { transform: scale(.7); opacity: .6; } 100% { transform: scale(1.16); opacity: 0; } }
+  .orb[data-state="listening"] .center { box-shadow: 0 0 36px var(--accent-glow), inset 0 0 8px rgba(255,255,255,.65); }
+  .orb[data-state="listening"] .sweep { animation-duration: 3s; }
+  .orb[data-state="thinking"] .sweep { animation-duration: 1.5s; opacity: .9; }
+  .orb[data-state="thinking"] .reticle { animation-duration: 3.5s, 5s; }
+  .orb[data-state="thinking"] .inner { animation-duration: 1.4s; }
+  .orb[data-state="speaking"] .center { animation: orb-talk .42s ease-in-out infinite; }
+  @keyframes orb-talk { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.4); opacity: 1; } }
+  .orb[data-state="alert"] .center { background: radial-gradient(circle at 42% 38%, #ffe0e0, #ff6b6b 55%, #7a1320 92%); box-shadow: 0 0 26px rgba(255,107,107,.6); }
+  .orb[data-state="alert"] .reticle, .orb[data-state="alert"] .inner { border-color: rgba(255,107,107,.45); }
+  .orb[data-state="alert"] .ticks { background: repeating-conic-gradient(from 0deg, rgba(255,107,107,.4) 0 1.2deg, transparent 1.2deg 15deg); }
+  .orb[data-state="alert"] .sweep { background: conic-gradient(from 0deg, rgba(255,107,107,.4), transparent 72deg); }
+  .orb[data-state="alert"] .halo { background: radial-gradient(circle, rgba(255,107,107,.24), transparent 66%); }
 
   /* chat */
   .msg-user { align-self: flex-end; max-width: 84%; background: var(--accent-soft); border: 1px solid var(--accent-line);
@@ -132,7 +147,7 @@
       <div class="stage">
         <div class="thread">
           <div class="hero">
-            <div class="orb" id="orb" data-state="idle"><div class="glow"></div><div class="ripple"></div><div class="ripple d2"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div>
+            <div class="orb" id="orb" data-state="idle"><div class="halo"></div><div class="ticks"></div><div class="reticle"></div><div class="sweep"></div><div class="ripple"></div><div class="ripple d2"></div><div class="inner"></div><div class="center"></div></div>
             <div class="state" id="orbState">Bereit</div>
             <div class="hint" id="orbHint">Sag <b>„Hey Jarvis"</b> — oder tippe unten</div>
           </div>

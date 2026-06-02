@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AEGIS — Orb-Varianten</title>
+<link rel="stylesheet" href="hud.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .row { position:relative; z-index:1; display:flex; gap:64px; align-items:flex-start; }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .cell .lab { font-family:var(--font-display); font-size:13px; letter-spacing:.1em; color:var(--text-2); text-transform:uppercase; }
+  .cell .num { font-family:var(--font-hud); font-size:11px; color:var(--accent); }
+  .stage { width:200px; height:200px; display:grid; place-items:center; }
+
+  /* gemeinsamer Bloom */
+  .bloom { position:absolute; inset:-6%; border-radius:50%;
+    background:radial-gradient(circle at 50% 46%, rgba(116,236,255,.42), rgba(42,212,238,.12) 46%, transparent 70%);
+    filter:blur(3px); animation:breathe 4s ease-in-out infinite; }
+
+  /* ---------- V1: Arc-Reactor (segmentierte Ringe) ---------- */
+  .v1 { width:180px; height:180px; position:relative; }
+  .v1 .ring { position:absolute; inset:0; border-radius:50%; }
+  .v1 .seg-o {
+    background:repeating-conic-gradient(from 0deg, var(--accent) 0 7deg, transparent 7deg 24deg);
+    -webkit-mask:radial-gradient(circle, transparent 60%, #000 61% 70%, transparent 71%);
+            mask:radial-gradient(circle, transparent 60%, #000 61% 70%, transparent 71%);
+    animation:spin 18s linear infinite; opacity:.9; }
+  .v1 .seg-i {
+    background:repeating-conic-gradient(from 12deg, var(--accent-hi) 0 4deg, transparent 4deg 30deg);
+    -webkit-mask:radial-gradient(circle, transparent 46%, #000 47% 53%, transparent 54%);
+            mask:radial-gradient(circle, transparent 46%, #000 47% 53%, transparent 54%);
+    animation:spin 12s linear infinite reverse; opacity:.8; }
+  .v1 .hair { inset:14%; border:1px solid var(--accent-line); border-radius:50%; }
+  .v1 .core { width:74px; height:74px; border-radius:50%;
+    background:radial-gradient(circle at 44% 38%, #eafdff, #5fe0ff 40%, #0c8ea8 78%, #06303c);
+    box-shadow:0 0 30px var(--accent-glow), inset 0 0 18px rgba(255,255,255,.4); }
+
+  /* ---------- V2: Radar-Schild (Sweep) ---------- */
+  .v2 { width:184px; height:184px; position:relative; border-radius:50%; overflow:hidden;
+    box-shadow:inset 0 0 0 1px var(--accent-line); }
+  .v2 .grid { position:absolute; inset:0; border-radius:50%;
+    background:
+      radial-gradient(circle, transparent 30%, var(--accent-line) 30.5% 31%, transparent 31.5%),
+      radial-gradient(circle, transparent 54%, var(--accent-line) 54.5% 55%, transparent 55.5%),
+      repeating-conic-gradient(from 0deg, var(--border-soft) 0 1deg, transparent 1deg 30deg);
+    opacity:.7; }
+  .v2 .cross { position:absolute; inset:0;
+    background:linear-gradient(transparent 49.6%, var(--accent-line) 49.6% 50.4%, transparent 50.4%),
+               linear-gradient(90deg, transparent 49.6%, var(--accent-line) 49.6% 50.4%, transparent 50.4%); opacity:.5; }
+  .v2 .sweep { position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(42,212,238,.55), rgba(42,212,238,.12) 26deg, transparent 60deg);
+    animation:spin 3.4s linear infinite; }
+  .v2 .dot { position:absolute; width:9px; height:9px; border-radius:50%; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:var(--accent-hi); box-shadow:0 0 12px var(--accent-glow); }
+
+  /* ---------- V3: Plasma-Kern (Energie) ---------- */
+  .v3 { width:160px; height:160px; position:relative; border-radius:50%; }
+  .v3 .core { position:absolute; inset:0; border-radius:50%;
+    background:
+      radial-gradient(circle at 38% 32%, #f2feff 0%, transparent 30%),
+      radial-gradient(circle at 66% 60%, rgba(116,236,255,.9), transparent 42%),
+      radial-gradient(circle at 50% 50%, #38c6e6 0%, #0f7d99 55%, #073945 100%);
+    box-shadow:0 0 46px var(--accent-glow), inset 0 0 30px rgba(0,0,0,.35);
+    animation:swirl 8s ease-in-out infinite; }
+  .v3 .veil { position:absolute; inset:0; border-radius:50%; mix-blend-mode:screen;
+    background:conic-gradient(from 0deg, transparent, rgba(116,236,255,.35), transparent 40%, rgba(183,148,255,.25), transparent 70%);
+    animation:spin 10s linear infinite; opacity:.7; }
+  .v3 .orbit { position:absolute; inset:-12px; border-radius:50%; animation:spin 6s linear infinite; }
+  .v3 .orbit::before { content:""; position:absolute; top:-3px; left:50%; width:7px; height:7px; border-radius:50%;
+    background:var(--accent-hi); box-shadow:0 0 12px var(--accent-glow); }
+  @keyframes swirl { 0%,100% { filter:hue-rotate(0deg) brightness(1); } 50% { filter:hue-rotate(-12deg) brightness(1.08); } }
+</style>
+</head>
+<body>
+  <div class="hud-backdrop"></div>
+  <div class="row">
+    <div class="cell">
+      <div class="stage"><div class="v1"><div class="bloom"></div><div class="ring seg-o"></div><div class="ring seg-i"></div><div class="ring hair"></div><div class="core"></div></div></div>
+      <div class="lab">Arc-Reactor</div><div class="num">Variante 1</div>
+    </div>
+    <div class="cell">
+      <div class="stage"><div class="v2"><div class="grid"></div><div class="cross"></div><div class="sweep"></div><div class="dot"></div></div></div>
+      <div class="lab">Radar-Schild</div><div class="num">Variante 2</div>
+    </div>
+    <div class="cell">
+      <div class="stage"><div class="v3"><div class="bloom"></div><div class="core"></div><div class="veil"></div><div class="orbit"></div></div></div>
+      <div class="lab">Plasma-Kern</div><div class="num">Variante 3</div>
+    </div>
+  </div>
+</body>
+</html>
