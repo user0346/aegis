@@ -772,10 +772,23 @@ class Orchestrator:
         except Exception:  # noqa: BLE001
             prog = {"phase": "idle", "pct": 0, "version": "", "detail": ""}
         meta_path = Path.home() / ".aegis" / "updates" / "staged.json"
+        zip_path  = Path.home() / ".aegis" / "updates" / "staged.zip"
         if not meta_path.exists():
             return {"staged": False, "progress": prog}
         try:
             data = _json.loads(meta_path.read_text(encoding="utf-8"))
+            # SELBST-CHECK: ein gestagtes Update, dessen Version <= der LAUFENDEN ist, ist
+            # veraltet (schon installiert oder aelter). Ohne diese Pruefung bietet das Banner
+            # ein Update auf die BEREITS laufende Version an ("Update v2.6.31 bereit", obwohl
+            # 2.6.31 laeuft). -> nicht anbieten, Staging-Reste wegraeumen, "aktuell" melden.
+            from ..shared.github_updater import parse_version as _pv, set_progress as _setp
+            from .. import __version__ as _cur
+            if _pv(str(data.get("version", ""))) <= _pv(_cur):
+                for p in (meta_path, zip_path):
+                    try: p.unlink()
+                    except OSError: pass
+                _setp("uptodate", version=_cur, detail="auf dem neuesten Stand")
+                return {"staged": False, "progress": _uprog()}
             data["staged"] = True
             data["progress"] = prog
             return data
@@ -806,6 +819,20 @@ class Orchestrator:
             meta = _json.loads(meta_path.read_text(encoding="utf-8"))
         except Exception as e:
             return {"ok": False, "error": f"meta parse: {e}"}
+
+        # SELBST-CHECK: nie die bereits laufende (oder eine aeltere) Version "installieren".
+        # Veraltetes Staging wegraeumen statt einen sinnlosen Neu-Einspielvorgang zu starten.
+        try:
+            from ..shared.github_updater import parse_version as _pv
+            from .. import __version__ as _cur
+            if _pv(str(meta.get("version", ""))) <= _pv(_cur):
+                for p in (meta_path, zip_path):
+                    try: p.unlink()
+                    except OSError: pass
+                return {"ok": False, "uptodate": True,
+                        "error": f"already up to date ({_cur})"}
+        except Exception:  # noqa: BLE001
+            pass
 
         if meta.get("signature_verified") is not True:
             return {"ok": False,

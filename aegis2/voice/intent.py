@@ -344,7 +344,9 @@ _COMMAND_PATTERNS.insert(0, ("update", re.compile(
     r"|\b(?:update|neue\s+version)\b[^.?!]{0,14}\b(?:verf[üu]gbar|vorhanden|da|drau[sß]en|raus)\b"
     r"|\bnach\s+(?:neuen\s+)?updates?\s+(?:such\w*|pr[üu]f\w*|schau\w*|guck\w*)\b"
     r"|\b(?:bin\s+ich|bist\s+du)\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b"
-    r"|\b(?:aktualisier\w*|update)\s+(?:dich|aegis)\b", re.I)))
+    r"|\b(?:aktualisier\w*|update)\s+(?:dich|aegis)\b"
+    r"|\bwie\s+weit\b[^.?!]{0,20}\b(?:update|download|aktualisierung|installation)\b"   # «wie weit ist das Update?» -> echter Status statt LLM-Rückfrage, die «ja» nicht ausführt
+    r"|\b(?:update|download)[\s\-]?(?:status|fortschritt|stand)\b", re.I)))
 # «mach es größer / kleiner», «vergrößere das», «zoom rein/raus» -> das zuletzt gezeigte
 # Vision-Thumbnail (nach einem Screenshot) bzw. die Ansicht skalieren. Reiner UI-Effekt.
 _COMMAND_PATTERNS.insert(0, ("vision_zoom", re.compile(
