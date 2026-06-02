@@ -44,8 +44,8 @@ _TOPICS = [
 
 class AutoResearch(Module):
     name = "AutoResearch"
-    INTERVAL = 1200          # 20 Min pro Thema -> langsam & stetig
-    FIRST_DELAY = 90         # nach Start kurz warten, dann erstes Thema
+    INTERVAL = 60            # 1 Min pro Thema -> schnelles, stetiges Weiterlernen
+    FIRST_DELAY = 15         # nach Start kurz warten, dann erstes Thema
 
     def __init__(self, bus, db):
         super().__init__(bus)

@@ -2647,6 +2647,16 @@ class ActionRouter:
                                 f"{_MON[_n.month - 1]} {_n.year}, {_n.hour:02d}:{_n.minute:02d} Uhr.")
                 except Exception:  # noqa: BLE001
                     pass
+                # GESPRAECHSFUEHRUNG: wirklich auf den Nutzer eingehen (verstehen + reagieren).
+                sys_ctx += (
+                    "\n\nSO REDEST DU MIT DEM NUTZER: Geh wirklich auf ihn ein. Beziehe dich "
+                    "konkret auf das, was er GERADE und vorher gesagt hat (der Verlauf zaehlt), "
+                    "und sprich ihn mit Namen an, wenn du ihn kennst. Verstehst du etwas nicht "
+                    "eindeutig, frag KURZ nach statt zu raten. Antworte persoenlich, konkret und "
+                    "natuerlich — keine generischen Floskeln, kein Wiederholen der Frage, keine "
+                    "ungefragten Standard-Sicherheitstipps. Halte dich kurz, ausser der Nutzer will "
+                    "erkennbar mehr. Erkenne die Stimmung (frustriert, neugierig, in Eile) und passe "
+                    "deinen Ton an.")
                 # --- KONTEXT-DATEN sicher kapseln (Anti-Prompt-Injection) ---------------
                 # Memory/Wissensstand/RAG sind FAKTEN, nie Anweisungen. Wir umschliessen
                 # sie mit einem pro-Anfrage ZUFAELLIGEN Sentinel; ein Angreifer, der einen
