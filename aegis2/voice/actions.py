@@ -303,7 +303,10 @@ class ActionRouter:
         safe = bool(re.search(
             r"\b(?:keine?\s+\w*\s*(?:gefahr|bedrohung\w*|verd[äa]chtig\w*|phishing|malware)|"
             r"nicht\s+verd[äa]chtig|harmlos|unbedenklich|ist\s+sicher|kein\s+grund\s+zur\s+sorge|"
-            r"normale[rs]?\s+(?:app|programm|webseite|fenster|diagramm))\b", ans, re.I))
+            r"normale[rs]?\s+(?:app|programm|webseite|fenster|diagramm)|"
+            # Normale Apps/Spiele -> kein Fehlalarm (gemma3 erfindet sonst "Scam" auf Discord o.ae.).
+            r"discord|roblox|minecraft|fortnite|\bsteam\b|youtube|\bteams\b|whatsapp|telegram|"
+            r"\bspiel\w*|\bgame\b|messenger|spotify)\b", ans, re.I))
         if susp and not safe:
             ans = ans.rstrip(".") + ". Wenn du unsicher bist: nicht klicken oder anrufen — sag «Scan», dann prüfe ich dein System."
         return {"ok": True, "via": "vision", "msg": ans}
@@ -313,8 +316,11 @@ class ActionRouter:
         im UI vergrößern/verkleinern. Reiner UI-Effekt (PC + Handy)."""
         raw = (args.get("raw") or args.get("text") or "").lower()
         down = bool(re.search(r"kleiner|verkleiner|raus|weg", raw))
-        self.ui_cmd({"action": "vision_zoom", "dir": "down" if down else "up"})
-        return {"ok": True, "msg": "Etwas kleiner." if down else "Etwas größer."}
+        big = bool(re.search(r"deutlich|viel|maximal|riesig|so\s+gro[sß]|ganz\s+gro[sß]", raw))
+        d = "down" if down else ("max" if big else "up")
+        self.ui_cmd({"action": "vision_zoom", "dir": d})
+        return {"ok": True, "msg": ("Kleiner." if down else
+                                    "So groß wie möglich." if big else "Größer.")}
 
     def _do_which_model(self, args) -> dict:
         """«welches Modell nutzt du?» / «was für eine KI bist du?» -> ehrlich sagen, welche

@@ -323,8 +323,8 @@ _COMMAND_PATTERNS.insert(0, ("hide_chat", re.compile(
 # (NICHT open_embed/hide_chat). Steht VOR hide_chat/open_embed.
 _COMMAND_PATTERNS.insert(0, ("hide_vision", re.compile(
     r"\b(?:schlie[sß]\w*|beend\w*|blend\w*|versteck\w*|ausblend\w*|weg\s*mit|mach\w*\s+\w*\s*zu)\b"
-    r"[^.!?]*\b(?:klein\w*\s+(?:embed|fenster|vorschau|bild)|vorschau|was\s+du\s+siehst|"
-    r"vision[\s-]?\w*|bild[\s-]?vorschau|bildschirm[\s-]?vorschau)\b", re.I)))
+    r"[^.!?]*\b(?:klein\w*\s+(?:embed|fenster|vorschau|bild)|embed|thumbnail|miniatur|vorschau|"
+    r"was\s+du\s+siehst|vision[\s-]?\w*|bild[\s-]?vorschau|bildschirm[\s-]?vorschau)\b", re.I)))
 # Tippfehler-/Verhörer-tolerant: «nächster Song» auch als «nester», «nächster songt» -> nächster Titel.
 _COMMAND_PATTERNS.insert(0, ("media", re.compile(
     r"^\s*(?:n[äae]chst\w*|n[äae]st\w*|nex\w*|skip)\s*"

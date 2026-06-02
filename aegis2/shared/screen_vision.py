@@ -95,14 +95,20 @@ def analyze(question: str = "", timeout: float = 90.0, monitor: Optional[int] = 
     b64 = _to_b64(img)
     q = (question or "").strip()
     prompt = (
-        "Du siehst einen ECHTEN Screenshot vom Bildschirm des Nutzers. Beschreibe NUR, was du "
-        "WIRKLICH und KLAR siehst — direkt, knapp, sachlich auf Deutsch (1–2 Sätze, ohne Vorrede). "
-        "ERFINDE NICHTS: bist du dir nicht sicher, was es ist, sag das ehrlich («Ich erkenne nicht "
-        "eindeutig, was das ist»). WARNE NUR bei einer EINDEUTIG erkennbaren Betrugsseite (echte "
-        "Phishing-/Fake-Login-Seite, gefälschte Viren-/Windows-Warnung mit Telefonnummer, Tech-"
-        "Support-Scam). Eine normale App, ein Editor, ein Diagramm, eine Sicherheits-/Dashboard-"
-        "Oberfläche oder eine seriöse Webseite ist KEINE Gefahr — dann auf KEINEN Fall warnen. "
-        "Nur bei echter, eindeutiger Gefahr beginne den betreffenden Satz mit «Achtung:».\n\n"
+        "Du siehst einen ECHTEN Screenshot vom Bildschirm des Nutzers. Sage in 1–2 kurzen, sachlichen "
+        "Sätzen auf Deutsch, welche App/Seite das ist und was darauf passiert — ohne Vorrede. Nenne "
+        "ZUERST konkret, was du siehst (z. B. «Discord», «ein Spiel», «ein Browser mit …»). Bist du dir "
+        "nicht sicher, sag es ehrlich («Ich erkenne nicht eindeutig, was das ist»).\n"
+        "FEHLALARM VERMEIDEN — WICHTIGSTE REGEL: Du neigst dazu, Betrug oder Warnungen zu ERFINDEN, die "
+        "gar nicht da sind. Das ist ein gefährlicher Fehlalarm. Im Zweifel IMMER entwarnen. Warne (Satz "
+        "mit «Achtung:» beginnen) AUSSCHLIESSLICH, wenn du den Betrug an KONKRETEM, im Bild LESBAREM "
+        "Text festmachen und ihn WÖRTLICH zitieren kannst (z. B. «Ihr Computer ist gesperrt, rufen Sie "
+        "+49 …»). Kannst du keinen solchen Text zitieren: NICHT warnen. Erfinde NIEMALS eine "
+        "Telefonnummer, eine Windows-/Viren-Warnung oder Microsoft-Branding, die du nicht wörtlich "
+        "siehst.\n"
+        "IMMER HARMLOS — hier NIEMALS warnen: Discord, WhatsApp, Teams, Chats, Spiele (Roblox, "
+        "Minecraft, Fortnite …), Steam, YouTube, ein Browser mit normaler Seite, Editoren, Code, "
+        "Datei-Explorer, Dashboards, ganz normale Programme.\n\n"
         "Frage des Nutzers: " + (q or "Was ist auf dem Bildschirm zu sehen?"))
     model = _model()
     ans = _ollama_vision(model, prompt, b64, timeout)

@@ -22,6 +22,9 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - **Screenshot vom gewählten Monitor:** „mach einen Screenshot vom 2. Bildschirm" nimmt jetzt wirklich Monitor 2 (vorher immer den Hauptmonitor); gibt es den nicht, sagt AEGIS es ehrlich
 - Neu: **„mach es größer / kleiner"** (oder „vergrößere das") zoomt das Screenshot-Vorschaubild — am PC und am Handy
 - **„Mach ein Screenshot" ist jetzt sofort fertig** — das Bild kommt direkt, ohne dass du auf die langsame Bild-Analyse warten musst. Die volle Analyse läuft nur noch, wenn du sie wirklich willst («was ist das», «schau auf den Bildschirm», «ist das sicher»)
+- **Kein Vision-Fehlalarm mehr:** AEGIS erfindet auf dem Screenshot keine Betrugswarnung mehr, wo keine ist (z. B. auf Discord oder einem Spiel) — gewarnt wird nur noch, wenn wirklich lesbarer Betrugs-Text im Bild steht
+- Vision-Vorschau: **„mach es deutlich größer"** zoomt jetzt kräftig (statt vieler winziger Schritte), und du kannst die Vorschau **an der Kopfleiste frei verschieben**
+- „Weg mit dem Embed / der Vorschau" **schließt** jetzt das Vision-Vorschaubild (statt die Sicherheits-Lage zu zeigen)
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)
