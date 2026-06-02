@@ -148,6 +148,32 @@
     }
     return hit;
   }
+  // Tipp-auf-Sprich am Handy nutzbar machen: die VOICE-Pille (am PC nur ein Weckwort-Status)
+  // tappbar machen UND einen klaren Mikro-Knopf in die Eingabezeile setzen. Beide rufen
+  // voiceListen() -> Browser-STT (funktioniert im sicheren Kontext / HTTPS).
+  function setupVoiceUI() {
+    var pill = document.getElementById("voice-pill");
+    if (pill && !pill.dataset.mBound) {
+      pill.dataset.mBound = "1";
+      pill.style.cursor = "pointer";
+      pill.title = "Antippen und sprechen";
+      pill.addEventListener("click", function () { try { AEGIS.voiceListen(); } catch (e) {} });
+    }
+    var row = document.querySelector(".voice-input");
+    if (row && !document.getElementById("m-mic")) {
+      var b = document.createElement("button");
+      b.id = "m-mic"; b.className = "btn"; b.type = "button";
+      b.textContent = "🎤"; b.title = "Antippen und sprechen";
+      b.addEventListener("click", function () { try { AEGIS.voiceListen(); } catch (e) {} });
+      var send = document.getElementById("voice-send");
+      if (send && send.parentNode === row) row.insertBefore(b, send); else row.appendChild(b);
+    }
+    return !!(pill && pill.dataset.mBound && document.getElementById("m-mic"));
+  }
+
   var _ht = 0;
-  var _hi = setInterval(function () { if (fixHint() || ++_ht > 12) clearInterval(_hi); }, 700);
+  var _hi = setInterval(function () {
+    fixHint();
+    if (setupVoiceUI() || ++_ht > 16) clearInterval(_hi);
+  }, 700);
 })();
