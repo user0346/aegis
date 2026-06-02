@@ -57,9 +57,11 @@ def best_model() -> str:
         return "qwen3:30b-a3b-instruct-2507"   # MoE: 30B-Qualitaet, nur ~3B aktiv -> schnell
     if vram >= 16:                             # 16 GB+ Karten -> groesseres Modell mit Headroom
         return "qwen3:14b"
-    if vram >= 6:                              # 6-15 GB (RTX 3060 12GB / 3070 / 4060Ti ...) ->
-        return "gemma3:4b"                      # bestes Deutsch der Klasse UND multimodal -> Bildschirm-
-                                                # Sehen läuft mit demselben Modell (kein Extra-Download)
+    if vram >= 8:                              # 8-15 GB (RTX 3060 12GB / 3070 / 4060Ti ...) -> starkes
+        return "qwen3:8b"                       # Gespraech; das Sehen laeuft als EIGENES Modell
+                                                # (best_vision_model) -> Chat muss nicht mehr multimodal sein
+    if vram >= 6:                              # 6-7 GB -> kompakt, gutes Deutsch + multimodal
+        return "gemma3:4b"
     if vram >= 4 or ram_gb >= 12:              # kleine GPU oder reiner CPU-Betrieb mit gutem RAM
         return "gemma3:4b"                      # schlank (3,3 GB), gutes Deutsch + multimodal
     return MODEL                               # ganz schwach -> schlanker Fallback (llama3.2:3b)

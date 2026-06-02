@@ -26,6 +26,7 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - Vision-Vorschau: **„mach es deutlich größer"** zoomt jetzt kräftig (statt vieler winziger Schritte), und du kannst die Vorschau **an der Kopfleiste frei verschieben**
 - „Weg mit dem Embed / der Vorschau" **schließt** jetzt das Vision-Vorschaubild (statt die Sicherheits-Lage zu zeigen)
 - **Bestes Vision-Modell zuverlässig:** die Bildschirm-Analyse nutzt jetzt durchgängig das treffsichere große Modell (llama3.2-vision) und fällt nicht mehr bei Zeitüberschreitung still auf das kleine, fehleranfällige zurück — deutlich weniger Fehlalarme. Auf passender Hardware wird das beste Vision-Modell automatisch gewählt (90B nur bei Workstation-GPU)
+- **Stärkeres Chat-Modell als Standard:** auf passenden GPUs (8 GB+) nutzt AEGIS jetzt qwen3:8b fürs Gespräch statt des kleineren gemma3:4b — spürbar besseres Verständnis. Das Bildschirm-Sehen läuft als eigenes Modell, also muss das Chat-Modell nicht mehr klein/multimodal sein. Das Chat-Modell wird beim Start **vorgewärmt** → die erste Antwort kommt sofort
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)

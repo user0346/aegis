@@ -21,6 +21,11 @@ class VoiceController:
         from .actions import ActionRouter
         self.router = ActionRouter(ui_cmd=ui_cmd, service_cmd=service_cmd, status_cb=status_cb)
         self.prefer_local = prefer_local
+        try:                                  # Chat-Modell beim Start vorwaermen -> erste Antwort sofort
+            from . import llm
+            llm.warm_async()
+        except Exception:  # noqa: BLE001
+            pass
 
     def listen_once(self, language: str = "de", on_stage=None,
                     follow_up: bool = False) -> dict:

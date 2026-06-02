@@ -265,6 +265,35 @@ def _ensure_model_async(name: str) -> None:
     threading.Thread(target=_w, daemon=True, name="ModelPull").start()
 
 
+_warmed = False
+
+
+def warm_async() -> None:
+    """Das aktive Chat-Modell EINMAL im Hintergrund in den VRAM laden (lange keep_alive), damit
+    die ERSTE Antwort sofort kommt statt mit Kaltstart-Delay. Idempotent, blockt nie."""
+    global _warmed
+    if _warmed:
+        return
+    _warmed = True
+
+    def _w():
+        try:
+            m = active_model()
+            if not m:
+                return
+            import json as _json
+            import urllib.request as _u
+            body = _json.dumps({"model": m, "prompt": "hi", "stream": False,
+                                "options": {"num_predict": 1}, "keep_alive": "30m"}).encode("utf-8")
+            req = _u.Request("http://127.0.0.1:11434/api/generate", data=body,
+                             headers={"Content-Type": "application/json"})
+            _u.urlopen(req, timeout=300).read()
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Thread(target=_w, daemon=True, name="ModelWarm").start()
+
+
 def active_model() -> str | None:
     """Das zu nutzende Modell — AUTONOM + hardware-bewusst:
        1) vom Nutzer manuell gewaehltes Modell (Setting 'llm_model'), falls installiert
