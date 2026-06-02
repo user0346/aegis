@@ -18,6 +18,9 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - «spiele meine Lieblingsmusik» trifft jetzt zuverlässig deine **Spotify-Lieblingssongs** — auch bei Tippfehlern («liebings») und englisch («music»)
 - Lässt sich eine App nicht starten (z. B. eine abgebrochene Windows-Sicherheitsabfrage), erklärt AEGIS das **verständlich** statt mit einer kryptischen Fehlernummer
 - «Spotify lauter», wenn der Windows-Mixer schon auf 100 % steht: AEGIS behauptet nicht mehr fälschlich „jetzt 100 Prozent", sondern sagt **ehrlich**, dass es am Anschlag ist — und wie du es wirklich lauter machst (System-Lautstärke / Spotifys eigener Regler)
+- „Bist du aktuell?" wird jetzt als **Update-Frage** verstanden (vorher kam die Sicherheits-Lage)
+- **Screenshot vom gewählten Monitor:** „mach einen Screenshot vom 2. Bildschirm" nimmt jetzt wirklich Monitor 2 (vorher immer den Hauptmonitor); gibt es den nicht, sagt AEGIS es ehrlich
+- Neu: **„mach es größer / kleiner"** (oder „vergrößere das") zoomt das Screenshot-Vorschaubild — am PC und am Handy
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)

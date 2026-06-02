@@ -233,6 +233,23 @@ class ActionRouter:
             "Weckwort), Gedächtnis & Wissen (RAG, Fakten, Brain), KI & Werkzeugen (Ollama/Gemma 3, "
             "Browser-Control) und Beobachtbarkeit (Live-Events, Status, Logs).")}
 
+    @staticmethod
+    def _parse_monitor(text: str):
+        """Monitor-Nummer aus «2. Screen / zweiter Monitor / Bildschirm 2 / Hauptmonitor» (1-basiert).
+        None = kein Monitor genannt -> Primärmonitor."""
+        tl = (text or "").lower()
+        if re.search(r"\b(haupt(?:monitor|bildschirm|screen)?|prim[äa]r\w*|main)\b", tl):
+            return 1
+        for word, n in ((r"erst", 1), (r"zweit", 2), (r"dritt", 3), (r"viert", 4), (r"f[üu]nft", 5)):
+            if re.search(r"\b" + word + r"\w*\s+(?:screen|monitor|bildschirm|display|anzeige)", tl):
+                return n
+        m = (re.search(r"\b(?:screen|monitor|bildschirm|display|anzeige)\s*(?:nr\.?\s*|nummer\s*)?(\d)\b", tl)
+             or re.search(r"\b(\d)\.?\s*(?:ten?\s+)?(?:screen|monitor|bildschirm|display|anzeige)\b", tl))
+        if m:
+            v = int(m.group(1))
+            return v if 1 <= v <= 9 else None
+        return None
+
     def _do_screen_analyze(self, args) -> dict:
         """«was ist das?» / «schau auf meinen Bildschirm» -> Screenshot des Primärmonitors machen
         und vom lokalen Vision-Modell (gemma3:4b) erkennen/bewerten lassen. OFFLINE, nur auf Zuruf
@@ -244,13 +261,22 @@ class ActionRouter:
         if screen_vision is None or not screen_vision.available():
             return {"ok": False, "msg": ("Um auf deinen Bildschirm zu schauen, fehlen mir die Module "
                                          "(mss/Pillow). Sag mir sonst den Text/Namen, dann helfe ich so.")}
+        text = (args.get("text") or "").strip()
+        mon = self._parse_monitor(text)              # gewünschter Monitor (1-basiert) oder None
+        if mon:
+            n = screen_vision.monitor_count()
+            if mon > n:                              # ehrlich, statt klammheimlich den Primaer zu nehmen
+                return {"ok": True, "msg": (
+                    f"Du hast {'nur ' if n == 1 else ''}{n} Monitor{'e' if n != 1 else ''} — einen "
+                    f"{mon}. gibt es nicht. Sag «Screenshot vom {n}. Bildschirm» oder einfach "
+                    "«schau auf den Bildschirm».")}
         try:                              # Live-Anzeige: dem Nutzer ZEIGEN, was AEGIS gerade sieht
-            _b64 = screen_vision.capture_b64()
+            _b64 = screen_vision.capture_b64(mon)
             if _b64:
                 self.ui_cmd({"action": "show_vision", "img": _b64})
         except Exception:  # noqa: BLE001
             pass
-        ans = screen_vision.analyze((args.get("text") or "").strip())
+        ans = screen_vision.analyze(text, monitor=mon)
         if not ans:
             return {"ok": False, "msg": ("Ich konnte den Bildschirm gerade nicht erfassen oder das "
                                          "Vision-Modell hat nicht geantwortet.")}
@@ -266,6 +292,14 @@ class ActionRouter:
         if susp and not safe:
             ans = ans.rstrip(".") + ". Wenn du unsicher bist: nicht klicken oder anrufen — sag «Scan», dann prüfe ich dein System."
         return {"ok": True, "via": "vision", "msg": ans}
+
+    def _do_vision_zoom(self, args) -> dict:
+        """«mach es größer / kleiner», «vergrößere das» -> das zuletzt gezeigte Vision-Thumbnail
+        im UI vergrößern/verkleinern. Reiner UI-Effekt (PC + Handy)."""
+        raw = (args.get("raw") or args.get("text") or "").lower()
+        down = bool(re.search(r"kleiner|verkleiner|raus|weg", raw))
+        self.ui_cmd({"action": "vision_zoom", "dir": "down" if down else "up"})
+        return {"ok": True, "msg": "Etwas kleiner." if down else "Etwas größer."}
 
     def _do_which_model(self, args) -> dict:
         """«welches Modell nutzt du?» / «was für eine KI bist du?» -> ehrlich sagen, welche

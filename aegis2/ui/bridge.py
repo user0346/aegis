@@ -109,6 +109,8 @@ class AegisBridge(QObject):
             self.voiceState.emit("ui", a)              # Chat-Panel / Vision-Thumbnail (panels.js)
         elif a == "show_vision":
             self.voiceState.emit("vision", c.get("img", "") or "")   # Screenshot ins Vision-Embed
+        elif a == "vision_zoom":
+            self.voiceState.emit("vision_zoom", c.get("dir", "up") or "up")   # Thumbnail skalieren
         elif a == "hide_window":
             self.voiceState.emit("hide", "")
         elif a in ("minimize", "restore"):

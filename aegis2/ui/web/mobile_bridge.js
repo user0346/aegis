@@ -68,6 +68,7 @@
           if (act === "switch_tab") S.voiceState.emit("tab", a.tab || "");
           else if (act === "hide_chat" || act === "show_chat" || act === "hide_vision") S.voiceState.emit("ui", act);
           else if (act === "show_vision") S.voiceState.emit("vision", a.img || "");
+          else if (act === "vision_zoom") S.voiceState.emit("vision_zoom", a.dir || "up");
         }
         S.voiceState.emit("state", "idle");
       }).catch(function () { _chatAbort = null; S.voiceState.emit("state", "idle"); });

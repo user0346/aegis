@@ -31,14 +31,19 @@ def available() -> bool:
         return False
 
 
-def _capture():
-    """Primärmonitor als PIL-Image (schnell via mss), auf max. 1280px skaliert. None bei Fehler."""
+def _capture(monitor: Optional[int] = None):
+    """Bildschirm als PIL-Image (schnell via mss), auf max. 1280px skaliert. None bei Fehler.
+    `monitor`: 1 = Primär, 2 = zweiter Bildschirm … (mss: [0] = ganzer Desktop, [1] = erster,
+    [2] = zweiter). Ungültig/keiner -> Primärmonitor."""
     try:
         import mss
         from PIL import Image
         with mss.mss() as sct:
             mons = sct.monitors
-            mon = mons[1] if len(mons) > 1 else mons[0]      # [1] = Primär, [0] = ganzer Desktop
+            if monitor and 1 <= int(monitor) < len(mons):
+                mon = mons[int(monitor)]                     # konkreter Bildschirm (1-basiert)
+            else:
+                mon = mons[1] if len(mons) > 1 else mons[0]  # [1] = Primär, [0] = ganzer Desktop
             shot = sct.grab(mon)
         img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
         img.thumbnail((1280, 1280))                          # kleiner = schneller, reicht zum Erkennen
@@ -47,16 +52,26 @@ def _capture():
         return None
 
 
+def monitor_count() -> int:
+    """Anzahl physischer Monitore (mss: len(monitors) - 1; [0] ist der virtuelle Gesamt-Desktop)."""
+    try:
+        import mss
+        with mss.mss() as sct:
+            return max(1, len(sct.monitors) - 1)
+    except Exception:  # noqa: BLE001
+        return 1
+
+
 def _to_b64(img) -> str:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def capture_b64() -> str:
+def capture_b64(monitor: Optional[int] = None) -> str:
     """Aktuellen Bildschirm als base64-PNG für die LIVE-Anzeige im UI (zeigt dem Nutzer, WAS
-    AEGIS gerade sieht). '' bei Fehler."""
-    img = _capture()
+    AEGIS gerade sieht). `monitor`: 1=Primär, 2=zweiter … '' bei Fehler."""
+    img = _capture(monitor)
     return _to_b64(img) if img is not None else ""
 
 
@@ -71,10 +86,10 @@ def _model() -> str:
     return _VISION_MODEL
 
 
-def analyze(question: str = "", timeout: float = 90.0) -> Optional[str]:
-    """Screenshot des Primärmonitors machen und vom Vision-Modell zur Frage des Nutzers
-    beschreiben/bewerten lassen. Returns die Antwort (deutsch) oder None."""
-    img = _capture()
+def analyze(question: str = "", timeout: float = 90.0, monitor: Optional[int] = None) -> Optional[str]:
+    """Screenshot (Primär- oder gewähltem Monitor) machen und vom Vision-Modell zur Frage des
+    Nutzers beschreiben/bewerten lassen. Returns die Antwort (deutsch) oder None."""
+    img = _capture(monitor)
     if img is None:
         return None
     b64 = _to_b64(img)

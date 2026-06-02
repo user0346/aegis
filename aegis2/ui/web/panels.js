@@ -613,6 +613,7 @@
           else if(kind==="tab"){ if(payload&&window.AegisApp&&window.AegisApp.activateTab) window.AegisApp.activateTab(payload); }
           else if(kind==="ui"){ if(payload==="hide_chat") document.body.classList.add("chat-hidden"); else if(payload==="show_chat") document.body.classList.remove("chat-hidden"); else if(payload==="hide_vision"){ var _vt=$("vision-thumb"); if(_vt) _vt.style.display="none"; } }
           else if(kind==="vision"){ if(payload){ var _d="data:image/png;base64,"+payload; var vti=$("vision-thumb-img"); if(vti) vti.src=_d; var vi=$("vision-img"); if(vi) vi.src=_d; var vt=$("vision-thumb"); if(vt){ vt.style.display="block"; var x=$("vision-thumb-x"); if(x&&!x._b){ x._b=1; x.addEventListener("click",function(){ vt.style.display="none"; }); } } } }
+          else if(kind==="vision_zoom"){ var vt=$("vision-thumb"); if(vt&&vt.style.display!=="none"){ var cw=vt.getBoundingClientRect().width||260; var f=(payload==="down")?0.78:1.3; var nw=Math.max(180,Math.min(window.innerWidth*0.92, cw*f)); vt.style.width=nw+"px"; var vti=$("vision-thumb-img"); if(vti){ vti.style.width="100%"; vti.style.height="auto"; } } }
         });
         return;
       }

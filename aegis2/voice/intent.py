@@ -113,7 +113,7 @@ _PATTERNS = [
         r"|\b(?:such\w*|schau\w*|guck\w*)\s+(?:mal\s+)?(?:bitte\s+)?nach\s+(?:einem\s+|neuen\s+)?updates?\b"
         r"|\bkann\s+ich\s+(?:das\s+|dich\s+|aegis\s+)?(?:jetzt\s+)?(?:updaten|aktualisier\w*)\b"
         r"|\b(?:aktualisier\w*|update)\s+dich\b"
-        r"|\bbin\s+ich\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b", re.I)),
+        r"|\b(?:bin\s+ich|bist\s+du)\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b", re.I)),
     # Datum/Uhrzeit-Frage (auch nacktes "uhrzeit"/"datum") -> deterministisch aus Systemzeit.
     # Steht FRUEH, damit "uhrzeit" nicht als Website (uhrzeit.com) geoeffnet wird.
     ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|\bwelcher\s+tag\s+ist\b|\bwas\s+ist\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b|\b(?:tag|datum)\s+(?:ist|haben\s+wir|von)\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b|^\s*(?:[üu]bermorgen|vorgestern|morgen|gestern)\s*[?.!]*\s*$|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
@@ -343,8 +343,15 @@ _COMMAND_PATTERNS.insert(0, ("update", re.compile(
     r"|\b(?:hast\s+du|gibt\s+es|gibts|haben\s+wir|ist\s+(?:ein|eine))\b[^.?!]{0,16}\bupdates?\b"
     r"|\b(?:update|neue\s+version)\b[^.?!]{0,14}\b(?:verf[üu]gbar|vorhanden|da|drau[sß]en|raus)\b"
     r"|\bnach\s+(?:neuen\s+)?updates?\s+(?:such\w*|pr[üu]f\w*|schau\w*|guck\w*)\b"
-    r"|\bbin\s+ich\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b"
+    r"|\b(?:bin\s+ich|bist\s+du)\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b"
     r"|\b(?:aktualisier\w*|update)\s+(?:dich|aegis)\b", re.I)))
+# «mach es größer / kleiner», «vergrößere das», «zoom rein/raus» -> das zuletzt gezeigte
+# Vision-Thumbnail (nach einem Screenshot) bzw. die Ansicht skalieren. Reiner UI-Effekt.
+_COMMAND_PATTERNS.insert(0, ("vision_zoom", re.compile(
+    r"\b(?:mach\w*|machs|tu)\b[^.!?]{0,22}\b(?:gr[öo][sß]er|kleiner)\b"
+    r"|\b(?:vergr[öo][sß]er\w*|verkleiner\w*)\b"
+    r"|\bzoom\w*\s+(?:rein|ran|raus|n[äa]her|weg)\b"
+    r"|\b(?:gr[öo][sß]er|kleiner)\s+(?:machen|zoomen|ziehen)\b", re.I)))
 # «hebe X hervor» / «bring X nach vorne» -> NUR fokussieren (kein Start, wenn schon läuft).
 _COMMAND_PATTERNS.insert(0, ("focus_window", re.compile(
     r"^\s*(?:heb\w*|hol\w*|bring\w*)\s+(?:mir\s+|das\s+|die\s+|den\s+|mal\s+)*"

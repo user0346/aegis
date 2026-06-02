@@ -8,5 +8,5 @@ V2 splits the previous monolith into:
   - setup/    : installer scripts (service registration, scheduled task)
 """
 
-__version__ = "2.6.24"
+__version__ = "2.6.25"
 __all__ = ["__version__"]
