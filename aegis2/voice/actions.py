@@ -103,6 +103,36 @@ class ActionRouter:
         self._last_learned = None      # zuletzt gemerkter/gelernter Inhalt (fuer "lösche das")
         self._diag_jobs = []           # Hintergrund-Diagnose-Jobs (sfc/dism/chkdsk) fuer "ist es durch?"
         self._pending_power = None     # offene PC-Power-Rueckfrage ("neu"/"herunter") -> Bestaetigung
+        self._pending_action = None    # GENERISCHE Ja/Nein-Rueckfrage: {"intent":..,"args":..} -> bei "ja" ausfuehren
+
+    # ---- Generische Ja/Nein-Erkennung: EINE Quelle der Wahrheit fuer alle Rueckfragen ----
+    _AFFIRM = {"ja", "jo", "jap", "jup", "yes", "yep", "yeah", "klar", "gerne", "jawohl",
+               "sicher", "genau", "okay", "ok", "mach", "los", "jepp", "unbedingt",
+               "natürlich", "natuerlich", "bitte", "auf jeden"}
+    _NEG = {"nein", "ne", "nö", "noe", "no", "nope", "stopp", "stop", "abbrechen", "quatsch",
+            "später", "spaeter", "lass", "vergiss"}
+
+    def _affirmative(self, text: str) -> bool:
+        """Klares Ja? Negation gewinnt: 'mach nicht' / 'nein, ...' ist NIE ein Ja."""
+        t = (text or "").lower().strip(" .,!?;:")
+        w = set(re.findall(r"[\wäöüß]+", t))
+        if w & {"nicht", "nein", "kein", "keine", "nö", "ne", "no", "niemals", "nie"}:
+            return False
+        return bool(w & self._AFFIRM)
+
+    def _negative(self, text: str) -> bool:
+        """Klares Nein?"""
+        t = (text or "").lower().strip(" .,!?;:")
+        w = set(re.findall(r"[\wäöüß]+", t))
+        return bool(w & {"nein", "ne", "nö", "noe", "no", "nope", "stopp", "stop",
+                         "abbrechen", "quatsch", "niemals"}) or t in self._NEG
+
+    def _confirm(self, intent: str, args: dict, question: str) -> dict:
+        """Eine Aktion ANBIETEN statt sofort tun: merkt sie als _pending_action und stellt die
+        Ja/Nein-Frage. Ein folgendes 'ja' (in controller.handle_text abgefangen) fuehrt sie aus,
+        ein 'nein' verwirft sie. So entsteht NIE eine Frage-Schleife."""
+        self._pending_action = {"intent": intent, "args": args or {}}
+        return {"ok": True, "msg": question, "pending": intent}
 
     def dispatch(self, intent: dict) -> dict:
         name = intent.get("intent", "unknown")

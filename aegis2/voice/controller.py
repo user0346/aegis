@@ -78,6 +78,21 @@ class VoiceController:
             return {"ok": True, "msg": "Ja? Womit kann ich dir helfen?",
                     "transcript": text, "intent": "greet"}
         clean = stripped or text
+        # GENERISCHE offene Ja/Nein-Rueckfrage ("soll ich X tun?"): liegt eine an, entscheidet sie
+        # HIER -- VOR dem Fast-Path, damit ein "ja" (das auch Smalltalk ist) die gemerkte Aktion
+        # WIRKLICH ausloest, statt das Modell dieselbe Frage erneut stellen zu lassen (Loop-Fix).
+        pend = getattr(self.router, "_pending_action", None)
+        if pend:
+            if intent_mod.classify_command(clean).get("intent"):
+                self.router._pending_action = None          # klarer NEUER Befehl -> Rueckfrage fallenlassen
+            elif self.router._affirmative(clean):
+                self.router._pending_action = None
+                return self._finish({"intent": pend["intent"], "args": pend.get("args", {})}, text)
+            elif self.router._negative(clean):
+                self.router._pending_action = None
+                return self._finish({"intent": "query", "args": {"text": clean}}, text)
+            else:
+                self.router._pending_action = None          # unklare Antwort -> verfaellt, normal weiter
         # 0) OFFENE PC-POWER-RUECKFRAGE: liegt eine Neustart-/Herunterfahren-Bestaetigung an,
         # MUSS die Antwort ("ja, neu starten" / "nein") direkt in _do_query laufen — sonst
         # wuerde "ja, neu starten" faelschlich das restart-Pattern (AEGIS-Selbstneustart)
