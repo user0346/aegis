@@ -103,3 +103,17 @@
   .voice-state h2,
   .mode-orb .view[data-view="voice"] .voice-state h2 { font-size: 18px !important; }
 }
+
+/* === Reihenfolge + Scroll am Handy ===
+   Desktop-„Single-Screen" (alles in 100vh, kein Scroll) passt am Handy nicht: .views hat
+   flex:1 und streckt sich -> riesige Leerluecke; #voice-history ist (von embeds.js) das
+   LETZTE #app-Kind und landet GANZ UNTEN unter der Fusszeile. Hier: .views nicht strecken,
+   Chat direkt unter Orb+Eingabe (order), Fusszeile zuletzt, natuerlicher Fluss + scrollbar. */
+@media (max-width: 820px) {
+  html, body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .mode-orb #app { min-height: 100vh; }
+  .mode-orb .topbar { order: 0; }
+  .mode-orb .views { flex: 0 0 auto !important; order: 1; }   /* nicht strecken -> keine Leerluecke */
+  .mode-orb #voice-history { order: 2; }                       /* Chat direkt unter der Eingabe */
+  .mode-orb .bottombar { order: 3; margin-top: auto !important; }  /* Fusszeile ans untere Ende */
+}

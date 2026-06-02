@@ -64,9 +64,35 @@
       }).catch(function () { S.voiceState.emit("state", "idle"); });
     },
     voiceListen: function () {
-      // Freihaendige Spracheingabe laeuft am PC (Mikro/Weckwort). Am Handy: tippen.
-      S.voiceState.emit("reply", "Sprich am PC mit „Hey Jarvis“ — hier am Handy tippe einfach.");
-      S.voiceState.emit("state", "idle");
+      // Am Handy gibt es kein Hintergrund-Weckwort. Tipp-auf-Sprich per Browser-STT IST moeglich,
+      // aber NUR im sicheren Kontext (HTTPS/localhost) — ueber http:// sperrt der Browser das Mikro.
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!window.isSecureContext || !SR) {
+        S.voiceState.emit("reply", "Am Handy redest du per Tippen — schreib unten einfach deine Frage. " +
+          "(Live-Sprache am Handy braucht eine HTTPS-Verbindung; das Weckwort »Hey Jarvis« läuft am PC.)");
+        S.voiceState.emit("state", "idle");
+        return;
+      }
+      try {
+        var rec = new SR();
+        rec.lang = "de-DE"; rec.interimResults = false; rec.maxAlternatives = 1;
+        S.voiceState.emit("state", "listening");
+        var got = false;
+        rec.onresult = function (e) {
+          got = true;
+          var t = ((e.results[0] && e.results[0][0] && e.results[0][0].transcript) || "").trim();
+          if (t) AEGIS.voiceText(t); else S.voiceState.emit("state", "idle");
+        };
+        rec.onerror = function () {
+          S.voiceState.emit("reply", "Hab nichts verstanden — nochmal antippen oder unten tippen.");
+          S.voiceState.emit("state", "idle");
+        };
+        rec.onend = function () { if (!got) S.voiceState.emit("state", "idle"); };
+        rec.start();
+      } catch (e) {
+        S.voiceState.emit("reply", "Sprachaufnahme nicht möglich — tippe einfach unten.");
+        S.voiceState.emit("state", "idle");
+      }
     },
     stopSpeaking: function () {},
     ttsPreview: function (v) {},
@@ -107,4 +133,21 @@
     }).catch(function () { S.stateChanged.emit("disconnected"); });
   }
   setTimeout(function () { poll(); setInterval(poll, 4000); }, 200);
+
+  // Hinweis am Handy ehrlich machen: das Weckwort „Hey Jarvis" gibt es nur am PC.
+  // Hier den irrefuehrenden Untertitel auf „tippen" umstellen (mehrfach versuchen, bis
+  // die echte PC-Oberflaeche geladen + gerendert ist).
+  function fixHint() {
+    var hit = false;
+    var nodes = document.querySelectorAll('.view[data-view="voice"] .muted, .voice-state .muted, #voice-substatus');
+    for (var i = 0; i < nodes.length; i++) {
+      if (/Hey\s*Jarvis/i.test(nodes[i].textContent || "")) {
+        nodes[i].textContent = "Tippe unten, um mit AEGIS zu reden.";
+        hit = true;
+      }
+    }
+    return hit;
+  }
+  var _ht = 0;
+  var _hi = setInterval(function () { if (fixHint() || ++_ht > 12) clearInterval(_hi); }, 700);
 })();

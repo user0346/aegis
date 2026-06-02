@@ -53,7 +53,7 @@ def _adapted_index() -> "str | None":
     except Exception:  # noqa: BLE001
         return None
     return html.replace('<script src="qrc:///qtwebchannel/qwebchannel.js"></script>',
-                        '<script src="mobile_bridge.js?v=3"></script>')
+                        '<script src="mobile_bridge.js?v=4"></script>')
 
 
 # Nur diese Befehle darf das Handy ausloesen (sicher: lesen/scannen/Quarantaene verwalten).
