@@ -30,6 +30,15 @@ _TOPICS = [
     "Cryptojacking", "Pufferueberlauf", "Rechteausweitung", "DNS-Spoofing", "ARP-Spoofing",
     "Datenexfiltration", "Sicherungskopie", "Schadprogramm", "Spam", "Captcha",
     "Digitale Signatur", "Penetrationstest", "Honeypot",
+    # --- nachgeladen, damit der Selbst-Lerner nicht trockenlaeuft (modernere/breitere Themen) ---
+    "Emotet", "WannaCry", "Stuxnet", "Heartbleed", "Spectre (Sicherheitsluecke)",
+    "Meltdown (Sicherheitsluecke)", "Tor (Netzwerk)", "Ende-zu-Ende-Verschluesselung",
+    "Single Sign-on", "OAuth", "Datenschutz-Grundverordnung", "Datenpanne",
+    "Intrusion Detection System", "Domain Name System", "Secure Shell", "Passwort-Manager",
+    "Digitales Zertifikat", "Steganographie", "Deepfake", "HTTP-Cookie",
+    "Hypertext Transfer Protocol Secure", "Zertifizierungsstelle (Digitale Zertifikate)",
+    "Schwachstelle (Computersicherheit)", "Bug-Bounty-Programm", "Security Operations Center",
+    "Zero Trust", "Multi-Faktor-Authentisierung", "Ransomware-as-a-Service",
 ]
 
 
@@ -64,6 +73,42 @@ class AutoResearch(Module):
         except Exception:  # noqa: BLE001
             pass
 
+    @staticmethod
+    def _clean_topic(t) -> str:
+        t = (t or "").strip()
+        t = t.splitlines()[0].strip() if t else ""      # nur die erste Zeile
+        return t.strip(" \"'«».:-")
+
+    def _llm_topic(self, done: set):
+        """Ist die kuratierte Liste durch, schlaegt das lokale LLM SELBST ein neues, noch
+        unbekanntes Wikipedia-Lemma vor -> echtes, unbegrenztes Weiterlernen (kein Stillstand)."""
+        try:
+            from ..voice import llm
+        except Exception:  # noqa: BLE001
+            return None
+        recent = ", ".join(sorted(done)[-45:])         # Ausschlussliste handhabbar halten
+        schema = {"type": "object", "properties": {"topic": {"type": "string"}},
+                  "required": ["topic"]}
+        prompt = ("Du baust die Wissensbasis eines lokalen Schutz-/Sicherheits-Assistenten aus. "
+                  "Nenne GENAU EIN konkretes deutsches Wikipedia-Lemma aus IT-Sicherheit, "
+                  "Datenschutz, Netzwerk- oder Computertechnik, das noch fehlt und nuetzlich ist. "
+                  "Es darf NICHT in dieser Liste stehen: " + recent +
+                  ". Antworte als JSON {\"topic\": \"<Lemma>\"}.")
+        try:
+            r = llm.ask_json(prompt, schema=schema, num_predict=40) or {}
+            t = self._clean_topic(r.get("topic"))
+            if t and len(t) >= 3 and t not in done:
+                return t
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+    def _next_topic(self):
+        """Naechstes zu lernendes Thema: erst die kuratierte Liste, dann LLM-generiert."""
+        done = self._done()
+        t = next((x for x in _TOPICS if x not in done), None)
+        return t if t else self._llm_topic(done)
+
     def run(self) -> None:
         self._stop.wait(self.FIRST_DELAY)
         while not self._stop.is_set():
@@ -83,9 +128,9 @@ class AutoResearch(Module):
                 return False
         except Exception:  # noqa: BLE001
             pass
-        topic = next((t for t in _TOPICS if t not in self._done()), None)
+        topic = self._next_topic()
         if topic is None:
-            return False                       # alles gelernt
+            return False                       # nichts Neues gefunden (z.B. LLM offline)
         try:
             from ..voice import web_knowledge, llm
             from ..shared import knowledge_base
