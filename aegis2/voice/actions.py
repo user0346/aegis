@@ -1811,8 +1811,13 @@ class ActionRouter:
     def _do_set_wake(self, args) -> dict:
         """Eigenes Weckwort/Name fuer AEGIS setzen ("hör ab jetzt auf Jarvis")."""
         name = (args.get("name") or "").strip()
-        if not name:
-            return {"ok": False, "msg": "Auf welchen Namen soll ich hören?"}
+        # Fuell-/Stoppwoerter sind KEIN Weckwort: «hör auf das ständig zu fragen» darf nicht
+        # «das» als Namen setzen (genau dieser Unsinn ist passiert).
+        _bad = {"das", "es", "auf", "zu", "mit", "damit", "dem", "den", "der", "die", "ab", "jetzt",
+                "ständig", "staendig", "immer", "endlich", "bitte", "sofort", "doch", "mich", "dich",
+                "nicht", "mal", "schon", "wieder", "fragen", "nerven", "aufhören", "aufhoeren"}
+        if not name or name.lower() in _bad:
+            return {"ok": False, "msg": "Auf welchen Namen soll ich hören? Sag z.B. «nenn dich Jarvis»."}
         try:
             from ..shared import user_memory
             user_memory.set_wake_word(name)
@@ -2383,9 +2388,9 @@ class ActionRouter:
          "(sfc/dism/chkdsk), Uhrzeit, und in der App Update, Autostart, Neustart und die "
          "Integrit\u00e4ts-Anzeige. Bedienen kannst du mich getippt oder per Sprache mit Weckwort."),
         (("wie geht", "alles gut", "wie l\u00e4uft", "geht es dir"),
-         "Mir geht es gut, alle W\u00e4chter laufen. Sag 'Status' f\u00fcr die aktuelle Lage."),
+         "Mir geht es gut, danke \u2014 alle W\u00e4chter laufen sauber. Was kann ich f\u00fcr dich tun?"),
         (("danke", "dankesch\u00f6n", "merci"), "Gern. Ich bin da, wenn du mich brauchst."),
-        (("hallo", "hi ", "hey", "guten tag", "moin"), "Hallo. Ich bin bereit \u2014 sag 'Status' oder stell mir eine Frage."),
+        (("hallo", "hi ", "hey", "guten tag", "moin"), "Hallo! Ich bin da \u2014 was brauchst du?"),
     ]
 
     @staticmethod
@@ -2784,7 +2789,9 @@ class ActionRouter:
                     "Faden. Geh echt auf ihn ein, sprich ihn mit Namen an wenn bekannt, erkenne die "
                     "Stimmung und passe den Ton an. NUR wenn er dir eine echte, mehrdeutige AUFGABE "
                     "gibt, frag kurz nach — bei normalem Smalltalk niemals. Keine generischen "
-                    "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Kurz halten. "
+                    "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Schlag "
+                    "NIEMALS von dir aus vor, «Status» zu checken, einen Scan zu machen oder das System "
+                    "zu prüfen — biete das NUR an, wenn der Nutzer wirklich danach fragt. Kurz halten. "
                     "Gib NIEMALS eine reine Fuellantwort wie blosses «Naja», «Tja», «Hmm» oder ein "
                     "einzelnes Wort aus diesem Prompt zurueck — das ist KEINE echte Antwort. Verstehst "
                     "du den Nutzer wirklich nicht, sag es EHRLICH und frag kurz nach (z.B. «Das hab ich "

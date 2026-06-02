@@ -116,11 +116,11 @@ _PATTERNS = [
         r"|\b(?:bin\s+ich|bist\s+du)\s+(?:noch\s+)?(?:auf\s+dem\s+neuesten\s+stand|aktuell)\b", re.I)),
     # Datum/Uhrzeit-Frage (auch nacktes "uhrzeit"/"datum") -> deterministisch aus Systemzeit.
     # Steht FRUEH, damit "uhrzeit" nicht als Website (uhrzeit.com) geoeffnet wird.
-    ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|\bwelcher\s+tag\s+ist\b|\bwas\s+ist\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b|\b(?:tag|datum)\s+(?:ist|haben\s+wir|von)\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b|^\s*(?:[üu]bermorgen|vorgestern|morgen|gestern)\s*[?.!]*\s*$|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
+    ("datetime", re.compile(r"(?:\bwie\s?viel\s+uhr|\bwie\s+sp[äa]t|\bwelche\s+uhrzeit|\baktuelle\s+uhrzeit|\bwelches?\s+jahr|\bwelches?\s+datum|\bwelcher\s+(?:wochen)?tag|\bwelcher\s+monat|\bder\s+wievielte|\bwas\s+f[üu]r\s+ein\s+tag|\bwelcher\s+tag\s+ist\b|\bwas\s+ist\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b(?!\s+neu)|\b(?:tag|datum)\s+(?:ist|haben\s+wir|von)\s+(?:heute|morgen|[üu]bermorgen|gestern|vorgestern)\b|^\s*(?:[üu]bermorgen|vorgestern|morgen|gestern)\s*[?.!]*\s*$|^\s*(?:uhrzeit|datum)\s*[?.!]*\s*$)", re.I)),
     # Eigenes Weckwort/Name fuer AEGIS ("hör ab jetzt auf Jarvis", "nenn dich X",
     # "du heißt X", "dein Name ist X"). Praezise AEGIS-bezogen (dich/du/dein) -> KEINE
     # Kollision mit "nenn mich X"/"ich heiße X" (das ist die Nutzer-Anrede).
-    ("set_wake", re.compile(r"(?:h[öo]r\w*\s+(?:ab\s+jetzt\s+)?auf|nenn\s+dich|du\s+hei[sß]t|dein\s+name\s+(?:ist|sei|soll))\s+(?:ab\s+jetzt\s+|bitte\s+|den\s+namen\s+|auf\s+|jetzt\s+)?([a-zäöü][\wäöüß\-]{1,22})", re.I)),
+    ("set_wake", re.compile(r"(?:h[öo]r\w*\s+(?:ab\s+jetzt\s+)?auf|nenn\s+dich|du\s+hei[sß]t|dein\s+name\s+(?:ist|sei|soll))\s+(?:ab\s+jetzt\s+|bitte\s+|den\s+namen\s+|auf\s+|jetzt\s+)?(?!(?:das|es|auf|zu|mit|damit|dem|den|der|die|jetzt|st[äa]ndig|immer|endlich|doch|bitte|mich|dich|nicht|mal|schon|wieder|fragen|nerven)\b)([a-zäöü][\wäöüß\-]{1,22})", re.I)),
     # Wissen merken/vergessen ('merk dir, dass ...' / 'vergiss alles') -> Gedaechtnis.
     # Vergessen/Loeschen aus dem Gedaechtnis: "vergiss ..." ODER "lösche ... aus dem
     # memory/gedächtnis/notizen/wissen". NICHT "lösche discord" (kein Memory-Bezug ->
@@ -166,7 +166,7 @@ _PATTERNS = [
     # "Was ist neu?" -> Changelog der aktuellen Version (NICHT Bedrohungen/Erkenntnisse).
     # Status der Wissens-Suche (Embedding-Modell bge-m3 geladen?) -> klare Bereit-Meldung.
     ("kb_status", re.compile(r"\b(?:wissens?(?:suche|basis)|such[\-\s]?modell|embedding\w*|bge)\b[^?]*\b(?:bereit|aktiv|geladen|fertig|einsatzbereit|da)\b|\bist\s+(?:dein|das)\s+wissen\s+(?:bereit|aktiv|geladen|durchsuchbar)\b", re.I)),
-    ("whats_new", re.compile(r"\b(was\s+(?:ist|gibt\s+es|gibt'?s)\s+(?:alles\s+)?neu|neue?\s+(?:features?|funktion\w*)|changelog|was\s+kannst\s+du\s+(?:jetzt\s+)?neu|was\s+(?:hat\s+sich|wurde)\s+ge[äa]ndert|neuerung\w*|neu\s+in\s+(?:der|dieser)\s+version|in\s+(?:der|dieser)\s+version\s+neu)\b", re.I)),
+    ("whats_new", re.compile(r"\b(was\s+(?:ist|gibt\s+es|gibt'?s)\s+(?:alles\s+|heute\s+|gerade\s+|sonst\s+|denn\s+)*neu|neue?\s+(?:features?|funktion\w*)|changelog|was\s+kannst\s+du\s+(?:jetzt\s+)?neu|was\s+(?:hat\s+sich|wurde)\s+ge[äa]ndert|neuerung\w*|neu\s+in\s+(?:der|dieser)\s+version|in\s+(?:der|dieser)\s+version\s+neu)\b", re.I)),
     # Explizite "erzähl mir was über X / was kannst du zum Thema X sagen / was weißt du über X"
     # -> Wissens-Lookup. Verb-verankert + eindeutig (steht VOR der breiten Wissensfrage + ist
     # unten im Fast-Path, weil das Modell sowas sonst manchmal faelschlich als 'status' routet).
@@ -195,7 +195,7 @@ _PATTERNS = [
 # laufen ueber das Modell, das nach BEDEUTUNG entscheidet. So loest "scannow" oder ein
 # "suche" mitten im Satz keinen Fehl-Befehl mehr aus.
 _COMMAND_NAMES = {"run_command", "shell_denied", "pc_power", "restart", "tts_mute",
-                  "tts_unmute", "identity", "news", "development", "verify", "datetime",
+                  "tts_unmute", "identity", "news", "development", "verify", "datetime", "whats_new",
                   "set_wake", "forget", "set_alias", "remember", "learn_url", "learn",
                   "play", "media", "find_file", "close_app"}
 _COMMAND_PATTERNS = [(n, p) for (n, p) in _PATTERNS if n in _COMMAND_NAMES]
