@@ -1,9 +1,9 @@
 {
-  "latest_version": "v2.6.29",
-  "released_at": "2026-06-02T17:23:20Z",
-  "sha256": "ec880570d658ba46701f2632a5b9a0ee141a6f589328c8051bd431e970455ea1",
-  "download_url": "https://github.com/user0346/aegis/releases/download/v2.6.29/AEGIS.zip",
-  "signature_url": "https://github.com/user0346/aegis/releases/download/v2.6.29/AEGIS.zip.sig",
-  "certificate_url": "https://github.com/user0346/aegis/releases/download/v2.6.29/AEGIS.zip.crt",
-  "rekor_index_search": "https://search.sigstore.dev/?hash=ec880570d658ba46701f2632a5b9a0ee141a6f589328c8051bd431e970455ea1"
+  "latest_version": "v2.6.30",
+  "released_at": "2026-06-02T17:47:18Z",
+  "sha256": "d121043f3863e8831fafb8b2a3f6a765340c243aeb95c84a5a8ea73ccd4a5701",
+  "download_url": "https://github.com/user0346/aegis/releases/download/v2.6.30/AEGIS.zip",
+  "signature_url": "https://github.com/user0346/aegis/releases/download/v2.6.30/AEGIS.zip.sig",
+  "certificate_url": "https://github.com/user0346/aegis/releases/download/v2.6.30/AEGIS.zip.crt",
+  "rekor_index_search": "https://search.sigstore.dev/?hash=d121043f3863e8831fafb8b2a3f6a765340c243aeb95c84a5a8ea73ccd4a5701"
 }
