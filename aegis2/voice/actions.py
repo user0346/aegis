@@ -2936,7 +2936,17 @@ class ActionRouter:
                 if self._hist:
                     ctx = "Bisheriges Gespraech:\n" + "\n".join(self._hist[-10:]) + "\n\n"
                 _prompt = ctx + "Nutzer: " + text + "\nAEGIS:"
-                if self.speak_cb:                     # VOICE-STREAMING: jeden fertigen Satz sofort
+                # Echte Frage -> qwen3 DENKEN lassen (klueger, ein paar Sekunden mehr); Smalltalk/
+                # kurze Nachricht -> schnell. Bei echten Fragen NICHT streamen (der Denk-Block waere
+                # lange Stille vor dem 1. gesprochenen Satz) -> einmal reasoniert antworten.
+                # "deep" = echte Reasoning-Frage. NUR klare Signale (erkläre/warum/vergleiche/
+                # Unterschied/…) ODER eine lange Frage -> denken. Kurzer Smalltalk wie "wie geht's
+                # dir" zaehlt NICHT als deep (sonst wuerde Plauderei langsam reasoniert).
+                _deep = (len(text.split()) >= 9) or bool(re.search(
+                    r"\b(erkl[äa]r|erz[äa]hl|erl[äa]uter|vergleich|unterschied|begr[üu]nd|warum|"
+                    r"wieso|weshalb|inwiefern|wodurch)\w*", text, re.I)) \
+                    or (len(text.split()) >= 5 and "?" in text)
+                if self.speak_cb and not _deep:       # VOICE-STREAMING: jeden fertigen Satz sofort
                     parts = []                        # sprechen, waehrend der Rest noch generiert
                     from . import self_check as _sc
                     _corrected = False
@@ -2970,11 +2980,6 @@ class ActionRouter:
                         except Exception:  # noqa: BLE001
                             pass
                         return {"ok": True, "msg": a, "via": "ollama", "spoken": True}
-                # Echte Frage -> qwen3 "denken" lassen (bessere Reasoning); Smalltalk -> schnell.
-                _deep = (len(text.split()) >= 9) or bool(re.search(
-                    r"\?|^\s*(was|wer|wie|warum|wieso|weshalb|wof[üu]r|wann|welche\w*|"
-                    r"erkl[äa]r\w*|erz[äa]hl\w*|nenne?|vergleich\w*|unterschied|begr[üu]nd\w*)\b",
-                    text, re.I))
                 a = llm.ask(_prompt, system=sys_ctx, deep=_deep)
                 from . import self_check as _sc       # Selbst-Korrektur: keine falsche
                 a = _sc.sanitize_answer(a)            # Aktions-Behauptung im freien Gespraech

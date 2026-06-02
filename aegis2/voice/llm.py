@@ -434,7 +434,10 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
     # (Instruct-Varianten denken ohnehin nicht). qwen3:8b dann ~0,9 s statt ~5 s, korrektes
     # Deutsch. (Das alte /no_think-Prompt-Prefix half nicht zuverlaessig.)
 
-    _np = (num_predict + 600) if deep else num_predict   # Denk-Block braucht extra Token-Budget
+    # Bei echten Fragen (deep) denkt qwen3 VOR der Antwort -> Denk-Block UND Antwort brauchen
+    # zusammen reichlich Budget, sonst bleibt nach dem Denken nichts uebrig (die alte "leere
+    # Antwort"-Falle). Live-A/B verifiziert: ~2000+ reicht fuer Denken + volle Antwort.
+    _np = (max(num_predict, 1600) + 600) if deep else num_predict
 
     def _gen(sys_prompt: str):
         _body = {
@@ -444,10 +447,11 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
                         "top_p": 0.9, "num_ctx": 4096},
         }
         if _thinks(m):
-            # Denken AUS — auch bei "echten Fragen". qwen3:8b denkt sonst 36-71 s UND liefert
-            # teils nur einen <think>-Block (-> leere Antwort). Ohne Denken: ~1 s, nie leer,
-            # korrektes Deutsch. Genauigkeit fuer Smalltalk/Assistenz reicht locker.
-            _body["think"] = False
+            # Denken NUR bei echten Fragen (deep): dann reasoniert qwen3 vor der Antwort -> klueger,
+            # kostet ~8 s extra (live gemessen). Bei Smalltalk/Befehlen AUS -> ~1 s, sofort. Das
+            # grosse _np oben sorgt dafuer, dass nach dem Denken die VOLLE Antwort uebrig bleibt
+            # (nicht der frueher leere <think>-only-Fall). Ollama trennt Denken vom .response-Feld.
+            _body["think"] = bool(deep)
         body = json.dumps(_body).encode("utf-8")
         try:
             req = _u.Request(OLLAMA + "/api/generate", data=body,
