@@ -453,6 +453,12 @@
         // WISSENS-INDEX = echte, wachsende Wissensbasis (mem-count = knowledge_count). Steigt NUR,
         // wenn AEGIS wirklich dazulernt — geht nie runter.
         var kn=num("mem-count"); setBar("wissen", kn!=null?Math.min(97,55+kn/40):72, "");
+        if(kn!=null){                                  // ehrlicher Live-Zaehler: echte Zahl + Zuwachs
+          if(window._knBase==null) window._knBase=kn;  // Baseline = Stand beim Seitenaufruf
+          var grown=kn-window._knBase;
+          var ke=document.getElementById("vital-knowledge");
+          if(ke) ke.textContent="Wissensbasis: "+kn.toLocaleString("de-DE")+" Einträge"+(grown>0?(" · +"+grown+" in dieser Sitzung"):"");
+        }
         var ev=num("stat-events"); setBar("netz", ev!=null?Math.min(100,18+ev*1.1):20, "");
         var th=num("stat-threats"); setBar("bedrohung", th?Math.min(100,22+th*12):4, th?"v-bad":"v-ok");
       }catch(e){}
