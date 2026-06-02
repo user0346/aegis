@@ -37,20 +37,52 @@ _ok "Windows Build $build"
 
 # 2) ---------- Python 3.11+ (py-Launcher bevorzugt, sonst via winget) ----------
 function _resolve_python {
-    $tries = @()
-    if (Get-Command py -ErrorAction SilentlyContinue) { $tries += ,@('py','-3') }
-    foreach ($n in @('python', 'python3')) {
-        if (Get-Command $n -ErrorAction SilentlyContinue) { $tries += ,@($n) }
+    # Sammelt KONKRETE python.exe-Kandidaten, OHNE die Microsoft-Store-Alias-Stubs
+    # (WindowsApps) aufzurufen -- die oeffnen sonst den "Wie moechten Sie 'python'
+    # oeffnen?"-Dialog und liefern nichts.
+    $cands = @()
+
+    # 1) py-Launcher (kennt alle registrierten Pythons) -- auf PATH oder an Standard-Orten.
+    $pyLauncher = $null
+    $g = Get-Command py -ErrorAction SilentlyContinue
+    if ($g -and $g.Source -and (Test-Path $g.Source)) { $pyLauncher = $g.Source }
+    if (-not $pyLauncher) {
+        foreach ($p in @("$env:WINDIR\py.exe", "$env:LOCALAPPDATA\Programs\Python\Launcher\py.exe")) {
+            if (Test-Path $p) { $pyLauncher = $p; break }
+        }
     }
-    foreach ($t in $tries) {
+    if ($pyLauncher) {
         try {
-            $pre = if ($t.Count -gt 1) { $t[1..($t.Count - 1)] } else { @() }
-            $exe = (& $t[0] @pre -c "import sys;print(sys.executable)" 2>$null)
-            if ($exe) { $exe = "$exe".Trim() }
-            if ($exe -and (Test-Path $exe)) {
-                $ver = (& $exe -c "import sys;print('%d.%d'%sys.version_info[:2])" 2>$null)
-                if ($ver -match '^3\.(\d+)$' -and [int]$Matches[1] -ge 11) { return $exe }
+            $e = (& $pyLauncher -3 -c "import sys;print(sys.executable)" 2>$null)
+            if ($e) { $cands += "$e".Trim() }
+        } catch { }
+    }
+
+    # 2) python/python3 auf PATH -- ABER die Store-Alias-Stubs (WindowsApps) auslassen.
+    foreach ($n in @('python', 'python3')) {
+        foreach ($c in (Get-Command $n -All -ErrorAction SilentlyContinue)) {
+            if ($c.Source -and ($c.Source -notmatch 'WindowsApps') -and (Test-Path $c.Source)) {
+                $cands += $c.Source
             }
+        }
+    }
+
+    # 3) Bekannte Installationsorte direkt absuchen (falls nichts auf PATH liegt).
+    $globs = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe",
+        "$env:PROGRAMFILES\Python3*\python.exe",
+        "${env:ProgramFiles(x86)}\Python3*\python.exe"
+    )
+    foreach ($gl in $globs) {
+        foreach ($f in (Get-ChildItem -Path $gl -ErrorAction SilentlyContinue)) { $cands += $f.FullName }
+    }
+
+    # Kandidaten pruefen: echte python.exe, Version >= 3.11 (hoechste zuerst).
+    foreach ($exe in ($cands | Where-Object { $_ } | Select-Object -Unique | Sort-Object -Descending)) {
+        if (($exe -match 'WindowsApps') -or -not (Test-Path $exe)) { continue }
+        try {
+            $ver = (& $exe -c "import sys;print('%d.%d'%sys.version_info[:2])" 2>$null)
+            if ($ver -match '^3\.(\d+)$' -and [int]$Matches[1] -ge 11) { return $exe }
         } catch { }
     }
     return $null
