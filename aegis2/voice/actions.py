@@ -1166,9 +1166,37 @@ class ActionRouter:
         except Exception:  # noqa: BLE001
             pass
         return {"ok": True, "msg": (
-            f"Gerade läuft {song} — den hab ich dir vorgemerkt. Direkt in deine Spotify-"
-            f"Lieblingssongs speichern kann ich ihn, sobald du dein Spotify einmal verbindest "
-            f"(sag «verbinde mein Spotify»); danach like ich laufende Titel auf Zuruf.")}
+            f"{song} — gespeichert in deiner Lieblingsliste. Sag «zeig meine Lieblingssongs», "
+            f"um sie zu sehen. (Direkt in Spotifys eigene Likes schreibe ich, sobald das "
+            f"Spotify-Login steht — das baue ich noch.)")}
+
+    def _do_connect_spotify(self, args) -> dict:
+        """«verbinde mein Spotify» -> EHRLICH bleiben statt «verbunden» vorzugaukeln. Echtes
+        Schreiben in Spotifys Likes braucht ein OAuth-Login (eigenes Feature, kommt). Bis dahin
+        werden Lieblingstitel lokal gesammelt und sind per «zeig meine Lieblingssongs» abrufbar."""
+        return {"ok": True, "msg": (
+            "Ehrlich gesagt: ein echtes Spotify-Login, das Titel direkt in deine Spotify-Likes "
+            "schreibt, braucht eine OAuth-Anmeldung — die baue ich dir als sauberes, eigenes "
+            "Feature. Bis dahin merke ich deine Lieblingssongs lokal; sag «zeig meine "
+            "Lieblingssongs», um deine Liste zu sehen.")}
+
+    def _do_list_favorites(self, args) -> dict:
+        """«zeig meine Lieblingssongs / Favoriten» -> die lokal gemerkten Titel auflisten."""
+        try:
+            from ..shared import user_memory
+            notes = user_memory.get_notes()
+        except Exception:  # noqa: BLE001
+            notes = []
+        songs = []
+        for n in notes:
+            if "Lieblingssong" in n:
+                s = n.split(":", 1)[-1].strip()
+                if s and s not in songs:
+                    songs.append(s)
+        if not songs:
+            return {"ok": True, "msg": ("Deine Lieblingsliste ist noch leer. Wenn ein Titel "
+                                        "läuft, sag «füge das zu meinen Favoriten» — dann merke ich ihn.")}
+        return {"ok": True, "msg": "Deine gemerkten Lieblingssongs:\n• " + "\n• ".join(songs[-12:])}
 
     def _do_tts_mute(self, args) -> dict:
         """'sei ruhig' -> Sprachausgabe (TTS) AUS. AEGIS antwortet weiter im Text, spricht nur nicht.

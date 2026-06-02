@@ -355,8 +355,20 @@ _COMMAND_PATTERNS.insert(0, ("focus_window", re.compile(
 _COMMAND_PATTERNS.insert(0, ("move_window", re.compile(
     r"^\s*(?:verschieb\w*|zieh\w*|beweg\w*|setz\w*|pack\w*|hol\w*)\s+"
     r"(?:mir\s+|das\s+|die\s+|den\s+|mal\s+)*(?P<app>[a-zäöü][\wäöü.\-]{1,30})\s+"
-    r"(?:auf|zum|in|nach)\s+(?:den\s+|das\s+|meinen\s+|mein\s+)*"
+    r"(?:auf|zum|in|nach)\s+(?:den\s+|dem\s+|das\s+|der\s+|meinen\s+|mein\s+|m[ae]in\s+)*"
     r"(?:haupt\w*|main|prim[äa]r\w*|erst\w*|monitor|bildschirm|screen)\b", re.I)))
+# «verbinde mein Spotify» -> EHRLICHE Antwort. Vorher hat das Modell «Spotify: verbunden»
+# halluziniert (kein Handler, kein echtes Login). Deterministisch abfangen, damit nichts
+# vorgegaukelt wird (echtes Likes-Schreiben braucht OAuth -> eigenes Feature).
+_COMMAND_PATTERNS.insert(0, ("connect_spotify", re.compile(
+    r"^\s*(?:verbinde?\w*|verknüpf\w*|koppel\w*|connect|einlogg\w*|anmeld\w*|"
+    r"log\s*-?\s*in|melde?\s+(?:mich\s+)?(?:bei|in|an))\s+"
+    r"(?:mich\s+|mein\w*\s+|dem\s+|das\s+|der\s+|den\s+|bei\s+|mit\s+|in\s+)*spotify\b", re.I)))
+# «zeig meine Lieblingssongs / Favoriten» -> die lokal gemerkte Liste (aus user_memory).
+_COMMAND_PATTERNS.insert(0, ("list_favorites", re.compile(
+    r"^\s*(?:zeig\w*|nenn\w*|liste?\w*|welche|was\s+sind)\s+(?:mir\s+|meine\s+|sind\s+|du\s+)*"
+    r"(?:lieblings(?:song|titel|lied|musik)\w*|favorit\w*)\b"
+    r"|^\s*meine\s+(?:lieblings(?:song|titel|lied|musik)\w*|favorit\w*)\b", re.I)))
 
 
 def _match(t: str, patterns: list, conf: float):
