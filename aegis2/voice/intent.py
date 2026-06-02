@@ -421,7 +421,17 @@ def _match(t: str, patterns: list, conf: float):
         elif name == "forget":
             args["text"] = t
         elif name == "remember":
-            args["text"] = m.group(1).strip()
+            after = m.group(1).strip()
+            _low = after.lower().rstrip(".!?,")
+            before = t[:m.start()].strip(" ,.–-")
+            # "[Anweisung] merk dir das/es" -> das/es verweist auf den Satz DAVOR; dann den
+            # Inhalt VOR dem "merk dir" merken, nicht das Fuellwort danach (sonst "zu bruchstueckhaft").
+            if before and (_low in ("das", "es", "dir das", "mir das", "sowas", "das hier",
+                                     "das mal", "dir das mal", "das bitte", "dir das bitte")
+                           or len(_low) < 4):
+                args["text"] = before
+            else:
+                args["text"] = after
         elif name == "learn_url":
             args["url"] = m.group(1).strip()
         elif name == "learn":

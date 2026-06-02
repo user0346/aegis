@@ -1597,7 +1597,7 @@ class ActionRouter:
                                         f"({max(1, len(convo) // 2)} Wortwechsel). Den habe ich "
                                         "in kommenden Gesprächen parat.")}
         # Fuehrende Fuellwoerter strippen ("merk dir das X" / "dass X" -> "X")
-        text = re.sub(r"^(?:dass|das|die|der|den|mir|,)\s+", "", text, flags=re.I).strip().rstrip(".!").strip()
+        text = re.sub(r"^(?:(?:dass|das|die|der|den|mir|dir|,)\s+)+", "", text, flags=re.I).strip().rstrip(".!").strip()
         try:
             saved = user_memory.add_note(text)
             if saved:
