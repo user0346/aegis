@@ -17,6 +17,7 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - Schluss mit Füll-Antworten: sagt AEGIS mal nichts Sinnvolles (z. B. «Naja»), fragt es jetzt **ehrlich nach**, statt eine dumme Antwort zu geben
 - «spiele meine Lieblingsmusik» trifft jetzt zuverlässig deine **Spotify-Lieblingssongs** — auch bei Tippfehlern («liebings») und englisch («music»)
 - Lässt sich eine App nicht starten (z. B. eine abgebrochene Windows-Sicherheitsabfrage), erklärt AEGIS das **verständlich** statt mit einer kryptischen Fehlernummer
+- «Spotify lauter», wenn der Windows-Mixer schon auf 100 % steht: AEGIS behauptet nicht mehr fälschlich „jetzt 100 Prozent", sondern sagt **ehrlich**, dass es am Anschlag ist — und wie du es wirklich lauter machst (System-Lautstärke / Spotifys eigener Regler)
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)

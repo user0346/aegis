@@ -1089,10 +1089,21 @@ class ActionRouter:
         if re.search(r"lauter|leiser", raw):
             down = bool(re.search(r"leiser", raw))
             if _mc is not None and app:
-                newv = _mc.nudge_app_volume(app, -0.15 if down else 0.15)
-                if newv is not None:
-                    return {"ok": True, "msg": (f"{app.capitalize()} {'leiser' if down else 'lauter'} "
-                                                f"— jetzt {round(newv * 100)} Prozent.")}
+                cur = _mc.app_volume(app)               # IST-Stand im Windows-App-Mixer (0..1)
+                if cur is not None:
+                    # Schon am Anschlag? -> EHRLICH sagen, statt einen No-Op als Erfolg zu
+                    # verkaufen ("jetzt 100 Prozent", obwohl nichts lauter wurde).
+                    if not down and cur >= 0.99:
+                        return {"ok": True, "msg": (
+                            f"{app.capitalize()} steht im Windows-Mixer schon auf 100 % — lauter geht "
+                            f"darüber nicht. Dreh die System-Lautstärke hoch (sag «lauter» ohne App) "
+                            f"oder nutze {app.capitalize()}s eigenen Lautstärkeregler.")}
+                    if down and cur <= 0.01:
+                        return {"ok": True, "msg": f"{app.capitalize()} ist bei mir schon ganz leise (0 %)."}
+                    newv = _mc.nudge_app_volume(app, -0.15 if down else 0.15)
+                    if newv is not None:
+                        return {"ok": True, "msg": (f"{app.capitalize()} {'leiser' if down else 'lauter'} "
+                                                    f"— jetzt {round(newv * 100)} Prozent.")}
             return self._press_media_key(keys["voldown"] if down else keys["volup"],
                                          "Leiser" if down else "Lauter")
 
