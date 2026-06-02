@@ -117,3 +117,16 @@
   .mode-orb #voice-history { order: 2; }                       /* Chat direkt unter der Eingabe */
   .mode-orb .bottombar { order: 3; margin-top: auto !important; }  /* Fusszeile ans untere Ende */
 }
+
+/* === Eingabezeile am Handy umbrechen ===
+   Textfeld + 🎤 + Senden + Chat passen nicht in EINE Zeile (393px noetig, ~375px da) ->
+   der Chat-Knopf wurde abgeschnitten. Loesung: Textfeld volle Breite (Zeile 1), Knoepfe
+   darunter (Zeile 2). */
+@media (max-width: 820px) {
+  .voice-input { flex-wrap: wrap !important; gap: 8px !important; align-items: stretch !important; }
+  .voice-input > #voice-text,
+  .voice-input > input[type="text"],
+  .voice-input > input { flex: 1 1 100% !important; min-width: 0 !important; width: 100% !important; }
+  .voice-input > .btn,
+  .voice-input > button { flex: 1 1 auto !important; }
+}
