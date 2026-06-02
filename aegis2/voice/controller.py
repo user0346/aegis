@@ -68,7 +68,9 @@ class VoiceController:
                 _wake += "|" + re.escape(_own.lower())
         except Exception:  # noqa: BLE001
             pass
-        stripped = re.sub(r"^\s*(hey\s+|ey\s+|yo\s+|na\s+|hallo\s+)?(" + _wake + r")[\s,:!.?-]*",
+        # Weckwort NUR strippen, wenn ein Trenner ODER das Satzende folgt — sonst frisst ein
+        # (faelschlich gesetztes) kurzes Weckwort wie «das» den Wortanfang: «dashboard» -> «hboard».
+        stripped = re.sub(r"^\s*(hey\s+|ey\s+|yo\s+|na\s+|hallo\s+)?(" + _wake + r")(?:[\s,:!.?-]+|$)",
                           "", text, flags=re.I).strip()
         # Nur das Weckwort gesagt ("ey jarvis", "aegis") -> Bereitschaft signalisieren,
         # NICHT den gespeicherten Kontext ausschuetten.

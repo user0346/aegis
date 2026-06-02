@@ -14,6 +14,7 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - Wenn sich AEGIS aktualisiert, siehst du jetzt **live, wie weit es ist** — Download-Fortschritt in Prozent, Signatur-Prüfung, Einspielen und Neustart als Banner oben (am PC und am Handy), statt dass es einfach im Hintergrund passiert
 
 ### 🔧 Behoben
+- **Befehle wie „dashboard" funktionieren wieder zuverlässig:** durch einen früheren Versehen-Fehler (das Füllwort „das" war einmal als Weckwort gespeichert worden) schnitt AEGIS bei Eingaben, die mit „das…" beginnen, den Wortanfang ab — „dashboard" wurde zu „hboard" und nicht mehr verstanden. Behoben: das Weckwort wird nur noch an echter Wortgrenze entfernt, ein Füllwort wird gar nicht erst als Weckwort angenommen, und ein bereits versehentlich gespeichertes wird automatisch ignoriert
 - Schluss mit Füll-Antworten: sagt AEGIS mal nichts Sinnvolles (z. B. «Naja»), fragt es jetzt **ehrlich nach**, statt eine dumme Antwort zu geben
 - «spiele meine Lieblingsmusik» trifft jetzt zuverlässig deine **Spotify-Lieblingssongs** — auch bei Tippfehlern («liebings») und englisch («music»)
 - Lässt sich eine App nicht starten (z. B. eine abgebrochene Windows-Sicherheitsabfrage), erklärt AEGIS das **verständlich** statt mit einer kryptischen Fehlernummer

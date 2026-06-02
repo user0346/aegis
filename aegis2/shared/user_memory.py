@@ -14,6 +14,16 @@ from pathlib import Path
 _PATH = Path.home() / ".aegis" / "user_memory.json"
 _LOCK = threading.Lock()
 
+# Fuell-/Stoppwoerter sind NIE ein gueltiges Weckwort. «hör auf das ständig zu fragen» hatte
+# faelschlich «das» als Weckwort gesetzt -> die Wake-Strip-Regex (controller.handle_text) frass
+# danach «das» vom Anfang JEDER Eingabe: «dashboard» -> «hboard». Zentral, damit set_wake_word
+# es ablehnt UND get_wake_word ein evtl. schon gespeichertes Stoppwort SELBST HEILT.
+BAD_WAKE_WORDS = frozenset({
+    "das", "es", "auf", "zu", "mit", "damit", "dem", "den", "der", "die", "ab", "jetzt",
+    "ständig", "staendig", "immer", "endlich", "bitte", "sofort", "doch", "mich", "dich",
+    "nicht", "mal", "schon", "wieder", "fragen", "nerven", "aufhören", "aufhoeren",
+})
+
 
 def _fresh() -> dict:
     return {"address": "", "wake_word": "", "facts": {}, "command_counts": {},
@@ -58,6 +68,8 @@ def get_address() -> str:
 def set_wake_word(word: str) -> None:
     """Eigenes Weckwort/Name fuer AEGIS (z.B. 'Jarvis'). Leer = Standard 'AEGIS'."""
     word = (word or "").strip()[:24]
+    if word.lower() in BAD_WAKE_WORDS:        # Stoppwort ist NIE ein Weckwort -> nicht speichern
+        return
     with _LOCK:
         d = _load()
         d["wake_word"] = word
@@ -65,7 +77,12 @@ def set_wake_word(word: str) -> None:
 
 
 def get_wake_word() -> str:
-    return (_load().get("wake_word") or "").strip()
+    w = (_load().get("wake_word") or "").strip()
+    # Selbstheilung: ein faelschlich gespeichertes Stoppwort («das») ist KEIN Weckwort und darf
+    # die Wake-Strip-Regex nicht vergiften -> als «nicht gesetzt» behandeln (Standard «AEGIS»).
+    if w.lower() in BAD_WAKE_WORDS:
+        return ""
+    return w
 
 
 def remember(key: str, value: str) -> None:

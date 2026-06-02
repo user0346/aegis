@@ -1811,15 +1811,12 @@ class ActionRouter:
     def _do_set_wake(self, args) -> dict:
         """Eigenes Weckwort/Name fuer AEGIS setzen ("hör ab jetzt auf Jarvis")."""
         name = (args.get("name") or "").strip()
+        from ..shared import user_memory
         # Fuell-/Stoppwoerter sind KEIN Weckwort: «hör auf das ständig zu fragen» darf nicht
-        # «das» als Namen setzen (genau dieser Unsinn ist passiert).
-        _bad = {"das", "es", "auf", "zu", "mit", "damit", "dem", "den", "der", "die", "ab", "jetzt",
-                "ständig", "staendig", "immer", "endlich", "bitte", "sofort", "doch", "mich", "dich",
-                "nicht", "mal", "schon", "wieder", "fragen", "nerven", "aufhören", "aufhoeren"}
-        if not name or name.lower() in _bad:
+        # «das» als Namen setzen (genau dieser Unsinn ist passiert) -> zentrale Liste.
+        if not name or name.lower() in user_memory.BAD_WAKE_WORDS:
             return {"ok": False, "msg": "Auf welchen Namen soll ich hören? Sag z.B. «nenn dich Jarvis»."}
         try:
-            from ..shared import user_memory
             user_memory.set_wake_word(name)
         except Exception:  # noqa: BLE001
             return {"ok": False, "msg": "Konnte den Namen nicht speichern."}
