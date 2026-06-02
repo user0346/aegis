@@ -165,7 +165,7 @@ nav a.on{color:var(--acc)}
 </nav>
 <script>
 var T=new URLSearchParams(location.search).get('t')||'',TAB='status';
-function esc(s){return(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+function esc(s){return(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function tile(n,l){return '<div class=card><div class=n>'+n+'</div><div class=l>'+l+'</div></div>'}
 async function jget(p){var r=await fetch(p+(p.indexOf('?')<0?'?':'&')+'t='+encodeURIComponent(T),{cache:'no-store'});return r.json()}
 async function jpost(p,b){var r=await fetch(p+'?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});return r.json()}
@@ -318,7 +318,9 @@ class MobileView(Module):
         try:
             return {"ok": True, "name": name, "data": h(args or {})}
         except Exception as e:  # noqa: BLE001
-            return {"ok": False, "name": name, "error": f"{type(e).__name__}: {e}"}
+            # Sicherheit (#1 Stack-Traces): rohe Exception-Message (Pfade/SQL/Interna)
+            # NICHT ueber die Netz-Antwort leaken — nur der generische Typ raus.
+            return {"ok": False, "name": name, "error": type(e).__name__}
 
     def _memory(self) -> dict:
         try:
