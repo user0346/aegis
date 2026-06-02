@@ -23,6 +23,7 @@
     eventReceived: Signal(), stateChanged: Signal(), statsUpdated: Signal(),
     voiceState: Signal(), criticalAlert: Signal(), ollamaProgress: Signal(), fileSearchAsk: Signal()
   };
+  var _rec = null, _chatAbort = null;   // aktive Spracherkennung / laufende Chat-Anfrage (zum sauberen Abbrechen)
 
   var AEGIS = {
     // ---- Methoden (Qt-Stil: optionaler Callback als letztes Argument) ----
@@ -45,8 +46,16 @@
       return JSON.stringify({ ok: true, ref: ref });
     },
     voiceText: function (text) {
+      try { if (_rec) { _rec.abort(); _rec = null; } } catch (e) {}     // evtl. noch laufendes Mikro beenden
+      try { if (_chatAbort) _chatAbort.abort(); } catch (e) {}
+      _chatAbort = (window.AbortController ? new AbortController() : null);
       S.voiceState.emit("state", "thinking");
-      postJSON("/api/chat", { text: text }).then(function (res) {
+      fetch(u("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text }), cache: "no-store",
+        signal: _chatAbort ? _chatAbort.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+        _chatAbort = null;
         S.voiceState.emit("transcript", text);
         S.voiceState.emit("reply", res.reply || "");
         // UI-Aktionen vom Server nachspielen, damit Text-/Sprachbefehle die Oberflaeche am
@@ -61,11 +70,12 @@
           else if (act === "show_vision") S.voiceState.emit("vision", a.img || "");
         }
         S.voiceState.emit("state", "idle");
-      }).catch(function () { S.voiceState.emit("state", "idle"); });
+      }).catch(function () { _chatAbort = null; S.voiceState.emit("state", "idle"); });
     },
     voiceListen: function () {
       // Am Handy gibt es kein Hintergrund-Weckwort. Tipp-auf-Sprich per Browser-STT IST moeglich,
       // aber NUR im sicheren Kontext (HTTPS/localhost) — ueber http:// sperrt der Browser das Mikro.
+      try { if (_rec) { _rec.abort(); _rec = null; } } catch (e) {}     // evtl. laufende Erkennung sauber beenden
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!window.isSecureContext || !SR) {
         S.voiceState.emit("reply", "Am Handy redest du per Tippen — schreib unten einfach deine Frage. " +
@@ -75,26 +85,37 @@
       }
       try {
         var rec = new SR();
+        _rec = rec;
         rec.lang = "de-DE"; rec.interimResults = false; rec.maxAlternatives = 1;
         S.voiceState.emit("state", "listening");
         var got = false;
         rec.onresult = function (e) {
-          got = true;
+          got = true; _rec = null;
           var t = ((e.results[0] && e.results[0][0] && e.results[0][0].transcript) || "").trim();
           if (t) AEGIS.voiceText(t); else S.voiceState.emit("state", "idle");
         };
-        rec.onerror = function () {
+        rec.onerror = function (e) {
+          _rec = null;
+          if (e && e.error === "aborted") { S.voiceState.emit("state", "idle"); return; }  // bewusst abgebrochen -> still
           S.voiceState.emit("reply", "Hab nichts verstanden — nochmal antippen oder unten tippen.");
           S.voiceState.emit("state", "idle");
         };
-        rec.onend = function () { if (!got) S.voiceState.emit("state", "idle"); };
+        rec.onend = function () { _rec = null; if (!got) S.voiceState.emit("state", "idle"); };
         rec.start();
       } catch (e) {
+        _rec = null;
         S.voiceState.emit("reply", "Sprachaufnahme nicht möglich — tippe einfach unten.");
         S.voiceState.emit("state", "idle");
       }
     },
-    stopSpeaking: function () {},
+    // Stop/Abbrechen am Handy: laufendes Mikro UND laufende Anfrage hart beenden und den
+    // Orb-Zustand sauber auf "Bereit" zuruecksetzen (sonst haengt er auf "DENKE").
+    stopSpeaking: function () {
+      try { if (_rec) { _rec.abort(); _rec = null; } } catch (e) {}
+      try { if (_chatAbort) { _chatAbort.abort(); _chatAbort = null; } } catch (e) {}
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+      S.voiceState.emit("state", "idle");
+    },
     ttsPreview: function (v) {},
     setWakeWord: function (on) { postJSON("/api/exec", { name: "settings.save", args: { wake_word_enabled: !!on } }).catch(function () {}); },
     wakeWordOn: function (cb) { if (cb) cb(false); },

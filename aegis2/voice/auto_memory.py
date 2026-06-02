@@ -98,11 +98,24 @@ def _extract(user_text: str, answer: str) -> None:
     data = llm.ask_json(prompt, system=_SYS, schema=_SCHEMA, num_predict=200, timeout=30)
     if not data or not isinstance(data, dict):
         return
+    import re as _re
+    ut = (user_text or "").lower()
+    _IDENTITY = ("name", "anrede", "vorname", "nachname", "spitzname", "rufname", "heisst", "heiße")
     for f in (data.get("facts") or [])[:5]:
         if not isinstance(f, dict):
             continue
         k = str(f.get("key") or "").strip()[:40]
         v = str(f.get("value") or "").strip()[:160]
-        # Muell-/Leer-Schutz: beide Teile sinnvoll, value nicht bloss "unbekannt"/"keine"
-        if k and v and v.lower() not in ("unbekannt", "keine", "n/a", "-", "null", "none"):
+        if not (k and v) or v.lower() in ("unbekannt", "keine", "n/a", "-", "null", "none"):
+            continue
+        # IDENTITAET (Name/Anrede) NIE automatisch raten -> nur per ausdruecklichem Befehl
+        # ("nenn mich ...", "merk dir ..."). Sonst landet erfundenes "Name=Pizet" im Profil.
+        if k.lower() in _IDENTITY:
+            continue
+        # ANTI-HALLUZINATION: der Wert muss WIRKLICH im Nutzer-Text vorkommen (verbatim) —
+        # sonst hat das kleine LLM ihn erfunden. So kann NICHTS gespeichert werden, was der
+        # Nutzer nie gesagt hat (Wurzel der falschen "Kaffee/Bello/blau"-Fakten).
+        vl = v.lower()
+        words = _re.findall(r"[a-zäöüß0-9]{4,}", vl)
+        if (vl in ut) or (words and any(w in ut for w in words)):
             user_memory.remember(k, v)
