@@ -21,6 +21,7 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - „Bist du aktuell?" wird jetzt als **Update-Frage** verstanden (vorher kam die Sicherheits-Lage)
 - **Screenshot vom gewählten Monitor:** „mach einen Screenshot vom 2. Bildschirm" nimmt jetzt wirklich Monitor 2 (vorher immer den Hauptmonitor); gibt es den nicht, sagt AEGIS es ehrlich
 - Neu: **„mach es größer / kleiner"** (oder „vergrößere das") zoomt das Screenshot-Vorschaubild — am PC und am Handy
+- **„Mach ein Screenshot" ist jetzt sofort fertig** — das Bild kommt direkt, ohne dass du auf die langsame Bild-Analyse warten musst. Die volle Analyse läuft nur noch, wenn du sie wirklich willst («was ist das», «schau auf den Bildschirm», «ist das sicher»)
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)

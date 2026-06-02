@@ -276,6 +276,21 @@ class ActionRouter:
                 self.ui_cmd({"action": "show_vision", "img": _b64})
         except Exception:  # noqa: BLE001
             pass
+        # «mach ein screenshot» = der Nutzer will das BILD (ist oben sofort da) — NICHT die
+        # langsame Vision-Analyse aufzwingen. Die volle Analyse bleibt fuer echte Fragen
+        # («was ist das», «schau», «ist das sicher») — nur dann lohnt das Warten.
+        _wants_analysis = bool(re.search(
+            r"\bwas\s+(?:ist|siehst|erkennst|l[äa]uft|zeigt|steht)\b|\bschau\w*|\bsiehst\b|\bsieh\b|\bguck\w*|"
+            r"\banalysier\w*|\berkenn\w*|\bbewerte?\b|\bbeschreib\w*|\bwer\s+ist\b|\bworum\b|"
+            r"\bist\s+(?:das|es|der|die)\s+(?:sicher|gef[äa]hrlich|ok|echt|seri[öo]s|legit|safe|phishing)\b",
+            text, re.I))
+        _pure_shot = bool(re.search(
+            r"screenshot|bildschirm-?foto|bildschirmaufnahme|schnappschuss|\bfoto\b", text, re.I))
+        if _pure_shot and not _wants_analysis:
+            ml = f" von Bildschirm {mon}" if mon else ""
+            return {"ok": True, "msg": (
+                f"Screenshot{ml} ist da — oben links siehst du ihn. "
+                "Soll ich ihn anschauen oder auf Gefahren prüfen, sag «was ist das».")}
         ans = screen_vision.analyze(text, monitor=mon)
         if not ans:
             return {"ok": False, "msg": ("Ich konnte den Bildschirm gerade nicht erfassen oder das "
