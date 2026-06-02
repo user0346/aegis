@@ -450,7 +450,9 @@
         var c=$("conn-pill"); var conn=c&&/connect|verbund/i.test(c.textContent||"");
         setBar("schutz", conn?wob(98,1.5):18, conn?"v-ok":"v-bad");
         setBar("wacht", wob(95,3), "v-ok");
-        var dom=num("stat-domains"); setBar("wissen", dom!=null?Math.min(100,42+dom/2400):wob(70,4), "");
+        // WISSENS-INDEX an die ECHTE, wachsende Wissensbasis koppeln (mem-count = knowledge_count),
+        // NICHT an die statische Domain-Sperrliste. So bewegt er sich, wenn AEGIS wirklich dazulernt.
+        var kn=num("mem-count"); setBar("wissen", kn!=null?wob(Math.min(97,55+kn/40),1.2):wob(70,4), "");
         var ev=num("stat-events"); setBar("netz", ev!=null?Math.min(100,18+ev*1.1):wob(45,6), "");
         var th=num("stat-threats"); setBar("bedrohung", th?Math.min(100,22+th*12):wob(7,2), th?"v-bad":"v-ok");
       }catch(e){}
