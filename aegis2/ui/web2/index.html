@@ -47,6 +47,21 @@
   .hero .state { font-family: var(--font-display); font-size: 22px; letter-spacing: .04em; margin-top: 22px; }
   .hero .hint { font-size: 13px; color: var(--text-2); margin-top: 7px; }
   .hero .hint b { color: var(--accent); font-weight: 600; }
+  /* ---- Orb: lebendige Zustaende (vom Voice-/Event-Status getrieben) ---- */
+  .orb .ripple { position: absolute; inset: 8px; border-radius: 50%; border: 1px solid var(--accent-line); opacity: 0; }
+  .orb[data-state="listening"] .ripple { animation: ripple 1.8s ease-out infinite; }
+  .orb[data-state="listening"] .ripple.d2 { animation-delay: .9s; }
+  @keyframes ripple { 0% { transform: scale(.55); opacity: .65; } 100% { transform: scale(1.3); opacity: 0; } }
+  .orb[data-state="listening"] .core { box-shadow: 0 0 60px var(--accent-glow), inset 0 0 24px rgba(255,255,255,.55); }
+  .orb[data-state="listening"] .r1 { animation-duration: 7s; }
+  .orb[data-state="thinking"] .glow { animation-duration: 1.3s; }
+  .orb[data-state="thinking"] .r1 { animation-duration: 3.5s; }
+  .orb[data-state="thinking"] .r2 { animation-duration: 6s; }
+  .orb[data-state="speaking"] .core { animation: talk .42s ease-in-out infinite; }
+  @keyframes talk { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+  .orb[data-state="alert"] .core { background: radial-gradient(circle at 42% 38%, #ffe0e0, #ff6b6b 42%, #7a1320 82%); box-shadow: 0 0 46px rgba(255,107,107,.55), inset 0 0 24px rgba(255,255,255,.3); }
+  .orb[data-state="alert"] .glow { background: radial-gradient(circle at 50% 45%, rgba(255,107,107,.5), rgba(255,107,107,.16) 42%, transparent 68%); animation-duration: 1s; }
+  .orb[data-state="alert"] .ring { border-color: rgba(255,107,107,.4); }
 
   /* chat */
   .msg-user { align-self: flex-end; max-width: 84%; background: var(--accent-soft); border: 1px solid var(--accent-line);
@@ -79,7 +94,7 @@
 </head>
 <body>
   <div class="hud-backdrop"></div>
-  <div class="system-pulse" data-state="idle"></div>
+  <div class="system-pulse" id="pulse" data-state="idle"></div>
 
   <div class="shell">
     <!-- Sidebar -->
@@ -117,9 +132,9 @@
       <div class="stage">
         <div class="thread">
           <div class="hero">
-            <div class="orb"><div class="glow"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div>
-            <div class="state">Bereit</div>
-            <div class="hint">Sag <b>„Hey Jarvis"</b> — oder tippe unten</div>
+            <div class="orb" id="orb" data-state="idle"><div class="glow"></div><div class="ripple"></div><div class="ripple d2"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div>
+            <div class="state" id="orbState">Bereit</div>
+            <div class="hint" id="orbHint">Sag <b>„Hey Jarvis"</b> — oder tippe unten</div>
           </div>
 
           <div class="msg-user">verschiebe Spotify auf den Hauptbildschirm</div>
@@ -137,5 +152,7 @@
       </div>
     </main>
   </div>
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
