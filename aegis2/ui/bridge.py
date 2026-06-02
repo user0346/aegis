@@ -31,6 +31,7 @@ class AegisBridge(QObject):
     ollamaProgress = pyqtSignal(str, int)  # (stage, pct) — Ollama-Auto-Install (pct=100 fertig, -1 Fehler)
     fileSearchAsk = pyqtSignal(str, str)   # (query, kind) — Datei-Suche braucht Nutzer-Bestaetigung
     windowAction = pyqtSignal(str)         # ("minimize"|"restore") — natives Fenster-Steuern (GUI-Thread)
+    bootProgress = pyqtSignal(str, int)    # (stage, pct) — Erststart-Modell-Lade-Overlay (pct=100 fertig, -1 Fehler)
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -366,6 +367,102 @@ class AegisBridge(QObject):
                     self.initWake()
                 except Exception:  # noqa: BLE001
                     pass
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _models_missing(self) -> bool:
+        """True NUR wenn das Erststart-Setup wirklich nötig ist (Ollama fehlt ODER ein
+        benötigtes Modell ist noch nicht da). Bei jedem Zweifel/Fehler -> False, damit
+        NIE ein ungewollter GB-Download startet. Auf Maschinen mit vorhandenen Modellen
+        (Normalfall) liefert das False -> die Begrüßung läuft exakt wie bisher."""
+        try:
+            from aegis2.voice import ollama_setup as _os
+            st = _os.status() or {}
+            if not st.get("installed"):
+                return True                      # Ollama selbst fehlt -> volles Turnkey-Setup
+            from aegis2.shared.db import get_db
+            db = get_db()
+            llm = (db.get_setting("llm_model", "") or _os.best_model() or "").strip()
+            vis = (db.get_setting("vision_model", "") or "llama3.2-vision").strip()
+            for m in (llm, vis):
+                if m and not _os._has_model_named(m):
+                    return True
+            return False
+        except Exception as e:  # noqa: BLE001
+            log.warning("_models_missing: %s", e)
+            return False
+
+    @pyqtSlot()
+    def startupBoot(self):
+        """ERSTSTART-SEQUENZ. Fehlen Modelle/Setup, kündigt AEGIS das Laden an (Stimme + sicht-
+        barer Fortschritt über bootProgress -> #boot-overlay) und startet danach EINMAL sauber
+        neu, damit alles frisch geladen ist. Sind die Modelle da (Normalfall), ganz normale
+        Begrüßung. Idempotent pro Prozess; ein einmal gescheitertes Setup wird nicht in einer
+        Schleife wiederholt (DB-Flag boot_setup_failed -> dann normaler Start + Knopf)."""
+        if getattr(self, "_boot_started", False):
+            return
+        self._boot_started = True
+
+        def _work():
+            try:
+                missing = self._models_missing()
+            except Exception:  # noqa: BLE001
+                missing = False
+            if not missing:
+                self.greet()
+                return
+            # Frühere Fehlversuche nicht endlos auto-wiederholen.
+            try:
+                from aegis2.shared.db import get_db
+                if get_db().get_setting("boot_setup_failed", False):
+                    self.greet()
+                    return
+            except Exception:  # noqa: BLE001
+                pass
+
+            self.bootProgress.emit("Ich lade meine KI-Modelle …", 1)
+            try:
+                from aegis2.voice.sir_speaker import speak_text
+                speak_text("Einen Moment. Beim ersten Start lade ich meine Modelle. Das kann ein "
+                           "paar Minuten dauern — danach starte ich einmal sauber neu, dann bin ich bereit.")
+            except Exception:  # noqa: BLE001
+                pass
+
+            ok = False
+            try:
+                from aegis2.voice import ollama_setup as _os
+                r = _os.install(progress=lambda s, p: self.bootProgress.emit(s or "", int(p))) or {}
+                ok = bool(r.get("ok"))
+            except Exception as e:  # noqa: BLE001
+                log.warning("startupBoot install: %s", e)
+                ok = False
+
+            try:
+                from aegis2.shared.db import get_db
+                db = get_db()
+                db.set_setting("boot_setup_done", bool(ok))
+                db.set_setting("boot_setup_failed", not ok)
+            except Exception:  # noqa: BLE001
+                pass
+
+            if ok:
+                self.bootProgress.emit("Fertig — ich starte sauber neu.", 100)
+                try:
+                    from aegis2.voice.sir_speaker import speak_text
+                    speak_text("Alles bereit. Ich starte jetzt einmal sauber neu.")
+                except Exception:  # noqa: BLE001
+                    pass
+                time.sleep(2)
+                try:
+                    import secrets as _sec
+                    self._ipc.send({"t": "cmd", "name": "system.restart",
+                                    "args": {}, "ref": _sec.token_hex(6)})
+                except Exception as e:  # noqa: BLE001
+                    log.warning("startupBoot restart: %s", e)
+                    self.greet()
+            else:
+                self.bootProgress.emit("Konnte die Modelle nicht laden — ich mache normal weiter.", -1)
+                self.greet()
+
         threading.Thread(target=_work, daemon=True).start()
 
     # ---- Ollama-Auto-Install (lokale KI, kein manueller Download) ----

@@ -24,11 +24,24 @@
 ">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta name="referrer" content="no-referrer">
-<link rel="stylesheet" href="style.css?v=272">
+<link rel="stylesheet" href="style.css?v=273">
 <link rel="stylesheet" href="mobile_fix.css?v=2">
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body class="mode-orb">
+
+<!-- ===== Erststart-Overlay: Modell-Laden mit Fortschritt (sichtbar NUR wenn Modelle fehlen) ===== -->
+<div id="boot-overlay" hidden>
+  <div class="boot-card">
+    <div class="boot-ring" aria-hidden="true"></div>
+    <div class="boot-title">AEGIS startet</div>
+    <div class="boot-stage" id="boot-stage">Initialisiere …</div>
+    <div class="boot-track"><div class="boot-bar" id="boot-bar"></div></div>
+    <div class="boot-pct" id="boot-pct"></div>
+    <div class="boot-hint">Beim ersten Start lade ich meine KI-Modelle. Danach starte ich
+      einmal sauber neu — du musst nichts tun.</div>
+  </div>
+</div>
 
 <div id="app">
 
@@ -798,7 +811,7 @@
 <script src="updater.js?v=251"></script>
 <script src="sentinel.js?v=250"></script>
     <script src="dashboard.js?v=244"></script>
-    <script src="panels.js?v=261"></script>
+    <script src="panels.js?v=262"></script>
     <script src="embeds.js?v=2"></script>
 </body>
 </html>

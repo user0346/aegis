@@ -193,7 +193,9 @@ class AegisWindow(QMainWindow):
             try:
                 if not getattr(self, "_greet_scheduled", False):
                     self._greet_scheduled = True
-                    QTimer.singleShot(1800, self.bridge.greet)
+                    # startupBoot prüft zuerst, ob Modelle fehlen (Erststart): dann ansagen +
+                    # Fortschritt + sauberer Neustart. Sind die Modelle da, begrüßt es normal.
+                    QTimer.singleShot(1800, self.bridge.startupBoot)
             except Exception:  # noqa: BLE001
                 log.exception("greet scheduling failed (non-fatal)")
         else:

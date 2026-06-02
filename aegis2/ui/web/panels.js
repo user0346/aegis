@@ -688,6 +688,21 @@
         else if(pct===-1){ if(btn){ btn.disabled=false; btn.textContent="Erneut versuchen"; } if(bar) bar.style.background="#f87171"; }
       });
     }
+    // Erststart-Modell-Lade-Overlay — wird NUR sichtbar, wenn der Boot wirklich Modelle zieht.
+    if(window.aegis&&window.aegis.bootProgress&&window.aegis.bootProgress.connect){
+      window.aegis.bootProgress.connect((stage,pct)=>{
+        const ov=$("boot-overlay"), bar=$("boot-bar"), stg=$("boot-stage"), pc=$("boot-pct");
+        if(!ov) return;
+        ov.hidden=false; document.body.classList.add("booting");
+        if(stg&&stage) stg.textContent=stage;
+        if(pct>=0&&bar) bar.style.width=Math.min(100,Math.max(2,pct))+"%";
+        if(pc) pc.textContent=(pct>=0)?Math.min(100,pct)+"%":"";
+        if(pct===100){ if(stg) stg.textContent="Fertig — Neustart …"; }
+        else if(pct===-1){ if(stg) stg.textContent="Konnte nicht laden — ich starte normal …";
+          if(bar) bar.style.background="#f87171";
+          setTimeout(()=>{ ov.hidden=true; document.body.classList.remove("booting"); },2600); }
+      });
+    }
   }
 
   function attach(){
