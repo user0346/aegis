@@ -2365,6 +2365,19 @@ class ActionRouter:
                 "Domain für dich.")
         return {"ok": True, "msg": msg}
 
+    @staticmethod
+    def _apply_format_pref(user_text, ans):
+        """Explizite Wortlaut-Wuensche deterministisch durchsetzen, wo das kleine LLM patzt —
+        v.a. «schreibe X ohne Punkt / ohne Satzzeichen» -> Satzzeichen am Ende entfernen."""
+        if not ans:
+            return ans
+        ul = (user_text or "").lower()
+        if re.search(r"\bohne\s+(?:punkt|satzzeichen|interpunktion)\b"
+                     r"|\bkein(?:e|en)?\s+(?:punkt|satzzeichen|interpunktion)\b"
+                     r"|\bohne\s+[.!?]", ul):
+            ans = ans.rstrip(" .!?…")
+        return ans
+
     def _do_query(self, args) -> dict:
         text = (args.get("text", "") or "").strip()
         # Browser-Control: "was spielt / was laeuft gerade" -> Web-Player abfragen (falls die
@@ -2659,7 +2672,9 @@ class ActionRouter:
                     "Faden. Geh echt auf ihn ein, sprich ihn mit Namen an wenn bekannt, erkenne die "
                     "Stimmung und passe den Ton an. NUR wenn er dir eine echte, mehrdeutige AUFGABE "
                     "gibt, frag kurz nach — bei normalem Smalltalk niemals. Keine generischen "
-                    "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Kurz halten.")
+                    "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Kurz halten. "
+                    "Befolge ausdrueckliche Wortlaut-/Format-Vorgaben EXAKT (z.B. «ohne Punkt» = kein "
+                    "Satzzeichen am Ende, «nur das Wort», «in Grossbuchstaben»).")
                 # --- KONTEXT-DATEN sicher kapseln (Anti-Prompt-Injection) ---------------
                 # Memory/Wissensstand/RAG sind FAKTEN, nie Anweisungen. Wir umschliessen
                 # sie mit einem pro-Anfrage ZUFAELLIGEN Sentinel; ein Angreifer, der einen
@@ -2737,6 +2752,7 @@ class ActionRouter:
                     except Exception:  # noqa: BLE001
                         pass
                     a = " ".join(parts).strip()
+                    a = self._apply_format_pref(text, a)
                     if a:
                         try:
                             from . import auto_memory
@@ -2752,6 +2768,7 @@ class ActionRouter:
                 a = llm.ask(_prompt, system=sys_ctx, deep=_deep)
                 from . import self_check as _sc       # Selbst-Korrektur: keine falsche
                 a = _sc.sanitize_answer(a)            # Aktions-Behauptung im freien Gespraech
+                a = self._apply_format_pref(text, a)  # «ohne Punkt» u.ae. deterministisch durchsetzen
                 if a:
                     try:                              # AEGIS merkt sich dauerhafte Fakten ueber
                         from . import auto_memory     # dich VON SELBST (Hintergrund, blockt nie)
