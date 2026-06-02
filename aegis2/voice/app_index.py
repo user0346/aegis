@@ -140,7 +140,12 @@ def open_or_focus(query: str):
         os.startfile(lnk)  # noqa: S606  (nur indexierte .lnk, kein User-Pfad)
         return (True, "gestartet")
     except Exception as e:  # noqa: BLE001
-        return (False, str(e))
+        # WinError 1223 = Vorgang vom Nutzer abgebrochen (oft eine UAC-/Sicherheitsabfrage der
+        # App selbst, die verneint wurde). Keine rohe Fehlermeldung / kein Pfad nach aussen.
+        if getattr(e, "winerror", None) == 1223:
+            return (False, "Start abgebrochen — die Windows-Sicherheitsabfrage wurde verneint. "
+                           "Versuch es nochmal und bestätige sie")
+        return (False, type(e).__name__)
 
 
 def _pid_for(query: str):

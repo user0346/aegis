@@ -13,6 +13,11 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 ### 🔄 Updates transparent
 - Wenn sich AEGIS aktualisiert, siehst du jetzt **live, wie weit es ist** — Download-Fortschritt in Prozent, Signatur-Prüfung, Einspielen und Neustart als Banner oben (am PC und am Handy), statt dass es einfach im Hintergrund passiert
 
+### 🔧 Behoben
+- Schluss mit Füll-Antworten: sagt AEGIS mal nichts Sinnvolles (z. B. «Naja»), fragt es jetzt **ehrlich nach**, statt eine dumme Antwort zu geben
+- «spiele meine Lieblingsmusik» trifft jetzt zuverlässig deine **Spotify-Lieblingssongs** — auch bei Tippfehlern («liebings») und englisch («music»)
+- Lässt sich eine App nicht starten (z. B. eine abgebrochene Windows-Sicherheitsabfrage), erklärt AEGIS das **verständlich** statt mit einer kryptischen Fehlernummer
+
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)
 - Sprach- und Text-Befehle steuern die Oberfläche am Handy genauso wie am PC (Chat aus-/einblenden, Ansicht wechseln)

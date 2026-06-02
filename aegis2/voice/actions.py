@@ -741,8 +741,8 @@ class ActionRouter:
         # "meine Lieblingssongs" / "Liked Songs" / "Favoriten" -> Spotifys EINGEBAUTE Sammlung
         # (deutsch heisst sie "Lieblingssongs", URI spotify:collection:tracks) abspielen, statt
         # bloss nach dem Text zu suchen. Genau das meinte der Nutzer mit "meine Lieblingssongs".
-        if ql and re.search(r"\bliebling\w*|liked\s*songs|gelikt\w*|favorit\w*|"
-                            r"meine\s+(?:musik|songs|lieder|titel)\b", ql):
+        if ql and re.search(r"\bliebl?ings?\w*|liked\s*songs|gelikt\w*|favorit\w*|"
+                            r"\bmeine\s+(?:musik|music|songs?|lieder|titel|playlist)\b", ql):
             try:
                 _os.startfile("spotify:collection:tracks")     # = Lieblingssongs / Liked Songs
                 self._press_play_later()
@@ -754,12 +754,15 @@ class ActionRouter:
         uri = ("spotify:search:" + query) if query else "spotify:"
         try:
             _os.startfile(uri)                          # Windows-URI -> App (startet/fokussiert)
-            return {"ok": True, "msg": "Spotify" + (": " + query if query else "")}
+            self._press_play_later()                    # Suche oeffnet -> kurz danach Play druecken
+            return {"ok": True, "msg": (f"Ich suche «{query}» in Spotify und spiele los."
+                                        if query else "Ich öffne Spotify.")}
         except Exception:  # noqa: BLE001
             web = ("https://open.spotify.com/search/" + urllib.parse.quote(query)) if query \
                   else "https://open.spotify.com"
             webbrowser.open(web, new=2)
-            return {"ok": True, "msg": "Spotify (Web)" + (": " + query if query else "")}
+            return {"ok": True, "msg": (f"Ich suche «{query}» in Spotify im Browser."
+                                        if query else "Ich öffne Spotify im Browser.")}
 
     # Bekannte Dienste -> Haupt-Website (fuer "oeffne youtube" ohne .com)
     _SITE_NAMES = {
@@ -2401,6 +2404,26 @@ class ActionRouter:
             ans = ans.rstrip(" .!?…")
         return ans
 
+    def _engage_if_filler(self, text: str, a: str) -> str:
+        """Reine Fuell-/Nicht-Antworten des kleinen Modells («Naja», «Tja», «Nur das Wort»)
+        durch eine EHRLICHE Rueckfrage ersetzen — lieber nachfragen als eine dumme Antwort
+        geben (Nutzer-Grundsatz). Ehrliche «weiß nicht»/«keine Ahnung» bleiben (das ist ok);
+        substantielle kurze Antworten (z.B. «4») ebenfalls."""
+        s = (a or "").strip().lower().rstrip(" .!…?-–—\"»«")
+        _FILLER = {"naja", "na ja", "nunja", "nun ja", "tja", "joa", "hmm", "hm", "öhm",
+                   "oehm", "ähm", "aehm", "ehm", "soso", "so so", "jaja", "ja ja",
+                   "nur das wort", "das wort"}
+        if s in _FILLER:
+            try:
+                from ..shared import user_memory
+                anr = user_memory.get_address() or ""
+            except Exception:  # noqa: BLE001
+                anr = ""
+            anr = (" " + anr) if anr else ""
+            return (f"Das hab ich gerade nicht ganz verstanden{anr} — sag's mir gern nochmal "
+                    "anders, dann gehe ich richtig drauf ein.")
+        return a
+
     def _do_query(self, args) -> dict:
         text = (args.get("text", "") or "").strip()
         # Browser-Control: "was spielt / was laeuft gerade" -> Web-Player abfragen (falls die
@@ -2696,6 +2719,10 @@ class ActionRouter:
                     "Stimmung und passe den Ton an. NUR wenn er dir eine echte, mehrdeutige AUFGABE "
                     "gibt, frag kurz nach — bei normalem Smalltalk niemals. Keine generischen "
                     "Floskeln, kein Wiederholen der Frage, keine ungefragten Sicherheitstipps. Kurz halten. "
+                    "Gib NIEMALS eine reine Fuellantwort wie blosses «Naja», «Tja», «Hmm» oder ein "
+                    "einzelnes Wort aus diesem Prompt zurueck — das ist KEINE echte Antwort. Verstehst "
+                    "du den Nutzer wirklich nicht, sag es EHRLICH und frag kurz nach (z.B. «Das hab ich "
+                    "nicht ganz verstanden — wie meinst du das?»). "
                     "Befolge ausdrueckliche Wortlaut-/Format-Vorgaben EXAKT (z.B. «ohne Punkt» = kein "
                     "Satzzeichen am Ende, «nur das Wort», «in Grossbuchstaben»).")
                 # --- KONTEXT-DATEN sicher kapseln (Anti-Prompt-Injection) ---------------
@@ -2776,6 +2803,7 @@ class ActionRouter:
                         pass
                     a = " ".join(parts).strip()
                     a = self._apply_format_pref(text, a)
+                    a = self._engage_if_filler(text, a)
                     if a:
                         try:
                             from . import auto_memory
@@ -2792,6 +2820,7 @@ class ActionRouter:
                 from . import self_check as _sc       # Selbst-Korrektur: keine falsche
                 a = _sc.sanitize_answer(a)            # Aktions-Behauptung im freien Gespraech
                 a = self._apply_format_pref(text, a)  # «ohne Punkt» u.ae. deterministisch durchsetzen
+                a = self._engage_if_filler(text, a)   # «Naja»/«Nur das Wort» -> ehrliche Rueckfrage
                 if a:
                     try:                              # AEGIS merkt sich dauerhafte Fakten ueber
                         from . import auto_memory     # dich VON SELBST (Hintergrund, blockt nie)
