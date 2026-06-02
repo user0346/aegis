@@ -290,7 +290,7 @@ _COMMAND_PATTERNS.insert(0, ("screen_analyze", re.compile(
     r"\b(?:schau\w*|sieh|guck\w*|blick\w*)\b[^.!?]*\b(?:bildschirm|screen|monitor|display)\b"
     r"|\bwas\s+(?:siehst|erkennst)\s+du\b"
     r"|\b(?:was|wer|wo)\s+(?:ist|sind)\b[^.!?]*\bauf\s+(?:dem|meinem)\s+(?:bildschirm|screen|monitor)\b"
-    r"|\bmach\w*\s+(?:mir\s+|einen?\s+|mal\s+|bitte\s+)*screenshot\b"
+    r"|\bmach\w*\s+(?:mir\s+|ein(?:e|en)?\s+|mal\s+|das\s+|nen\s+|bitte\s+)*(?:screenshot|bildschirm-?foto|bildschirmaufnahme|foto\s+vom\s+bildschirm)\b"
     r"|\banalysier\w*\b[^.!?]*\b(?:bildschirm|screen|monitor|das\s+hier|den\s+screen)\b"
     r"|^\s*was\s+ist\s+das(?:\s+(?:hier|denn|auf\s+dem\s+bildschirm))?\s*[?.!]*$", re.I)))
 # «welches Modell nutzt du» / «was für eine KI bist du» -> ehrlich das aktive Modell nennen,
