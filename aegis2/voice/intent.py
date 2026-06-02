@@ -385,6 +385,12 @@ _COMMAND_PATTERNS.insert(0, ("set_spotify_id", re.compile(
 # Schritte laufen automatisch; zerstoererische werden NICHT geplant).
 _COMMAND_PATTERNS.insert(0, ("agent", re.compile(
     r"^\s*(?:plane?|agent\w*|erledige|mach(?:e)?\s+folgendes|mehrschritt\w*)\b[:,]?\s+\S", re.I)))
+# «nutze die Microsoft/Windows-Stimme» bzw. «… die neuronale Stimme» -> TTS-Engine umschalten.
+_COMMAND_PATTERNS.insert(0, ("set_tts_voice", re.compile(
+    r"\b(?:nutz\w*|nimm|verwend\w*|wechsel\w*|wechsle|stell\w*|schalt\w*|benutz\w*|sprich\s+mit)\b"
+    r"[^.!?]{0,40}?\b(?:microsoft|windows|sapi|system|neuronal\w*|neural|edge|online|nat[üu]rlich\w*)\b"
+    r"[^.!?]{0,25}?\b(?:stimme|sprachausgabe|tts|sprecher)\b"
+    r"|\b(?:stimme|sprachausgabe|tts)\b[^.!?]{0,25}?\b(?:auf|zu)\b[^.!?]{0,20}?\b(?:microsoft|windows|sapi|system|neuronal\w*|neural|edge)\b", re.I)))
 
 
 def _match(t: str, patterns: list, conf: float):
@@ -471,6 +477,8 @@ def _match(t: str, patterns: list, conf: float):
             args["text"] = t
         elif name == "agent":
             args["goal"] = t
+            args["text"] = t
+        elif name == "set_tts_voice":
             args["text"] = t
         return {"intent": name, "args": args, "confidence": conf}
     return None

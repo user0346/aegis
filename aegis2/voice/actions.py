@@ -1367,6 +1367,28 @@ class ActionRouter:
             pass
         return {"ok": True, "msg": "Alles klar, ich rede wieder mit dir."}
 
+    def _do_set_tts_voice(self, args) -> dict:
+        """«nutze die Microsoft/Windows-Stimme» bzw. «… die neuronale Stimme» -> TTS-Engine
+        umschalten (Setting tts_voice). Microsoft/Windows = SAPI (offline), neuronal = edge-tts."""
+        t = (args.get("text") or "").lower()
+        try:
+            from ..shared.db import get_db
+            db = get_db()
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "msg": "Konnte die Stimme gerade nicht umstellen."}
+        if re.search(r"\b(microsoft|windows|sapi|system)\b", t):
+            db.set_setting("tts_voice", "sapi")
+            return {"ok": True, "msg": "Umgestellt auf die Windows-Microsoft-Stimme (SAPI, läuft offline)."}
+        if re.search(r"\b(neuronal\w*|neural|edge|online|nat[üu]rlich\w*)\b", t):
+            try:
+                from .sir_speaker import NEURAL_VOICE_DE as _nv
+            except Exception:  # noqa: BLE001
+                _nv = "de-DE-ConradNeural"
+            db.set_setting("tts_voice", _nv)
+            return {"ok": True, "msg": "Umgestellt auf die neuronale Stimme (edge-tts, online, natürlicherer Klang)."}
+        return {"ok": False, "msg": ("Welche Stimme — die Windows-Microsoft-Stimme (offline) oder die "
+                                     "neuronale (online)? Sag z.B. «nutze die Microsoft-Stimme».")}
+
     def _do_identity(self, args) -> dict:
         """'wer hat dich entwickelt / wie lange bist du in Entwicklung / wer bist du' -> ehrliche
         Antwort zu Herkunft + Wesen. KEINE erfundenen Namen/Daten."""
