@@ -30,6 +30,8 @@ wenn der Nutzer „was ist neu" fragt — also hier bei jedem Release oben ergä
 - „Was ist neu?" wird jetzt auch als „was ist **heute** neu?" verstanden (kam vorher fälschlich als Datum)
 - **Schluss mit dem ständigen ungefragten „Status"-Vorschlag:** AEGIS bietet „Status checken"/Scan nur noch an, wenn du wirklich danach fragst — nicht mehr nach jeder Begrüßung
 - „Hör auf, **das** ständig zu fragen" setzt nicht mehr aus Versehen „das" als Weckwort — Stopp-/Füllwörter werden als Name abgelehnt
+- **Chat-Antworten kommen schneller:** das langsame Modell-„Mitdenken" (Reasoning) bei Fragen ist im Text-Chat aus (kostete 20-70 s) — am PC erscheint die Antwort zusätzlich satzweise
+- Liefert das Modell mal gar nichts, fragt AEGIS **ehrlich nach** statt eine leere Antwort-Blase zu zeigen
 
 ### 📱 AEGIS auf deinem Handy
 - Die komplette AEGIS-Oberfläche live auf dem Smartphone — über Tailscale, Ende-zu-Ende verschlüsselt, von überall (nicht nur im WLAN)

@@ -440,7 +440,10 @@ def ask(prompt: str, model: str | None = None, timeout: int = 120,
                         "top_p": 0.9, "num_ctx": 4096},
         }
         if _thinks(m):
-            _body["think"] = bool(deep)     # deep=True -> qwen3 denkt nach (bessere Antwort)
+            # Denken AUS — auch bei "echten Fragen". qwen3:8b denkt sonst 36-71 s UND liefert
+            # teils nur einen <think>-Block (-> leere Antwort). Ohne Denken: ~1 s, nie leer,
+            # korrektes Deutsch. Genauigkeit fuer Smalltalk/Assistenz reicht locker.
+            _body["think"] = False
         body = json.dumps(_body).encode("utf-8")
         try:
             req = _u.Request(OLLAMA + "/api/generate", data=body,

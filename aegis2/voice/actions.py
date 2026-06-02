@@ -2484,7 +2484,7 @@ class ActionRouter:
         _FILLER = {"naja", "na ja", "nunja", "nun ja", "tja", "joa", "hmm", "hm", "öhm",
                    "oehm", "ähm", "aehm", "ehm", "soso", "so so", "jaja", "ja ja",
                    "nur das wort", "das wort"}
-        if s in _FILLER:
+        if not s or s in _FILLER:            # leer ODER reine Fuell-Antwort -> ehrlich nachfragen
             try:
                 from ..shared import user_memory
                 anr = user_memory.get_address() or ""
