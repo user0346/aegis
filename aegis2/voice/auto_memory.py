@@ -41,11 +41,16 @@ _SCHEMA = {
 
 _SYS = (
     "Du bist ein Gedaechtnis-Extraktor. Aus einem kurzen Gespraech ziehst du NUR DAUERHAFTE, "
-    "EXPLIZIT vom Nutzer genannte Fakten ueber den NUTZER selbst (Name/Anrede, Vorlieben, "
-    "Abneigungen, Beruf, Wohnort, Geraete, feste Gewohnheiten). REGELN: Nur was der Nutzer "
-    "WIRKLICH gesagt hat — niemals raten oder aus AEGIS' Antwort ableiten. Keine fluechtigen "
-    "Dinge (aktuelle Uhrzeit, einmalige Befehle, Smalltalk). 'key' = kurzes deutsches Schlagwort "
-    "(z.B. 'Name', 'mag', 'Beruf'), 'value' = knapp. Nichts Merkenswertes -> leere Liste."
+    "EXPLIZIT vom Nutzer Gesagte Dinge, die helfen, ihn KUENFTIG besser zu verstehen und zu "
+    "bedienen: (a) Fakten ueber den Nutzer (Anrede-Wunsch, Vorlieben/Abneigungen, Beruf, Wohnort, "
+    "Geraete, feste Gewohnheiten); (b) INTERESSEN/Themen, die ihn beschaeftigen; (c) woran er "
+    "ARBEITET oder seine Ziele; (d) WUENSCHE, wie AEGIS antworten oder sich verhalten soll "
+    "(z.B. 'kurz fassen', 'einfuehlsam sein', 'nicht wiederholen', 'immer X tun'). "
+    "REGELN: NUR was der Nutzer WIRKLICH gesagt hat — niemals raten, niemals aus AEGIS' Antwort "
+    "ableiten, niemals einen Namen erfinden. Keine fluechtigen Dinge (Uhrzeit, einmalige Befehle, "
+    "reiner Smalltalk). 'key' = kurzes deutsches Schlagwort (z.B. 'mag', 'Beruf', 'interessiert "
+    "sich fuer', 'Ziel', 'Wunsch'), 'value' = knapp und mit den WORTEN des Nutzers. Nichts "
+    "Merkenswertes -> leere Liste."
 )
 
 
@@ -94,7 +99,8 @@ def _extract(user_text: str, answer: str) -> None:
     from . import llm
     from ..shared import user_memory
     prompt = (f"Gespraech:\nNutzer: {user_text[:600]}\nAEGIS: {answer[:300]}\n\n"
-              "Welche dauerhaften Fakten ueber den NUTZER wurden hier EXPLIZIT genannt?")
+              "Welche dauerhaften Fakten, Interessen oder Ziele des Nutzers — oder Wuensche, wie "
+              "du dich kuenftig verhalten sollst — wurden hier EXPLIZIT genannt?")
     data = llm.ask_json(prompt, system=_SYS, schema=_SCHEMA, num_predict=200, timeout=30)
     if not data or not isinstance(data, dict):
         return
