@@ -1,8 +1,34 @@
 AEGIS — Installation
 =====================
 
-EMPFOHLEN: install.cmd (funktioniert auf jedem Windows 10/11)
-------------------------------------------------------------
+⚠ ZUERST LESEN — falls Windows die Installation blockiert
+---------------------------------------------------------
+Windows 11 (Smart App Control / SmartScreen) markiert ALLES aus einem
+heruntergeladenen ZIP als "aus dem Internet" (Mark-of-the-Web) und blockiert
+dann unsignierte Dateien — auch install.cmd, oft sogar OHNE einen
+"Trotzdem ausfuehren"-Knopf. AEGIS ist echt und quelloffen, nur noch nicht
+von Microsoft signiert (die Signierung ist geplant).
+
+So loest du das EINMAL und sauber — die Internet-Markierung VOR dem Entpacken
+entfernen:
+   1. Rechtsklick auf die heruntergeladene Datei  AEGIS.zip
+   2. -> Eigenschaften
+   3. unten bei "Sicherheit": Haekchen "Zulassen" (engl. "Unblock") setzen
+   4. -> OK
+   5. ERST JETZT entpacken. Die entpackten Dateien sind dann nicht mehr
+      blockiert, und install.cmd startet normal.
+
+Schon entpackt? Dann genuegt EINE Zeile in PowerShell (Pfad ggf. anpassen):
+   Get-ChildItem -Recurse "$env:USERPROFILE\Downloads\AEGIS" | Unblock-File
+Danach install.cmd doppelklicken.
+
+(Voellig ohne Warnung geht es erst mit Microsoft-Code-Signatur — das ist ein
+ kostenpflichtiger Schritt und kommt spaeter; die Unblock-Methode oben ist
+ sicher und reicht in der Zwischenzeit.)
+
+
+EMPFOHLEN: install.cmd (nach dem Unblock oben — Windows 10/11)
+-------------------------------------------------------------
 Voraussetzung: Python 3.11 oder neuer von https://www.python.org/downloads/
   -> beim Setup unbedingt "Add python.exe to PATH" anhaken.
 
@@ -26,11 +52,12 @@ ganz stoppen.
 
 Hinweis zur AEGIS.exe (.exe-Version)
 ------------------------------------
-Es gibt zusaetzlich ein Bundle "AEGIS-windows-x64.zip" mit AEGIS.exe. Diese .exe
-ist NOCH NICHT von Microsoft signiert und wird daher auf aktuellen Systemen von
-Windows Smart App Control / SmartScreen BLOCKIERT (ohne "Trotzdem ausfuehren").
-Nutze bis dahin den Weg oben mit install.cmd. Die signierte .exe kommt, sobald
-die Code-Signierung steht.
+Es gibt zusaetzlich ein Bundle "AEGIS-windows-x64.zip" mit AEGIS.exe. Auch diese
+.exe ist noch nicht Microsoft-signiert und wird von Smart App Control / SmartScreen
+blockiert — genau wie install.cmd. Die Loesung ist dieselbe wie ganz oben: die ZIP
+VOR dem Entpacken per Rechtsklick -> Eigenschaften -> "Zulassen" entsperren (oder
+nachtraeglich mit Unblock-File). Danach laeuft sie. Die signierte .exe kommt,
+sobald die Code-Signierung steht.
 
 
 Bedienung — alles ist ein Knopf in der App
