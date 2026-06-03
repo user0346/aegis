@@ -201,7 +201,7 @@ jobs:
       - name: Unsignierte AEGIS.exe als Artifact hochladen
         if: steps.signpath.outputs.enabled == 'true'
         id: unsigned_exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aegis-exe-unsigned
           path: dist/AEGIS/AEGIS.exe
