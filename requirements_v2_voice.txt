@@ -22,7 +22,7 @@ nvidia-cuda-nvrtc-cu12; platform_system == 'Windows'
 
 # ── Weckwort "Hey Jarvis" (freihaendig, offline) ────────────────────────────
 openwakeword>=0.6           # Apache-2.0-Code; vortrainiertes 'hey_jarvis'-Modell
-onnxruntime>=1.20           # Inferenz-Backend fuer openWakeWord (Windows: onnx)
+onnxruntime>=1.26.0           # Inferenz-Backend fuer openWakeWord (Windows: onnx)
 
 # ── Optionaler Fallback (aeltere Pythons, z.B. 3.13) ────────────────────────
 PyAudio>=0.2.14            # Audio-Capture-Fallback (braucht ggf. PortAudio/MSVC)
