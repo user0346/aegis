@@ -7,7 +7,7 @@
 # ── Core (Service + UI share) ────────────────────────────────────────────
 psutil>=5.9
 watchdog>=6.0.0
-requests>=2.32
+requests>=2.34.2
 
 # ── UI Shell (User process) ──────────────────────────────────────────────
 PyQt6>=6.11.0
